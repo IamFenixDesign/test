@@ -303,6 +303,55 @@
   gap: 6px;
 }
 
+.cart-lista {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 18px;
+  gap: 10px;
+  align-items: center;
+  width: 100%;
+  min-height: 48px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  border: 1px dashed color-mix(in srgb, var(--line) 90%, var(--muted));
+  background: color-mix(in srgb, var(--bg-card) 70%, transparent);
+  color: var(--text);
+  text-align: left;
+  transition:
+    border-color 160ms ease,
+    background 160ms ease;
+}
+
+.cart-lista-copy {
+  min-width: 0;
+  display: grid;
+  gap: 1px;
+}
+
+.cart-lista-copy strong {
+  font-size: 0.86rem;
+  font-weight: 750;
+  letter-spacing: -0.02em;
+}
+
+.cart-lista-copy span {
+  color: var(--muted);
+  font-size: 0.7rem;
+  font-weight: 600;
+}
+
+.cart-lista.active {
+  border-style: solid;
+  border-color: color-mix(in srgb, var(--accent-text) 50%, transparent);
+  background: color-mix(in srgb, var(--accent-text) 12%, transparent);
+}
+
+.cart-lista.active .cart-deal-check {
+  border-color: transparent;
+  background:
+    radial-gradient(circle at center, var(--accent-ink) 0 35%, transparent 36%),
+    var(--accent-text);
+}
+
 .cart-deal {
   display: grid;
   grid-template-columns: 56px minmax(0, 1fr) 18px;
@@ -396,46 +445,10 @@
     var(--accent-text);
 }
 
-.cart-promo-note {
-  display: grid;
-  gap: 4px;
-  margin: 0;
-  padding: 10px 12px;
-  border-radius: 14px;
-  border: 1px solid color-mix(in srgb, var(--accent-text) 22%, var(--line));
-  background: color-mix(in srgb, var(--accent-text) 8%, transparent);
-  animation: cartNoteIn 200ms ease;
-}
-
-.cart-promo-note strong {
-  color: var(--accent-text);
-  font-size: 0.8rem;
-  font-weight: 800;
-  letter-spacing: -0.01em;
-}
-
-.cart-promo-note p {
-  margin: 0;
-  color: var(--muted);
-  font-size: 0.74rem;
-  line-height: 1.35;
-}
-
 @keyframes cartDealsIn {
   from {
     opacity: 0;
     transform: translateY(6px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-@keyframes cartNoteIn {
-  from {
-    opacity: 0;
-    transform: translateY(4px);
   }
   to {
     opacity: 1;
@@ -3294,7 +3307,7 @@ html.is-pwa .item-sheet .form-store-results .store-col.is-open {
   .toast,
   .menu,
   .cart-deals-body,
-  .cart-promo-note,
+  .cart-lista,
   .cart-day-chip,
   .cart-deal {
     animation: none !important;
