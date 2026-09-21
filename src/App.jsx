@@ -2281,7 +2281,7 @@ function App() {
                 />
               </label>
               <div className="field full store-search">
-                <span>Buscar en Coto / Carrefour</span>
+                <span>Buscar en Coto / Carrefour / Día</span>
                 <div className="store-lookup">
                   <input
                     type="search"
