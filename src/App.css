@@ -1431,6 +1431,41 @@ button.store-pill {
   height: 176px;
   border-radius: 22px;
   box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.52);
+  transition: box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.scanner-window.is-ean {
+  box-shadow:
+    0 0 0 9999px rgba(0, 0, 0, 0.58),
+    0 0 0 3px #d4f562,
+    0 0 28px rgba(212, 245, 98, 0.45);
+  transform: scale(1.02);
+}
+
+.scanner-window.is-ean .scanner-corner {
+  border-color: #f4ffc8;
+}
+
+.scanner-window.is-ean .scanner-laser {
+  animation: none;
+  top: 50%;
+  background: linear-gradient(90deg, transparent, #f4ffc8, transparent);
+  box-shadow: 0 0 18px #d4f562;
+}
+
+.scanner-ean-badge {
+  position: absolute;
+  left: 50%;
+  bottom: 14px;
+  transform: translateX(-50%);
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: rgba(20, 25, 11, 0.88);
+  color: #d4f562;
+  font-size: 0.82rem;
+  font-weight: 750;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
 }
 
 .scanner-corner {
@@ -1514,6 +1549,12 @@ button.store-pill {
   background: #d4f562;
   box-shadow: 0 0 0 0 rgba(212, 245, 98, 0.6);
   animation: scanner-pulse 1.4s ease-out infinite;
+}
+
+.scanner-pulse.ok {
+  background: #9be15d;
+  animation: none;
+  box-shadow: 0 0 0 6px rgba(155, 225, 93, 0.25);
 }
 
 @keyframes scanner-pulse {
