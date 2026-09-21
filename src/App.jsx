@@ -192,6 +192,13 @@ function statusOf(item) {
   return 'ok'
 }
 
+/** Unidades faltantes para llegar al stock mínimo (0 si ya está en mínimo o más). */
+function neededToMin(item) {
+  const quantity = toCount(item?.quantity)
+  const minStock = toCount(item?.minStock)
+  return Math.max(0, minStock - quantity)
+}
+
 function statusLabel(status) {
   if (status === 'out') return 'Sin stock'
   if (status === 'low') return 'Stock bajo'
@@ -345,6 +352,16 @@ function IconTorch() {
       <path d="M7 10h10l-1.2 10.2a2 2 0 0 1-2 1.8h-3.6a2 2 0 0 1-2-1.8L7 10Z" />
       <path d="M9 10V6a3 3 0 0 1 6 0v4" />
       <path d="M12 2v2" />
+    </svg>
+  )
+}
+
+function IconCart() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <circle cx="9" cy="20" r="1.4" />
+      <circle cx="17" cy="20" r="1.4" />
+      <path d="M3 4h2l2.2 11.2a2 2 0 0 0 2 1.6h7.6a2 2 0 0 0 2-1.5L21 8H7" />
     </svg>
   )
 }
@@ -853,6 +870,9 @@ function App() {
   const [scanning, setScanning] = useState(false)
   const [cameraStream, setCameraStream] = useState(null)
   const [hydrated, setHydrated] = useState(false)
+  const [cartOpen, setCartOpen] = useState(false)
+  const [cartBusy, setCartBusy] = useState(false)
+  const [cartRemoved, setCartRemoved] = useState(() => new Set())
   const itemsRef = useRef(items)
   const searchInputRef = useRef(null)
   const storeResultsRef = useRef(null)
@@ -1106,6 +1126,53 @@ function App() {
     return { units, low, out }
   }, [items])
 
+  const cartLines = useMemo(() => {
+    return items
+      .filter((item) => statusOf(item) === 'low' && !cartRemoved.has(item.id))
+      .map((item) => {
+        const need = neededToMin(item)
+        const unitPrice = Number(item.price) || 0
+        return {
+          id: item.id,
+          item,
+          need,
+          have: toCount(item.quantity),
+          min: toCount(item.minStock),
+          unitPrice,
+          lineTotal: unitPrice * need,
+        }
+      })
+      .filter((line) => line.need > 0)
+  }, [items, cartRemoved])
+
+  const cartTotals = useMemo(() => {
+    const units = cartLines.reduce((sum, line) => sum + line.need, 0)
+    const total = cartLines.reduce((sum, line) => sum + line.lineTotal, 0)
+    return { units, total, count: cartLines.length }
+  }, [cartLines])
+
+  useEffect(() => {
+    if (!cartRemoved.size) return
+    const liveIds = new Set(items.map((item) => item.id))
+    setCartRemoved((prev) => {
+      let changed = false
+      const next = new Set()
+      for (const id of prev) {
+        if (!liveIds.has(id)) {
+          changed = true
+          continue
+        }
+        const item = items.find((entry) => entry.id === id)
+        if (!item || statusOf(item) !== 'low' || neededToMin(item) <= 0) {
+          changed = true
+          continue
+        }
+        next.add(id)
+      }
+      return changed ? next : prev
+    })
+  }, [items, cartRemoved.size])
+
   function showToast(message) {
     if (window.matchMedia('(max-width: 760px)').matches) return
     setToast(message)
@@ -1143,6 +1210,8 @@ function App() {
     setPendingDelete(null)
     setPasswordModal(false)
     closeScanner()
+    setCartOpen(false)
+    setCartRemoved(new Set())
     setHydrated(false)
     deletedIdsRef.current = new Set()
     dirtyIdsRef.current = new Map()
@@ -1225,6 +1294,39 @@ function App() {
       const item = itemsRef.current.find((entry) => entry.id === id)
       if (item) persistItem(item)
     }, 450)
+  }
+
+  function removeFromCart(id) {
+    setCartRemoved((prev) => new Set(prev).add(id))
+  }
+
+  function applyCartPurchases() {
+    if (!cartLines.length || cartBusy) return
+    setCartBusy(true)
+    const bumps = new Map(cartLines.map((line) => [line.id, line.need]))
+    setItems((prev) =>
+      prev.map((item) => {
+        const need = bumps.get(item.id)
+        if (!need) return item
+        return { ...item, quantity: toCount(item.quantity) + need }
+      }),
+    )
+    for (const line of cartLines) {
+      dirtyIdsRef.current.set(line.id, Date.now())
+      clearTimeout(qtySyncRef.current[line.id])
+      qtySyncRef.current[line.id] = setTimeout(() => {
+        const item = itemsRef.current.find((entry) => entry.id === line.id)
+        if (item) persistItem(item)
+      }, 450)
+    }
+    setCartRemoved(new Set())
+    setCartOpen(false)
+    setCartBusy(false)
+    showToast(
+      cartLines.length === 1
+        ? 'Compra aplicada al stock'
+        : `${cartLines.length} productos actualizados en el stock`,
+    )
   }
 
   function applyFormStorePrice(store) {
@@ -1594,12 +1696,25 @@ function App() {
   }
 
   return (
-    <div className={`app ${modal || scanning || passwordModal || profileModal || pendingDelete ? 'is-overlay' : ''}`}>
+    <div className={`app ${modal || scanning || passwordModal || profileModal || pendingDelete || cartOpen ? 'is-overlay' : ''}`}>
       <header className="topbar">
         <div className="brand">
           <h1>Stockea</h1>
         </div>
         <div className="top-actions">
+          <button
+            className={`btn btn-ghost cart-toggle ${cartTotals.count ? 'has-items' : ''}`}
+            type="button"
+            onClick={() => setCartOpen(true)}
+            aria-label={
+              cartTotals.count
+                ? `Carrito de compras, ${cartTotals.count} productos`
+                : 'Carrito de compras'
+            }
+          >
+            <IconCart />
+            {cartTotals.count > 0 ? <span className="cart-badge">{cartTotals.count}</span> : null}
+          </button>
           <div className="user-chip" data-menu="user">
         <button
               className="user-btn"
@@ -2139,6 +2254,95 @@ function App() {
               <button className="btn btn-danger" type="button" onClick={confirmRemoveItem} disabled={deleteBusy}>
                 {deleteBusy ? 'Eliminando…' : 'Eliminar'}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {cartOpen && (
+        <div
+          className="overlay overlay-dialog"
+          role="presentation"
+          onClick={(event) => {
+            if (event.target === event.currentTarget) setCartOpen(false)
+          }}
+        >
+          <div className="modal cart-sheet" role="dialog" aria-modal="true" aria-labelledby="cart-title">
+            <div className="sheet-handle" aria-hidden="true" />
+            <div className="sheet-header">
+              <div>
+                <h2 id="cart-title">Carrito de compras</h2>
+                <p className="lead">
+                  Se agregan solos los productos en stock bajo, solo con lo que falta para llegar al mínimo.
+                </p>
+              </div>
+              <button
+                className="icon-btn sheet-close"
+                type="button"
+                onClick={() => setCartOpen(false)}
+                aria-label="Cerrar carrito"
+              >
+                <IconClose />
+              </button>
+            </div>
+
+            {cartLines.length === 0 ? (
+              <p className="cart-empty">No hay productos en stock bajo para comprar.</p>
+            ) : (
+              <ul className="cart-list">
+                {cartLines.map((line) => (
+                  <li key={line.id} className="cart-line">
+                    <ItemThumb item={line.item} />
+                    <div className="cart-line-copy">
+                      <strong>{line.item.name}</strong>
+                      <span>
+                        Tenés {line.have} · mínimo {line.min} · comprar {line.need}
+                      </span>
+                      <em>
+                        {line.unitPrice
+                          ? `${money(line.unitPrice)} c/u · ${money(line.lineTotal)}`
+                          : 'Sin precio'}
+                      </em>
+                    </div>
+                    <div className="cart-line-side">
+                      <output className="cart-qty" aria-label={`Comprar ${line.need}`}>
+                        ×{line.need}
+                      </output>
+                      <button
+                        className="icon-btn danger"
+                        type="button"
+                        title="Quitar del carrito"
+                        aria-label={`Quitar ${line.item.name} del carrito`}
+                        onClick={() => removeFromCart(line.id)}
+                      >
+                        <IconTrash />
+                      </button>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+
+            <div className="cart-summary">
+              <div>
+                <span>
+                  {cartTotals.count} producto{cartTotals.count === 1 ? '' : 's'} · {cartTotals.units} u.
+                </span>
+                <strong>{money(cartTotals.total)}</strong>
+              </div>
+              <div className="modal-actions">
+                <button className="btn btn-ghost" type="button" onClick={() => setCartOpen(false)}>
+                  Cerrar
+                </button>
+                <button
+                  className="btn btn-primary"
+                  type="button"
+                  disabled={!cartLines.length || cartBusy}
+                  onClick={applyCartPurchases}
+                >
+                  {cartBusy ? 'Aplicando…' : 'Marcar comprados'}
+                </button>
+              </div>
             </div>
           </div>
         </div>
