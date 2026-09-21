@@ -1769,13 +1769,14 @@ html[data-theme="light"] .store-col-title.carrefour {
   }
 
   .kpis {
+    grid-template-columns: 1fr;
     gap: 8px;
     margin-bottom: 12px;
   }
 
   .kpi {
     min-height: 0;
-    padding: 12px 10px 10px;
+    padding: 14px 16px 12px;
     border-radius: 16px;
   }
 
