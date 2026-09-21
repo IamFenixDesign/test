@@ -432,7 +432,7 @@
 
 .kpis {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: 1fr;
   gap: 14px;
   margin-bottom: 18px;
 }
@@ -550,6 +550,12 @@
   flex: 1;
   min-width: 220px;
   position: relative;
+}
+
+.search-toggle,
+.search-close,
+.toolbar [data-menu="filter-category"] {
+  display: none;
 }
 
 .search svg {
@@ -1637,7 +1643,7 @@ html[data-theme="light"] .store-col-title.carrefour {
 
 @media (max-width: 900px) {
   .kpis {
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: 1fr;
   }
 
   .toolbar {
@@ -1799,11 +1805,75 @@ html[data-theme="light"] .store-col-title.carrefour {
 
   .toolbar {
     padding: 12px;
+    flex-wrap: nowrap;
+    align-items: center;
+  }
+
+  .search-toggle {
+    display: grid;
+    place-items: center;
+    width: 44px;
+    height: 44px;
+    min-width: 44px;
+    padding: 0;
+    border-radius: 14px;
+    border: 1px solid var(--line);
+    background: var(--bg-elev);
+    color: var(--text);
+    flex-shrink: 0;
+  }
+
+  .search-toggle svg {
+    width: 18px;
+    height: 18px;
   }
 
   .search {
+    display: none;
     min-width: 0;
     flex: 1 1 100%;
+  }
+
+  .search-close {
+    display: grid;
+    place-items: center;
+    position: absolute;
+    right: 6px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 36px;
+    height: 36px;
+    padding: 0;
+    border: 0;
+    border-radius: 10px;
+    background: transparent;
+    color: var(--muted);
+  }
+
+  .search-close svg {
+    position: static;
+    transform: none;
+    width: 16px;
+    height: 16px;
+  }
+
+  .search input {
+    padding-right: 46px;
+  }
+
+  .toolbar [data-menu="filter-category"] {
+    display: block;
+    flex: 1;
+    min-width: 0;
+  }
+
+  .toolbar.is-searching .search {
+    display: block;
+  }
+
+  .toolbar.is-searching .search-toggle,
+  .toolbar.is-searching [data-menu="filter-category"] {
+    display: none;
   }
 
   .menu-select {
@@ -1812,29 +1882,7 @@ html[data-theme="light"] .store-col-title.carrefour {
   }
 
   .category-tabs {
-    display: flex;
-    flex-wrap: wrap;
-    overflow: visible;
-    width: 100%;
-    margin: 2px 0 0;
-    padding: 0;
-    gap: 8px;
-    scroll-snap-type: none;
-  }
-
-  .category-tabs::-webkit-scrollbar {
     display: none;
-  }
-
-  .category-tab {
-    flex: 1 1 calc(33.333% - 8px);
-    min-width: calc(33.333% - 8px);
-    min-height: 44px;
-    justify-content: space-between;
-    border-radius: 14px;
-    padding: 8px 8px 8px 11px;
-    font-size: 0.78rem;
-    white-space: nowrap;
   }
 
   .table-wrap {
