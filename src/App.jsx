@@ -1185,7 +1185,20 @@ function App() {
     return { units, total, count: cartLines.length }
   }, [cartLines])
 
-  const cartDayPromos = useMemo(() => promosForDay(cartDay), [cartDay])
+  const cartDayPromos = useMemo(() => {
+    const list = promosForDay(cartDay)
+    return [...list].sort((a, b) => {
+      if (a.id === 'none') return -1
+      if (b.id === 'none') return 1
+      if (a.store !== b.store) {
+        if (a.store === 'coto') return -1
+        if (b.store === 'coto') return 1
+        if (a.store === 'carrefour') return -1
+        if (b.store === 'carrefour') return 1
+      }
+      return b.percent - a.percent
+    })
+  }, [cartDay])
 
   const cartQuote = useMemo(() => {
     const available = promosForDay(cartDay)
@@ -2425,8 +2438,8 @@ function App() {
               <div>
                 <h2 id="cart-title">Carrito de compras</h2>
                 <p className="lead">
-                  Stock bajo o sin stock, solo lo faltante al mínimo. Elegí el día para ver las promos
-                  de pago de Coto y Carrefour (Mercado Pago, Visa NFC).
+                  Stock bajo o sin stock, solo lo faltante al mínimo. Elegí el día para ver descuentos
+                  presenciales de Coto y Carrefour (sucursales).
                 </p>
               </div>
               <button
@@ -2460,20 +2473,27 @@ function App() {
                   ))}
                 </div>
                 <p className="cart-day-label">
-                  Promos del {weekdayLabel(cartDay).toLowerCase()}
+                  Promos presenciales · {weekdayLabel(cartDay).toLowerCase()}
                   {cartDay === todayWeekday() ? ' · hoy' : ''}
                 </p>
-                <div className="cart-promos" role="tablist" aria-label="Descuentos de pago">
+                <div className="cart-promos" role="tablist" aria-label="Descuentos de pago en sucursal">
                   {cartDayPromos.map((promo) => (
                     <button
                       key={promo.id}
                       type="button"
                       role="tab"
                       aria-selected={cartPromoId === promo.id}
-                      className={`cart-promo-chip ${cartPromoId === promo.id ? 'active' : ''}`}
+                      className={`cart-promo-chip ${cartPromoId === promo.id ? 'active' : ''} ${
+                        promo.store ? `store-${promo.store}` : ''
+                      }`}
                       onClick={() => setCartPromoId(promo.id)}
                     >
                       <span className="cart-promo-chip-main">
+                        {promo.store === 'coto' ? (
+                          <em className="cart-promo-store">Coto</em>
+                        ) : promo.store === 'carrefour' ? (
+                          <em className="cart-promo-store">Carrefour</em>
+                        ) : null}
                         {promo.short}
                         {promo.percent > 0 ? <small>-{promo.percent}%</small> : null}
                       </span>
