@@ -4,7 +4,6 @@ import { barcodeDigits, extractEan13, guessCategory, matchByEan, searchSupermark
 import {
   PAYMENT_PROMOS,
   WEEKDAYS,
-  defaultPromoIdForDay,
   promosForDay,
   quoteCartPromo,
   todayWeekday,
@@ -905,7 +904,7 @@ function App() {
   const [cartBusy, setCartBusy] = useState(false)
   const [cartRemoved, setCartRemoved] = useState(() => new Set())
   const [cartDay, setCartDay] = useState(() => todayWeekday())
-  const [cartPromoId, setCartPromoId] = useState(() => defaultPromoIdForDay(todayWeekday()))
+  const [cartPromoId, setCartPromoId] = useState('none')
   const [allowCustomPrice, setAllowCustomPrice] = useState(false)
   const itemsRef = useRef(items)
   const searchInputRef = useRef(null)
@@ -1186,10 +1185,8 @@ function App() {
   }, [cartLines])
 
   const cartDayPromos = useMemo(() => {
-    const list = promosForDay(cartDay)
+    const list = promosForDay(cartDay).filter((promo) => promo.id !== 'none')
     return [...list].sort((a, b) => {
-      if (a.id === 'none') return -1
-      if (b.id === 'none') return 1
       if (a.store !== b.store) {
         if (a.store === 'coto') return -1
         if (b.store === 'coto') return 1
@@ -1203,20 +1200,8 @@ function App() {
   const cartPromoGroups = useMemo(() => {
     const coto = cartDayPromos.filter((promo) => promo.store === 'coto')
     const carrefour = cartDayPromos.filter((promo) => promo.store === 'carrefour')
-    const other = cartDayPromos.filter((promo) => !promo.store)
-    return { coto, carrefour, other }
+    return { coto, carrefour }
   }, [cartDayPromos])
-
-  const cartDayBest = useMemo(() => {
-    const map = {}
-    for (const day of WEEKDAYS) {
-      const best = promosForDay(day.id)
-        .filter((promo) => promo.id !== 'none')
-        .sort((a, b) => b.percent - a.percent)[0]
-      map[day.id] = best?.percent || 0
-    }
-    return map
-  }, [])
 
   const cartQuote = useMemo(() => {
     const available = promosForDay(cartDay)
@@ -1233,37 +1218,23 @@ function App() {
 
   function selectCartDay(day) {
     setCartDay(day)
-    setCartPromoId(defaultPromoIdForDay(day))
+    setCartPromoId('none')
+  }
+
+  function toggleCartPromo(promoId) {
+    setCartPromoId((current) => (current === promoId ? 'none' : promoId))
   }
 
   function renderPromoOption(promo) {
     const active = cartPromoId === promo.id
-    if (promo.id === 'none') {
-      return (
-        <button
-          key={promo.id}
-          type="button"
-          role="radio"
-          aria-checked={active}
-          className={`cart-lista ${active ? 'active' : ''}`}
-          onClick={() => setCartPromoId(promo.id)}
-        >
-          <span className="cart-lista-copy">
-            <strong>Precio lista</strong>
-            <span>Sin descuento de medio de pago</span>
-          </span>
-          <span className="cart-deal-check" aria-hidden="true" />
-        </button>
-      )
-    }
     return (
       <button
         key={promo.id}
         type="button"
-        role="radio"
+        role="checkbox"
         aria-checked={active}
         className={`cart-deal ${active ? 'active' : ''} store-${promo.store}`}
-        onClick={() => setCartPromoId(promo.id)}
+        onClick={() => toggleCartPromo(promo.id)}
       >
         <span className="cart-deal-pct">-{promo.percent}%</span>
         <span className="cart-deal-copy">
@@ -2525,36 +2496,28 @@ function App() {
                   </div>
 
                   <div className="cart-days" role="tablist" aria-label="Día de la promo">
-                    {WEEKDAYS.map((day) => {
-                      const best = cartDayBest[day.id] || 0
-                      return (
-                        <button
-                          key={day.id}
-                          type="button"
-                          role="tab"
-                          aria-selected={cartDay === day.id}
-                          className={`cart-day-chip ${cartDay === day.id ? 'active' : ''} ${
-                            day.id === todayWeekday() ? 'is-today' : ''
-                          }`}
-                          onClick={() => selectCartDay(day.id)}
-                        >
-                          <span className="cart-day-name">{day.short}</span>
-                          <span className={`cart-day-best ${best ? 'has-promo' : ''}`}>
-                            {best ? `-${best}%` : '—'}
-                          </span>
-                        </button>
-                      )
-                    })}
+                    {WEEKDAYS.map((day) => (
+                      <button
+                        key={day.id}
+                        type="button"
+                        role="tab"
+                        aria-selected={cartDay === day.id}
+                        className={`cart-day-chip ${cartDay === day.id ? 'active' : ''} ${
+                          day.id === todayWeekday() ? 'is-today' : ''
+                        }`}
+                        onClick={() => selectCartDay(day.id)}
+                      >
+                        {day.short}
+                      </button>
+                    ))}
                   </div>
 
                   <div
                     key={cartDay}
                     className="cart-deals-body"
-                    role="radiogroup"
+                    role="group"
                     aria-label="Descuentos de pago en sucursal"
                   >
-                    {cartPromoGroups.other.map(renderPromoOption)}
-
                     {cartPromoGroups.coto.length > 0 ? (
                       <div className="cart-deals-group">
                         <p className="cart-deals-group-title store-coto">Coto</p>
