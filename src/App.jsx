@@ -3,7 +3,7 @@ import './App.css'
 import { barcodeDigits, guessCategory, isEan13, matchByEan, searchSupermarkets } from './supermarkets'
 import { deleteRemoteItem, fetchRemoteItems, upsertRemoteItem } from './itemsApi'
 import { changePassword, fetchMe, logout as logoutRequest, updateProfile as saveProfile } from './auth'
-import { getCameraStream } from './camera'
+import { getCameraStream, releaseCameraStream } from './camera'
 import Login from './Login.jsx'
 
 const STORAGE_KEY = 'stockly-items-v2'
@@ -458,7 +458,6 @@ function BarcodeScanner({ stream, onDetect, onCancel }) {
     return () => {
       stopped = true
       window.clearTimeout(timer)
-      stream.getTracks().forEach((track) => track.stop())
       video.srcObject = null
     }
   }, [stream])
@@ -604,6 +603,7 @@ function App() {
   const [hydrated, setHydrated] = useState(false)
   const itemsRef = useRef(items)
   const searchInputRef = useRef(null)
+  const storeResultsRef = useRef(null)
   const qtySyncRef = useRef({})
   const deletedIdsRef = useRef(new Set())
   const lastAutoRefreshRef = useRef(0)
@@ -773,7 +773,7 @@ function App() {
   function closeScanner() {
     setScanning(false)
     setCameraStream((current) => {
-      current?.getTracks().forEach((track) => track.stop())
+      releaseCameraStream(current)
       return null
     })
   }
@@ -1029,6 +1029,9 @@ function App() {
             'No encontramos ese producto en Coto ni Carrefour.',
         )
       }
+      requestAnimationFrame(() => {
+        storeResultsRef.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+      })
     } catch {
       setStoreError('No se pudieron consultar Coto y Carrefour.')
     } finally {
@@ -1196,12 +1199,12 @@ function App() {
   }
 
   if (user === undefined) {
-    return (
+  return (
       <div className="boot-screen" aria-busy="true" aria-label="Cargando">
         <div className="boot-logo">
           <IconMark />
         </div>
-      </div>
+        </div>
     )
   }
 
@@ -1217,9 +1220,9 @@ function App() {
         </div>
         <div className="top-actions">
           <div className="user-chip" data-menu="user">
-            <button
+        <button
               className="user-btn"
-              type="button"
+          type="button"
               aria-label="Cuenta"
               onClick={() => setOpenMenu(openMenu === 'user' ? null : 'user')}
             >
@@ -1228,7 +1231,7 @@ function App() {
               ) : (
                 <span>{(user.name || user.email || 'S').slice(0, 1)}</span>
               )}
-            </button>
+        </button>
             {openMenu === 'user' && (
               <div className="user-menu">
                 <div className="user-menu-info">
@@ -1300,13 +1303,13 @@ function App() {
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <circle cx="11" cy="11" r="7" />
               <path d="m20 20-3.2-3.2" />
-                </svg>
+          </svg>
           </button>
           <label className="search">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <circle cx="11" cy="11" r="7" />
               <path d="m20 20-3.2-3.2" />
-            </svg>
+          </svg>
             <input
               ref={searchInputRef}
               value={query}
@@ -1477,7 +1480,7 @@ function App() {
                             <div className="item-card-copy">
                               <span className="item-name">{item.name}</span>
                               <span className="sku">{barcodeOf(item) || 'Sin código de barras'}</span>
-                            </div>
+        </div>
                             <span className={`badge ${currentStatus}`}>{statusLabel(currentStatus)}</span>
                           </div>
                           <div className="item-card-meta">
@@ -1500,7 +1503,7 @@ function App() {
                         </article>
                       )
                     })}
-                </section>
+      </section>
               )
             })}
           </div>
@@ -1543,6 +1546,9 @@ function App() {
                 <span>Buscar</span>
                 <div className="store-lookup">
                   <input
+                    type="search"
+                    enterKeyHint="search"
+                    autoComplete="off"
                     value={storeQuery}
                     onChange={(event) => setStoreQuery(event.target.value)}
                     onKeyDown={(event) => {
@@ -1553,6 +1559,14 @@ function App() {
                     }}
                     placeholder="Nombre o EAN, ej. 7790742335609"
                   />
+                  <button
+                    className="btn btn-ghost store-search-btn"
+                    type="button"
+                    onClick={() => lookupStores()}
+                    disabled={storeLoading}
+                  >
+                    Buscar
+                  </button>
                   <button
                     className={`scan-btn ${scanning ? 'open' : ''}`}
                     type="button"
@@ -1597,7 +1611,7 @@ function App() {
                 {storeLoading && <p className="hint">Buscando…</p>}
                 {storeError && <p className="hint">{storeError}</p>}
                 {(storeResults.coto.length > 0 || storeResults.carrefour.length > 0) && (
-                  <div className="store-results">
+                  <div className="store-results form-store-results" ref={storeResultsRef}>
                     <div className="store-result-tabs" role="tablist" aria-label="Supermercados">
                       <button
                         className={`store-result-tab coto ${storeTab === 'coto' ? 'active' : ''}`}
@@ -1731,8 +1745,9 @@ function App() {
       )}
 
       {pendingDelete && (
-        <div className="overlay" role="presentation">
-          <div className="modal password-modal" role="dialog" aria-modal="true" aria-labelledby="delete-title">
+        <div className="overlay overlay-dialog" role="presentation">
+          <div className="modal delete-modal" role="dialog" aria-modal="true" aria-labelledby="delete-title">
+            <div className="sheet-handle" aria-hidden="true" />
             <h2 id="delete-title">¿Eliminar este producto?</h2>
             <p className="lead">
               {pendingDelete.name
@@ -1757,7 +1772,7 @@ function App() {
       )}
 
       {passwordModal && (
-        <div className="overlay">
+        <div className="overlay overlay-dialog">
           <form className="modal password-modal" onSubmit={handleChangePassword}>
             <h2>Cambiar contraseña</h2>
             <p className="lead">Ingresá tu contraseña actual y la nueva.</p>
@@ -1807,7 +1822,7 @@ function App() {
       )}
 
       {profileModal && (
-        <div className="overlay">
+        <div className="overlay overlay-dialog">
           <form className="modal password-modal" onSubmit={handleSaveProfile}>
             <h2>Editar perfil</h2>
             <p className="lead">Actualizá tu nombre, apellido y correo.</p>
