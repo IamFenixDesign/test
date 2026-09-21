@@ -1,7 +1,15 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import './App.css'
 import { barcodeDigits, extractEan13, guessCategory, matchByEan, searchSupermarkets } from './supermarkets'
-import { PAYMENT_PROMOS, quoteCartPromo } from './discounts'
+import {
+  PAYMENT_PROMOS,
+  WEEKDAYS,
+  defaultPromoIdForDay,
+  promosForDay,
+  quoteCartPromo,
+  todayWeekday,
+  weekdayLabel,
+} from './discounts'
 import { deleteRemoteItem, fetchRemoteItems, upsertRemoteItem } from './itemsApi'
 import { changePassword, fetchMe, logout as logoutRequest, updateProfile as saveProfile } from './auth'
 import { getCameraStream, releaseCameraStream } from './camera'
@@ -896,7 +904,8 @@ function App() {
   const [cartOpen, setCartOpen] = useState(false)
   const [cartBusy, setCartBusy] = useState(false)
   const [cartRemoved, setCartRemoved] = useState(() => new Set())
-  const [cartPromoId, setCartPromoId] = useState('none')
+  const [cartDay, setCartDay] = useState(() => todayWeekday())
+  const [cartPromoId, setCartPromoId] = useState(() => defaultPromoIdForDay(todayWeekday()))
   const [allowCustomPrice, setAllowCustomPrice] = useState(false)
   const itemsRef = useRef(items)
   const searchInputRef = useRef(null)
@@ -1176,14 +1185,25 @@ function App() {
     return { units, total, count: cartLines.length }
   }, [cartLines])
 
+  const cartDayPromos = useMemo(() => promosForDay(cartDay), [cartDay])
+
   const cartQuote = useMemo(() => {
-    const promo = PAYMENT_PROMOS.find((entry) => entry.id === cartPromoId) || PAYMENT_PROMOS[0]
+    const available = promosForDay(cartDay)
+    const promo =
+      available.find((entry) => entry.id === cartPromoId) ||
+      available.find((entry) => entry.id === 'none') ||
+      PAYMENT_PROMOS[0]
     return quoteCartPromo(cartLines, promo)
-  }, [cartLines, cartPromoId])
+  }, [cartLines, cartPromoId, cartDay])
 
   const cartDisplayLines = useMemo(() => {
     return [...cartQuote.eligible, ...cartQuote.excluded]
   }, [cartQuote])
+
+  function selectCartDay(day) {
+    setCartDay(day)
+    setCartPromoId(defaultPromoIdForDay(day))
+  }
 
   useEffect(() => {
     if (!cartRemoved.size) return
@@ -2405,8 +2425,8 @@ function App() {
               <div>
                 <h2 id="cart-title">Carrito de compras</h2>
                 <p className="lead">
-                  Stock bajo o sin stock, solo lo faltante al mínimo. Podés estimar Mercado Pago o Visa
-                  Débito NFC según qué productos tengan precio en Coto o Carrefour.
+                  Stock bajo o sin stock, solo lo faltante al mínimo. Elegí el día para ver las promos
+                  de pago de Coto y Carrefour (Mercado Pago, Visa NFC).
                 </p>
               </div>
               <button
@@ -2423,8 +2443,28 @@ function App() {
               <p className="cart-empty">No hay productos en stock bajo o sin stock para comprar.</p>
             ) : (
               <>
+                <div className="cart-days" role="tablist" aria-label="Día de la promo">
+                  {WEEKDAYS.map((day) => (
+                    <button
+                      key={day.id}
+                      type="button"
+                      role="tab"
+                      aria-selected={cartDay === day.id}
+                      className={`cart-day-chip ${cartDay === day.id ? 'active' : ''} ${
+                        day.id === todayWeekday() ? 'is-today' : ''
+                      }`}
+                      onClick={() => selectCartDay(day.id)}
+                    >
+                      {day.short}
+                    </button>
+                  ))}
+                </div>
+                <p className="cart-day-label">
+                  Promos del {weekdayLabel(cartDay).toLowerCase()}
+                  {cartDay === todayWeekday() ? ' · hoy' : ''}
+                </p>
                 <div className="cart-promos" role="tablist" aria-label="Descuentos de pago">
-                  {PAYMENT_PROMOS.map((promo) => (
+                  {cartDayPromos.map((promo) => (
                     <button
                       key={promo.id}
                       type="button"
@@ -2433,8 +2473,11 @@ function App() {
                       className={`cart-promo-chip ${cartPromoId === promo.id ? 'active' : ''}`}
                       onClick={() => setCartPromoId(promo.id)}
                     >
-                      {promo.short}
-                      {promo.percent > 0 ? <small>-{promo.percent}%</small> : null}
+                      <span className="cart-promo-chip-main">
+                        {promo.short}
+                        {promo.percent > 0 ? <small>-{promo.percent}%</small> : null}
+                      </span>
+                      {promo.payment ? <span className="cart-promo-chip-pay">{promo.payment}</span> : null}
                     </button>
                   ))}
                 </div>
