@@ -147,7 +147,8 @@
 }
 
 .cart-deals-panel {
-  display: grid;
+  display: flex;
+  flex-direction: column;
   gap: 10px;
   padding: 12px;
   border: 1px solid color-mix(in srgb, var(--line) 80%, transparent);
@@ -156,19 +157,24 @@
     radial-gradient(120% 80% at 0% 0%, color-mix(in srgb, var(--accent-text) 10%, transparent), transparent 55%),
     radial-gradient(90% 70% at 100% 0%, color-mix(in srgb, var(--cart-carrefour) 12%, transparent), transparent 50%),
     color-mix(in srgb, var(--bg-elev) 88%, transparent);
-  flex: 0 1 auto;
-  min-height: 0;
-  max-height: min(34vh, 280px);
-  overflow: hidden;
+  flex: 0 0 auto;
+  max-height: min(40vh, 320px);
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  touch-action: pan-y;
+  position: relative;
+  z-index: 1;
+  isolation: isolate;
 }
 
-.cart-deals-head,
-.cart-days {
+.cart-deals-head {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 12px;
   flex-shrink: 0;
-}
-
-.cart-deals-panel {
-  grid-template-rows: auto auto minmax(0, 1fr);
 }
 
 .cart-deals-kicker {
@@ -221,12 +227,13 @@
   display: grid;
   grid-template-columns: repeat(7, minmax(0, 1fr));
   gap: 6px;
+  flex-shrink: 0;
 }
 
 .cart-day-chip {
   display: grid;
   place-items: center;
-  min-height: 38px;
+  min-height: 40px;
   padding: 8px 2px;
   border-radius: 12px;
   border: 1px solid transparent;
@@ -235,6 +242,12 @@
   font-size: 0.78rem;
   font-weight: 800;
   letter-spacing: 0.02em;
+  cursor: pointer;
+  pointer-events: auto;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  position: relative;
+  z-index: 1;
   transition:
     transform 160ms ease,
     background 160ms ease,
@@ -250,16 +263,13 @@
   border-color: color-mix(in srgb, var(--accent-text) 55%, transparent);
   background: color-mix(in srgb, var(--accent-text) 16%, transparent);
   color: var(--accent-text);
-  transform: translateY(-1px);
 }
 
 .cart-deals-body {
   display: grid;
   gap: 12px;
-  min-height: 0;
-  overflow: auto;
+  overflow: visible;
   padding-right: 2px;
-  animation: cartDealsIn 220ms ease;
 }
 
 .cart-deals-group {
@@ -301,10 +311,17 @@
   background: color-mix(in srgb, var(--bg-card) 82%, transparent);
   color: var(--text);
   text-align: left;
+  cursor: pointer;
+  pointer-events: auto;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-user-select: none;
+  user-select: none;
+  position: relative;
+  z-index: 1;
   transition:
     border-color 160ms ease,
-    background 160ms ease,
-    transform 160ms ease;
+    background 160ms ease;
 }
 
 .cart-deal-pct {
@@ -366,7 +383,6 @@
 .cart-deal.active {
   border-color: color-mix(in srgb, var(--accent-text) 50%, transparent);
   background: color-mix(in srgb, var(--accent-text) 12%, transparent);
-  transform: translateY(-1px);
 }
 
 .cart-deal.active .cart-deal-pct {
@@ -381,17 +397,6 @@
     var(--accent-text);
 }
 
-@keyframes cartDealsIn {
-  from {
-    opacity: 0;
-    transform: translateY(6px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
 .cart-list {
   list-style: none;
   margin: 0;
@@ -401,6 +406,8 @@
   flex: 1 1 auto;
   min-height: 140px;
   overflow: auto;
+  position: relative;
+  z-index: 0;
 }
 
 .cart-empty {
@@ -2795,7 +2802,7 @@ html[data-theme="light"] .store-col-title.carrefour {
   }
 
   .cart-deals-panel {
-    max-height: min(36vh, 280px);
+    max-height: min(42vh, 300px);
     gap: 8px;
     padding: 10px;
   }

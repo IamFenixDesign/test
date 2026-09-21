@@ -1234,7 +1234,11 @@ function App() {
         role="checkbox"
         aria-checked={active}
         className={`cart-deal ${active ? 'active' : ''} store-${promo.store}`}
-        onClick={() => toggleCartPromo(promo.id)}
+        onClick={(event) => {
+          event.preventDefault()
+          event.stopPropagation()
+          toggleCartPromo(promo.id)
+        }}
       >
         <span className="cart-deal-pct">-{promo.percent}%</span>
         <span className="cart-deal-copy">
