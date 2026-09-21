@@ -96,11 +96,16 @@
   padding: 0;
   justify-content: center;
   flex-shrink: 0;
+  overflow: visible;
+  box-sizing: border-box;
 }
 
 .cart-toggle svg {
-  width: 20px;
-  height: 20px;
+  width: 22px;
+  height: 22px;
+  display: block;
+  overflow: visible;
+  flex-shrink: 0;
 }
 
 .cart-toggle.has-items {
