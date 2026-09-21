@@ -1,4 +1,5 @@
 const GRANT_KEY = 'stockly-camera-granted'
+const DEVICE_KEY = 'stockly-camera-device'
 
 function markGranted() {
   try {
@@ -6,6 +7,26 @@ function markGranted() {
   } catch {
     /* ignore */
   }
+}
+
+function savedDeviceId() {
+  try {
+    return localStorage.getItem(DEVICE_KEY) || ''
+  } catch {
+    return ''
+  }
+}
+
+function saveDevice(stream) {
+  const id = stream?.getVideoTracks()[0]?.getSettings?.()?.deviceId
+  if (id) {
+    try {
+      localStorage.setItem(DEVICE_KEY, id)
+    } catch {
+      /* ignore */
+    }
+  }
+  markGranted()
 }
 
 function isAppleTouch() {
@@ -32,16 +53,14 @@ function isMobileOrPwa() {
   )
 }
 
-function keepIosGrant() {
-  return isAppleTouch() && isStandalonePwa()
-}
-
-function liveStream(stream) {
-  return stream?.getVideoTracks().some((track) => track.readyState === 'live') ? stream : null
-}
-
 function stopStream(stream) {
-  stream?.getTracks().forEach((track) => track.stop())
+  stream?.getTracks().forEach((track) => {
+    try {
+      track.stop()
+    } catch {
+      /* already stopped */
+    }
+  })
 }
 
 function facingOf(stream) {
@@ -52,13 +71,6 @@ function isFrontStream(stream) {
   const facing = facingOf(stream)
   if (facing === 'user') return true
   return scoreBackCamera(stream?.getVideoTracks()[0]?.label || '') < 0
-}
-
-function isRearStream(stream) {
-  if (!stream || isFrontStream(stream)) return false
-  const facing = facingOf(stream)
-  if (facing === 'environment') return true
-  return scoreBackCamera(stream.getVideoTracks()[0]?.label || '') > 0
 }
 
 function scoreBackCamera(label = '') {
@@ -104,50 +116,75 @@ async function openWithConstraints(constraints) {
   return stream
 }
 
-async function openRearCamera() {
-  for (const constraints of REAR_CONSTRAINTS) {
-    try {
-      const stream = await openWithConstraints(constraints)
-      if (stream) return stream
-    } catch {
-      /* try next constraint */
-    }
-  }
+// iOS persists a generic camera grant. facingMode in getUserMedia is what
+// makes Safari and the PWA ask again on every launch.
+const IOS_GRANT = { audio: false, video: true }
 
-  let stream = await navigator.mediaDevices.getUserMedia({ audio: false, video: true })
+async function switchToRear(stream) {
   const track = stream.getVideoTracks()[0]
   try {
     await track?.applyConstraints({ facingMode: 'environment' })
   } catch {
     /* iOS often ignores facingMode on applyConstraints */
   }
-  if (isRearStream(stream)) return stream
-
-  const backId = await backCameraDeviceId()
-  const currentId = track?.getSettings?.()?.deviceId
-  if (backId && backId !== currentId) {
-    stopStream(stream)
-    stream = await navigator.mediaDevices.getUserMedia({
-      audio: false,
-      video: { deviceId: { exact: backId }, facingMode: { ideal: 'environment' } },
-    })
+  if (!isFrontStream(stream)) {
+    saveDevice(stream)
+    return stream
   }
-  return stream
+
+  const backId = savedDeviceId() || (await backCameraDeviceId())
+  const currentId = track?.getSettings?.()?.deviceId
+  if (!backId || backId === currentId) {
+    saveDevice(stream)
+    return stream
+  }
+
+  stopStream(stream)
+  const next = await navigator.mediaDevices.getUserMedia({
+    audio: false,
+    video: { deviceId: { exact: backId } },
+  })
+  saveDevice(next)
+  return next
+}
+
+async function openIosCamera() {
+  const knownId = savedDeviceId()
+  if (knownId) {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: false,
+        video: { deviceId: { exact: knownId } },
+      })
+      saveDevice(stream)
+      return stream
+    } catch {
+      /* deviceId can rotate; fall through to the persisted generic grant */
+    }
+  }
+
+  const stream = await navigator.mediaDevices.getUserMedia(IOS_GRANT)
+  return switchToRear(stream)
+}
+
+async function openRearCamera() {
+  for (const constraints of REAR_CONSTRAINTS) {
+    try {
+      const stream = await openWithConstraints(constraints)
+      if (stream) {
+        saveDevice(stream)
+        return stream
+      }
+    } catch {
+      /* try next constraint */
+    }
+  }
+
+  const stream = await navigator.mediaDevices.getUserMedia(IOS_GRANT)
+  return switchToRear(stream)
 }
 
 let heldStream = null
-
-function setHeldStream(stream) {
-  heldStream = stream
-  const track = stream?.getVideoTracks()[0]
-  track?.addEventListener(
-    'ended',
-    () => {
-      if (heldStream === stream) heldStream = null
-    },
-    { once: true },
-  )
-}
 
 export async function getCameraStream() {
   if (!navigator.mediaDevices?.getUserMedia) {
@@ -156,40 +193,32 @@ export async function getCameraStream() {
     throw error
   }
 
-  const reused = liveStream(heldStream)
-  if (reused && (!isMobileOrPwa() || !isFrontStream(reused))) {
-    reused.getTracks().forEach((track) => {
-      track.enabled = true
-    })
-    return reused
-  }
-  if (reused) stopStream(reused)
+  stopStream(heldStream)
   heldStream = null
 
-  const stream = isMobileOrPwa()
-    ? await openRearCamera()
-    : await navigator.mediaDevices.getUserMedia({
-        audio: false,
-        video: { facingMode: 'environment' },
-      })
+  const stream = isAppleTouch()
+    ? await openIosCamera()
+    : isMobileOrPwa()
+      ? await openRearCamera()
+      : await navigator.mediaDevices.getUserMedia({
+          audio: false,
+          video: { facingMode: 'environment' },
+        })
 
-  setHeldStream(stream)
-  markGranted()
+  heldStream = stream
+  stream.getVideoTracks()[0]?.addEventListener(
+    'ended',
+    () => {
+      if (heldStream === stream) heldStream = null
+    },
+    { once: true },
+  )
+  saveDevice(stream)
   return stream
 }
 
 export function releaseCameraStream(stream) {
   const target = stream || heldStream
-  if (!target) return
-
-  if (keepIosGrant() && liveStream(target)) {
-    target.getTracks().forEach((track) => {
-      track.enabled = false
-    })
-    if (!heldStream) setHeldStream(target)
-    return
-  }
-
   stopStream(target)
   if (!stream || heldStream === stream) heldStream = null
 }
