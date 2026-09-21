@@ -3,6 +3,7 @@ import './App.css'
 import { barcodeDigits, cheaperOf, guessCategory, isBarcode, matchByEan, searchSupermarkets } from './supermarkets'
 import { deleteRemoteItem, fetchRemoteItems, upsertRemoteItem } from './itemsApi'
 import { changePassword, fetchMe, logout as logoutRequest } from './auth'
+import { getCameraStream } from './camera'
 import Login from './Login.jsx'
 
 const STORAGE_KEY = 'stockly-items-v2'
@@ -251,21 +252,21 @@ function ItemThumb({ item }) {
   )
 }
 
-function BarcodeScanner({ onDetect, onCancel }) {
+function BarcodeScanner({ stream, onDetect, onCancel }) {
   const videoRef = useRef(null)
   const onDetectRef = useRef(onDetect)
-  const streamRef = useRef(null)
+  const streamRef = useRef(stream)
   const [message, setMessage] = useState('Pasá el código de barras por el recuadro')
   const [live, setLive] = useState(false)
   const [hasTorch, setHasTorch] = useState(false)
   const [torchOn, setTorchOn] = useState(false)
   onDetectRef.current = onDetect
+  streamRef.current = stream
 
   useEffect(() => {
     const video = videoRef.current
-    if (!video) return undefined
+    if (!video || !stream) return undefined
 
-    let stream
     let timer = 0
     let stopped = false
     const canvas = document.createElement('canvas')
@@ -282,14 +283,15 @@ function BarcodeScanner({ onDetect, onCancel }) {
       video.removeAttribute('width')
       video.removeAttribute('height')
       video.style.position = 'absolute'
-      video.style.top = '0'
-      video.style.left = '0'
+      video.style.inset = '0'
       video.style.width = '100%'
       video.style.height = '100%'
       video.style.minWidth = '100%'
       video.style.minHeight = '100%'
+      video.style.maxWidth = 'none'
       video.style.objectFit = 'cover'
       video.style.objectPosition = 'center'
+      video.style.transform = 'translateZ(0)'
     }
 
     function grabFrame(wide = false) {
@@ -306,11 +308,34 @@ function BarcodeScanner({ onDetect, onCancel }) {
       return canvas
     }
 
+    function waitForFrame() {
+      return new Promise((resolve) => {
+        let tries = 0
+        const check = () => {
+          if (stopped) {
+            resolve()
+            return
+          }
+          if (video.videoWidth > 32 && video.videoHeight > 32) {
+            resolve()
+            return
+          }
+          tries += 1
+          if (tries > 45) {
+            resolve()
+            return
+          }
+          requestAnimationFrame(check)
+        }
+        const kick = () => requestAnimationFrame(check)
+        video.addEventListener('loadedmetadata', kick, { once: true })
+        video.addEventListener('loadeddata', kick, { once: true })
+        video.addEventListener('playing', kick, { once: true })
+        kick()
+      })
+    }
+
     async function start() {
-      if (!navigator.mediaDevices?.getUserMedia) {
-        setMessage('Este navegador no permite usar la cámara.')
-        return
-      }
       try {
         video.setAttribute('playsinline', 'true')
         video.setAttribute('webkit-playsinline', 'true')
@@ -318,52 +343,22 @@ function BarcodeScanner({ onDetect, onCancel }) {
         video.playsInline = true
         video.autoplay = true
         lockVideoBox()
-
-        const constraints = {
-          audio: false,
-          video: {
-            facingMode: { ideal: 'environment' },
-            width: { ideal: 1280 },
-            height: { ideal: 720 },
-          },
-        }
-        try {
-          stream = await navigator.mediaDevices.getUserMedia(constraints)
-        } catch {
-          stream = await navigator.mediaDevices.getUserMedia({
-            audio: false,
-            video: { facingMode: { ideal: 'environment' } },
-          })
-        }
-        streamRef.current = stream
-        lockVideoBox()
         video.srcObject = stream
-        if (video.readyState < 1) {
-          await new Promise((resolve) => {
-            video.onloadedmetadata = resolve
-          })
+        lockVideoBox()
+        try {
+          await video.play()
+        } catch {
+          /* autoplay can wait for the first frame */
         }
+        await waitForFrame()
         lockVideoBox()
-        await video.play()
-        lockVideoBox()
+        if (stopped) return
         setLive(true)
         setMessage('Pasá el código por el recuadro')
 
         const track = stream.getVideoTracks()[0]
         const caps = track?.getCapabilities?.() || {}
         if (caps.torch) setHasTorch(true)
-        try {
-          const advanced = []
-          if (caps.focusMode?.includes?.('continuous')) advanced.push({ focusMode: 'continuous' })
-          if (caps.zoom) {
-            const min = caps.zoom.min || 1
-            const max = caps.zoom.max || 1
-            advanced.push({ zoom: Math.min(max, Math.max(min, 1.6)) })
-          }
-          if (advanced.length) await track.applyConstraints({ advanced })
-        } catch {
-          /* iOS often ignores extra constraints */
-        }
 
         const preferred = ['ean_13', 'ean_8', 'upc_a', 'upc_e', 'code_128', 'code_39', 'itf', 'codabar']
         let detector = null
@@ -444,11 +439,10 @@ function BarcodeScanner({ onDetect, onCancel }) {
     return () => {
       stopped = true
       window.clearTimeout(timer)
-      stream?.getTracks().forEach((track) => track.stop())
-      streamRef.current = null
+      stream.getTracks().forEach((track) => track.stop())
       video.srcObject = null
     }
-  }, [])
+  }, [stream])
 
   useEffect(() => {
     const previous = document.body.style.overflow
@@ -648,6 +642,7 @@ function App() {
   const [storeLoading, setStoreLoading] = useState(false)
   const [storeError, setStoreError] = useState('')
   const [scanning, setScanning] = useState(false)
+  const [cameraStream, setCameraStream] = useState(null)
   const [hydrated, setHydrated] = useState(false)
   const itemsRef = useRef(items)
   const qtySyncRef = useRef({})
@@ -787,12 +782,37 @@ function App() {
     setToast(message)
   }
 
+  function closeScanner() {
+    setScanning(false)
+    setCameraStream((current) => {
+      current?.getTracks().forEach((track) => track.stop())
+      return null
+    })
+  }
+
+  async function openScanner() {
+    setStoreError('')
+    try {
+      const stream = await getCameraStream()
+      setCameraStream(stream)
+      setScanning(true)
+    } catch (err) {
+      if (err?.name === 'NotAllowedError') {
+        setStoreError('Permití el uso de la cámara. Si la bloqueaste, activala en Ajustes del teléfono.')
+      } else if (err?.name === 'NotFoundError') {
+        setStoreError('No encontramos una cámara.')
+      } else {
+        setStoreError('No se pudo abrir la cámara.')
+      }
+    }
+  }
+
   async function handleLogout() {
     await logoutRequest()
     setOpenMenu(null)
     setModal(null)
     setPasswordModal(false)
-    setScanning(false)
+    closeScanner()
     setHydrated(false)
     setItems([])
     setUser(null)
@@ -913,7 +933,7 @@ function App() {
     setStoreTab('coto')
     setStoreError('')
     setOpenMenu(null)
-    setScanning(false)
+    closeScanner()
     setModal('item')
   }
 
@@ -941,12 +961,12 @@ function App() {
     setStoreTab('coto')
     setStoreError('')
     setOpenMenu(null)
-    setScanning(false)
+    closeScanner()
     setModal('item')
   }
 
   function closeItemModal() {
-    setScanning(false)
+    closeScanner()
     setEditingId(null)
     setModal(null)
   }
@@ -983,7 +1003,7 @@ function App() {
   }
 
   function handleScannedCode(raw) {
-    setScanning(false)
+    closeScanner()
     const ean = barcodeDigits(raw)
     if (!isBarcode(ean)) {
       setStoreQuery(String(raw || '').trim())
@@ -1148,18 +1168,10 @@ function App() {
 
   if (user === undefined) {
     return (
-      <div className="login-screen">
-        <section className="login-card">
-          <div className="login-brand">
-            <div className="logo">
-              <IconMark />
-            </div>
-            <div>
-              <h1>Stockea</h1>
-              <p>Cargando…</p>
-            </div>
+      <div className="boot-screen" aria-busy="true" aria-label="Cargando">
+        <div className="boot-logo">
+          <IconMark />
         </div>
-      </section>
       </div>
     )
   }
@@ -1469,8 +1481,7 @@ function App() {
                     title="Escanear código de barras"
                     aria-label="Escanear código de barras"
                     onClick={() => {
-                      setStoreError('')
-                      setScanning(true)
+                      openScanner()
                     }}
                     disabled={storeLoading}
                   >
@@ -1637,8 +1648,8 @@ function App() {
         </div>
       )}
 
-      {scanning && (
-        <BarcodeScanner onDetect={handleScannedCode} onCancel={() => setScanning(false)} />
+      {scanning && cameraStream && (
+        <BarcodeScanner stream={cameraStream} onDetect={handleScannedCode} onCancel={closeScanner} />
       )}
 
       {passwordModal && (
