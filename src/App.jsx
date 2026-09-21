@@ -1344,6 +1344,7 @@ function App() {
       priceSource: store,
       image: store === 'coto' ? prev.imageCoto || prev.image : prev.imageCarrefour || prev.image,
     }))
+    setAllowCustomPrice(false)
     setError('')
   }
 
