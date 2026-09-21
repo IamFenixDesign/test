@@ -1291,12 +1291,6 @@ button.store-pill {
   appearance: none;
 }
 
-.store-search-btn {
-  flex-shrink: 0;
-  min-height: 44px;
-  padding: 10px 14px;
-}
-
 .scan-btn {
   width: 44px;
   min-width: 44px;
@@ -2260,9 +2254,7 @@ html[data-theme="light"] .store-col-title.carrefour {
   .item-sheet .store-lookup {
     display: grid;
     grid-template-columns: minmax(0, 1fr) 48px;
-    grid-template-areas:
-      "input scan"
-      "search search";
+    grid-template-areas: "input scan";
     gap: 8px;
   }
 
@@ -2272,13 +2264,6 @@ html[data-theme="light"] .store-col-title.carrefour {
 
   .item-sheet .scan-btn {
     grid-area: scan;
-  }
-
-  .item-sheet .store-search-btn {
-    grid-area: search;
-    width: 100%;
-    min-height: 48px;
-    justify-content: center;
   }
 
   .item-sheet .hint {
