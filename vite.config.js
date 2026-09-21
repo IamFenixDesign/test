@@ -1,6 +1,6 @@
 import react from '@vitejs/plugin-react'
 import { defineConfig } from 'vite'
-import { fetchCarrefourProducts, fetchCotoProducts } from './src/supermarkets.js'
+import { searchSupermarketsServer } from './src/supermarkets.js'
 
 async function supersMiddleware(req, res, next) {
   const url = new URL(req.url || '/', 'http://localhost')
@@ -18,21 +18,7 @@ async function supersMiddleware(req, res, next) {
   }
 
   try {
-    const [cotoResult, carrefourResult] = await Promise.allSettled([
-      fetchCotoProducts(q),
-      fetchCarrefourProducts(q),
-    ])
-
-    res.end(
-      JSON.stringify({
-        coto: cotoResult.status === 'fulfilled' ? cotoResult.value : [],
-        carrefour: carrefourResult.status === 'fulfilled' ? carrefourResult.value : [],
-        errors: {
-          coto: cotoResult.status === 'rejected' ? 'Coto no respondió' : null,
-          carrefour: carrefourResult.status === 'rejected' ? 'Carrefour no respondió' : null,
-        },
-      }),
-    )
+    res.end(JSON.stringify(await searchSupermarketsServer(q)))
   } catch {
     res.statusCode = 502
     res.end(JSON.stringify({ error: 'No se pudieron consultar los supermercados' }))
