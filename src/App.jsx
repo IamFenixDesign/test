@@ -27,13 +27,6 @@ const emptyForm = {
   imageCarrefour: '',
 }
 
-const STATUS_FILTER = [
-  { value: 'all', label: 'Todos los estados' },
-  { value: 'ok', label: 'En stock' },
-  { value: 'low', label: 'Stock bajo' },
-  { value: 'out', label: 'Sin stock' },
-]
-
 function loadItems(userId) {
   try {
     const keys = userId ? [`${STORAGE_KEY}:${userId}`, STORAGE_KEY] : [STORAGE_KEY]
@@ -624,8 +617,8 @@ function App() {
   const [user, setUser] = useState(undefined)
   const [items, setItems] = useState([])
   const [query, setQuery] = useState('')
+  const [searchOpen, setSearchOpen] = useState(false)
   const [category, setCategory] = useState('Alimentos')
-  const [status, setStatus] = useState('all')
   const [modal, setModal] = useState(null)
   const [editingId, setEditingId] = useState(null)
   const [form, setForm] = useState(emptyForm)
@@ -645,6 +638,7 @@ function App() {
   const [cameraStream, setCameraStream] = useState(null)
   const [hydrated, setHydrated] = useState(false)
   const itemsRef = useRef(items)
+  const searchInputRef = useRef(null)
   const qtySyncRef = useRef({})
   const lastAutoRefreshRef = useRef(0)
   const refreshStorePricesRef = useRef(async () => {})
@@ -727,6 +721,11 @@ function App() {
   }, [hydrated, user?.id])
 
   useEffect(() => {
+    if (!searchOpen) return
+    searchInputRef.current?.focus()
+  }, [searchOpen])
+
+  useEffect(() => {
     if (!toast) return undefined
     const t = setTimeout(() => setToast(''), 2200)
     return () => clearTimeout(t)
@@ -756,17 +755,14 @@ function App() {
         !q ||
         item.name.toLowerCase().includes(q) ||
         barcodeOf(item).toLowerCase().includes(q)
-      const matchesCategory = item.category === category
-      const matchesStatus = status === 'all' || statusOf(item) === status
-      return matchesQuery && matchesCategory && matchesStatus
+      return matchesQuery && item.category === category
     })
-  }, [items, query, category, status])
+  }, [items, query, category])
 
   const stats = useMemo(() => {
-    const units = items.reduce((sum, item) => sum + item.quantity, 0)
     const low = items.filter((item) => statusOf(item) === 'low').length
     const out = items.filter((item) => statusOf(item) === 'out').length
-    return { units, low, out }
+    return { low, out }
   }, [items])
 
   const categoryCounts = useMemo(() => {
@@ -1237,16 +1233,6 @@ function App() {
       </header>
 
       <section className="kpis">
-        <article className="kpi">
-          <span>Productos</span>
-          <strong>{items.length}</strong>
-          <small>ítems activos</small>
-        </article>
-        <article className="kpi">
-          <span>Unidades</span>
-          <strong>{stats.units}</strong>
-          <small>en inventario</small>
-        </article>
         <article className={`kpi ${stats.low || stats.out ? 'warn' : ''}`}>
           <span>Alertas</span>
           <strong>{stats.low + stats.out}</strong>
@@ -1255,26 +1241,55 @@ function App() {
       </section>
 
       <section className="panel">
-        <div className="toolbar">
+        <div className={`toolbar ${searchOpen ? 'is-searching' : ''}`}>
+          <button
+            className="search-toggle"
+            type="button"
+            aria-label="Buscar"
+            onClick={() => {
+              setSearchOpen(true)
+              setOpenMenu(null)
+            }}
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <circle cx="11" cy="11" r="7" />
+              <path d="m20 20-3.2-3.2" />
+            </svg>
+          </button>
           <label className="search">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <circle cx="11" cy="11" r="7" />
               <path d="m20 20-3.2-3.2" />
-                </svg>
+            </svg>
             <input
+              ref={searchInputRef}
               value={query}
               onChange={(event) => setQuery(event.target.value)}
               placeholder="Buscar por nombre o EAN"
             />
+            <button
+              className="search-close"
+              type="button"
+              aria-label="Cerrar búsqueda"
+              onClick={() => {
+                setSearchOpen(false)
+                setQuery('')
+              }}
+            >
+              <IconClose />
+            </button>
           </label>
           <MenuSelect
-            id="filter-status"
-            value={status}
-            options={STATUS_FILTER}
-            onChange={setStatus}
+            id="filter-category"
+            value={category}
+            options={CATEGORIES.map((entry) => ({
+              value: entry,
+              label: `${entry} · ${categoryCounts[entry] || 0}`,
+            }))}
+            onChange={setCategory}
             openMenu={openMenu}
             setOpenMenu={setOpenMenu}
-            align="right"
+            full
           />
           <div className="category-tabs" role="tablist" aria-label="Categorías">
             {CATEGORIES.map((entry) => {
@@ -1310,9 +1325,9 @@ function App() {
               <>
                 <h3>Sin productos en {category}</h3>
                 <p>
-                  {query.trim() || status !== 'all'
+                  {query.trim()
                     ? 'Probá con otro filtro o búsqueda.'
-                    : `Esta categoría está vacía. Cambiá de pestaña o agregá un ítem en ${category}.`}
+                    : `Esta categoría está vacía. Cambiá de categoría o agregá un ítem en ${category}.`}
                 </p>
               </>
             )}
