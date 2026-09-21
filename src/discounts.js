@@ -29,6 +29,21 @@ const VISA_NFC_COTO_EXCLUSIONS = [
   'alma negra',
 ]
 
+/** 0=Dom … 6=Sáb (igual que Date#getDay). */
+export const WEEKDAYS = [
+  { id: 1, short: 'Lun', label: 'Lunes' },
+  { id: 2, short: 'Mar', label: 'Martes' },
+  { id: 3, short: 'Mié', label: 'Miércoles' },
+  { id: 4, short: 'Jue', label: 'Jueves' },
+  { id: 5, short: 'Vie', label: 'Viernes' },
+  { id: 6, short: 'Sáb', label: 'Sábado' },
+  { id: 0, short: 'Dom', label: 'Domingo' },
+]
+
+/**
+ * Promos de pago organizadas por día.
+ * days: null = siempre; array = días de la semana (0=Dom … 6=Sáb).
+ */
 export const PAYMENT_PROMOS = [
   {
     id: 'none',
@@ -36,23 +51,19 @@ export const PAYMENT_PROMOS = [
     store: null,
     percent: 0,
     short: 'Lista',
-    note: 'Total con el precio cargado de cada producto.',
-  },
-  {
-    id: 'mp-coto',
-    label: 'Mercado Pago · Coto',
-    store: 'coto',
-    percent: 25,
-    short: 'MP Coto',
-    note: 'Estimado 25% solo si el producto no tiene ya descuento en la web de Coto (no acumulable).',
+    days: null,
+    payment: '',
+    note: 'Total con el precio cargado de cada producto, sin descuento de medio de pago.',
   },
   {
     id: 'mp-carrefour',
     label: 'Mercado Pago · Carrefour',
     store: 'carrefour',
-    percent: 25,
+    percent: 15,
     short: 'MP Carrefour',
-    note: 'Estimado 25% sobre productos con precio Carrefour. Confirmá la promo vigente en Mercado Pago.',
+    days: [4],
+    payment: 'Dinero en cuenta',
+    note: 'Jueves · 15% pagando con dinero en cuenta de Mercado Pago (QR). Solo productos con precio Carrefour.',
   },
   {
     id: 'visa-nfc-coto',
@@ -60,9 +71,51 @@ export const PAYMENT_PROMOS = [
     store: 'coto',
     percent: 30,
     short: 'Visa NFC',
-    note: '30% jueves NFC. No aplica si el producto ya tiene descuento web en Coto, ni en electro/patios/bodegas.',
+    days: [4],
+    payment: 'Visa Débito NFC',
+    note: 'Jueves · 30% con Visa Débito NFC. No aplica si ya tiene descuento web en Coto, ni electro/patios/bodegas.',
+  },
+  {
+    id: 'mp-coto-vie',
+    label: 'Mercado Pago · Coto',
+    store: 'coto',
+    percent: 25,
+    short: 'MP Coto',
+    days: [5],
+    payment: 'Mercado Pago',
+    note: 'Viernes · 25% con Mercado Pago. No aplica si el producto ya tiene descuento web en Coto.',
+  },
+  {
+    id: 'mp-coto-finde',
+    label: 'Mercado Pago · Coto',
+    store: 'coto',
+    percent: 20,
+    short: 'MP Coto',
+    days: [6, 0],
+    payment: 'Mercado Pago',
+    note: 'Sábado/Domingo · 20% con Mercado Pago. No aplica si el producto ya tiene descuento web en Coto.',
   },
 ]
+
+export function todayWeekday(date = new Date()) {
+  return date.getDay()
+}
+
+export function weekdayLabel(day) {
+  return WEEKDAYS.find((entry) => entry.id === day)?.label || ''
+}
+
+export function promosForDay(day) {
+  return PAYMENT_PROMOS.filter(
+    (promo) => promo.id === 'none' || !promo.days || promo.days.includes(day),
+  )
+}
+
+export function defaultPromoIdForDay(day) {
+  const options = promosForDay(day).filter((promo) => promo.id !== 'none')
+  if (!options.length) return 'none'
+  return [...options].sort((a, b) => b.percent - a.percent)[0].id
+}
 
 export function storeUnitPrice(item, store) {
   if (!item || !store) return 0
