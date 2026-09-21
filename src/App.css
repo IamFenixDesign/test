@@ -141,7 +141,6 @@
 }
 
 .cart-sheet .sheet-header,
-.cart-sheet .cart-deals-panel,
 .cart-sheet .cart-empty,
 .cart-sheet .cart-split {
   flex-shrink: 0;
@@ -149,7 +148,7 @@
 
 .cart-deals-panel {
   display: grid;
-  gap: 12px;
+  gap: 10px;
   padding: 12px;
   border: 1px solid color-mix(in srgb, var(--line) 80%, transparent);
   border-radius: 20px;
@@ -157,6 +156,10 @@
     radial-gradient(120% 80% at 0% 0%, color-mix(in srgb, var(--accent-text) 10%, transparent), transparent 55%),
     radial-gradient(90% 70% at 100% 0%, color-mix(in srgb, var(--cart-carrefour) 12%, transparent), transparent 50%),
     color-mix(in srgb, var(--bg-elev) 88%, transparent);
+  flex: 0 1 auto;
+  min-height: 0;
+  max-height: min(42vh, 360px);
+  overflow: hidden;
 }
 
 .cart-deals-head {
@@ -220,36 +223,21 @@
 
 .cart-day-chip {
   display: grid;
-  gap: 2px;
-  justify-items: center;
-  min-height: 52px;
-  padding: 7px 2px;
-  border-radius: 14px;
+  place-items: center;
+  min-height: 38px;
+  padding: 8px 2px;
+  border-radius: 12px;
   border: 1px solid transparent;
   background: color-mix(in srgb, var(--bg-card) 70%, transparent);
   color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
   transition:
     transform 160ms ease,
     background 160ms ease,
     border-color 160ms ease,
     color 160ms ease;
-}
-
-.cart-day-name {
-  font-size: 0.72rem;
-  font-weight: 800;
-  letter-spacing: 0.02em;
-}
-
-.cart-day-best {
-  font-size: 0.62rem;
-  font-weight: 700;
-  opacity: 0.55;
-}
-
-.cart-day-best.has-promo {
-  opacity: 1;
-  color: var(--accent-text);
 }
 
 .cart-day-chip.is-today:not(.active) {
@@ -259,19 +247,14 @@
 .cart-day-chip.active {
   border-color: color-mix(in srgb, var(--accent-text) 55%, transparent);
   background: color-mix(in srgb, var(--accent-text) 16%, transparent);
-  color: var(--text);
-  transform: translateY(-1px);
-}
-
-.cart-day-chip.active .cart-day-best {
   color: var(--accent-text);
-  opacity: 1;
+  transform: translateY(-1px);
 }
 
 .cart-deals-body {
   display: grid;
   gap: 12px;
-  max-height: min(34vh, 320px);
+  min-height: 0;
   overflow: auto;
   padding-right: 2px;
   animation: cartDealsIn 220ms ease;
@@ -301,55 +284,6 @@
 .cart-deals-list {
   display: grid;
   gap: 6px;
-}
-
-.cart-lista {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 18px;
-  gap: 10px;
-  align-items: center;
-  width: 100%;
-  min-height: 48px;
-  padding: 10px 12px;
-  border-radius: 14px;
-  border: 1px dashed color-mix(in srgb, var(--line) 90%, var(--muted));
-  background: color-mix(in srgb, var(--bg-card) 70%, transparent);
-  color: var(--text);
-  text-align: left;
-  transition:
-    border-color 160ms ease,
-    background 160ms ease;
-}
-
-.cart-lista-copy {
-  min-width: 0;
-  display: grid;
-  gap: 1px;
-}
-
-.cart-lista-copy strong {
-  font-size: 0.86rem;
-  font-weight: 750;
-  letter-spacing: -0.02em;
-}
-
-.cart-lista-copy span {
-  color: var(--muted);
-  font-size: 0.7rem;
-  font-weight: 600;
-}
-
-.cart-lista.active {
-  border-style: solid;
-  border-color: color-mix(in srgb, var(--accent-text) 50%, transparent);
-  background: color-mix(in srgb, var(--accent-text) 12%, transparent);
-}
-
-.cart-lista.active .cart-deal-check {
-  border-color: transparent;
-  background:
-    radial-gradient(circle at center, var(--accent-ink) 0 35%, transparent 36%),
-    var(--accent-text);
 }
 
 .cart-deal {
@@ -463,8 +397,7 @@
   display: grid;
   gap: 10px;
   flex: 1 1 auto;
-  min-height: 100px;
-  max-height: min(28vh, 260px);
+  min-height: 140px;
   overflow: auto;
 }
 
@@ -2859,10 +2792,20 @@ html[data-theme="light"] .store-col-title.carrefour {
     font-size: 0.84rem;
   }
 
+  .cart-deals-panel {
+    max-height: min(36vh, 280px);
+    gap: 8px;
+    padding: 10px;
+  }
+
+  .cart-deals-title {
+    font-size: 1.15rem;
+  }
+
   .cart-list {
     max-height: none;
     flex: 1 1 auto;
-    min-height: 0;
+    min-height: 120px;
   }
 
   .cart-summary {
@@ -3307,7 +3250,6 @@ html.is-pwa .item-sheet .form-store-results .store-col.is-open {
   .toast,
   .menu,
   .cart-deals-body,
-  .cart-lista,
   .cart-day-chip,
   .cart-deal {
     animation: none !important;
