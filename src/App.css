@@ -165,7 +165,8 @@
   overscroll-behavior: contain;
   touch-action: pan-y;
   position: relative;
-  z-index: 2;
+  z-index: 1;
+  isolation: isolate;
 }
 
 .cart-deals-head {
@@ -262,7 +263,6 @@
   border-color: color-mix(in srgb, var(--accent-text) 55%, transparent);
   background: color-mix(in srgb, var(--accent-text) 16%, transparent);
   color: var(--accent-text);
-  transform: translateY(-1px);
 }
 
 .cart-deals-body {
@@ -270,7 +270,6 @@
   gap: 12px;
   overflow: visible;
   padding-right: 2px;
-  animation: cartDealsIn 220ms ease;
 }
 
 .cart-deals-group {
@@ -322,8 +321,7 @@
   z-index: 1;
   transition:
     border-color 160ms ease,
-    background 160ms ease,
-    transform 160ms ease;
+    background 160ms ease;
 }
 
 .cart-deal-pct {
@@ -385,7 +383,6 @@
 .cart-deal.active {
   border-color: color-mix(in srgb, var(--accent-text) 50%, transparent);
   background: color-mix(in srgb, var(--accent-text) 12%, transparent);
-  transform: translateY(-1px);
 }
 
 .cart-deal.active .cart-deal-pct {
@@ -400,17 +397,6 @@
     var(--accent-text);
 }
 
-@keyframes cartDealsIn {
-  from {
-    opacity: 0;
-    transform: translateY(6px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
 .cart-list {
   list-style: none;
   margin: 0;
@@ -420,6 +406,8 @@
   flex: 1 1 auto;
   min-height: 140px;
   overflow: auto;
+  position: relative;
+  z-index: 0;
 }
 
 .cart-empty {
