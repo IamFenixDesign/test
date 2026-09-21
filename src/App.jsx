@@ -878,9 +878,11 @@ function App() {
   const [cartOpen, setCartOpen] = useState(false)
   const [cartBusy, setCartBusy] = useState(false)
   const [cartRemoved, setCartRemoved] = useState(() => new Set())
+  const [allowCustomPrice, setAllowCustomPrice] = useState(false)
   const itemsRef = useRef(items)
   const searchInputRef = useRef(null)
   const storeResultsRef = useRef(null)
+  const customPriceRef = useRef(null)
   const qtySyncRef = useRef({})
   const deletedIdsRef = useRef(new Set())
   const dirtyIdsRef = useRef(new Map())
@@ -1362,6 +1364,7 @@ function App() {
     setStoreQuery(form.name)
     setStoreResults({ coto: [], carrefour: [], errors: {} })
     setStoreError('')
+    setAllowCustomPrice(false)
     setError('')
     showToast('Producto quitado de la búsqueda')
   }
@@ -1374,6 +1377,7 @@ function App() {
     setStoreResults({ coto: [], carrefour: [], errors: {} })
     setStoreTab('coto')
     setStoreError('')
+    setAllowCustomPrice(false)
     setOpenMenu(null)
     closeScanner()
     setModal('item')
@@ -1402,6 +1406,7 @@ function App() {
     setStoreResults({ coto: [], carrefour: [], errors: {} })
     setStoreTab('coto')
     setStoreError('')
+    setAllowCustomPrice(item.priceSource === 'custom')
     setOpenMenu(null)
     closeScanner()
     setModal('item')
@@ -1436,12 +1441,35 @@ function App() {
     setStoreQuery('')
     setStoreResults({ coto: [], carrefour: [], errors: {} })
     setStoreError('')
+    setAllowCustomPrice(false)
     setError('')
     showToast(
       product.ean
         ? `Código ${product.ean} detectado`
         : `Precio de ${product.store === 'coto' ? 'Coto' : 'Carrefour'} aplicado`,
     )
+  }
+
+  function enableCustomPrice() {
+    setAllowCustomPrice(true)
+    setStoreError('')
+    setError('')
+    setForm((prev) => ({
+      ...prev,
+      priceSource: prev.priceSource === 'coto' || prev.priceSource === 'carrefour' ? 'custom' : prev.priceSource || 'custom',
+      price: prev.priceSource === 'coto' || prev.priceSource === 'carrefour' ? '' : prev.price,
+    }))
+    requestAnimationFrame(() => {
+      customPriceRef.current?.focus?.()
+      customPriceRef.current?.scrollIntoView?.({ block: 'nearest', behavior: 'smooth' })
+    })
+  }
+
+  function handleCustomPriceChange(raw) {
+    const next = String(raw || '').replace(/[^\d.,]/g, '')
+    setForm((prev) => ({ ...prev, price: next, priceSource: 'custom' }))
+    setAllowCustomPrice(true)
+    setError('')
   }
 
   function handleScannedCode(raw) {
@@ -1453,6 +1481,7 @@ function App() {
     setStoreResults({ coto: [], carrefour: [], errors: {} })
     setStoreError('')
     setStoreTab('coto')
+    setAllowCustomPrice(false)
     showToast(`EAN ${ean} cargado · buscando…`)
     lookupStores(ean)
   }
@@ -1473,17 +1502,21 @@ function App() {
         data.coto.length > 0 ? 'coto' : data.carrefour.length > 0 ? 'carrefour' : 'coto'
       setStoreTab(prefer)
       if (!data.coto.length && !data.carrefour.length) {
-        setStoreError(
-          data.errors?.coto ||
-            data.errors?.carrefour ||
-            'No encontramos ese producto en Coto ni Carrefour.',
-        )
+        setAllowCustomPrice(true)
+        setStoreError('No está en Coto ni Carrefour. Podés cargar un precio personalizado.')
+        requestAnimationFrame(() => {
+          customPriceRef.current?.focus?.()
+          customPriceRef.current?.scrollIntoView?.({ block: 'nearest', behavior: 'smooth' })
+        })
+      } else {
+        setAllowCustomPrice(false)
       }
       requestAnimationFrame(() => {
         storeResultsRef.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
       })
     } catch {
-      setStoreError('No se pudieron consultar Coto y Carrefour.')
+      setAllowCustomPrice(true)
+      setStoreError('No se pudieron consultar Coto y Carrefour. Podés cargar un precio personalizado.')
     } finally {
       setStoreLoading(false)
     }
@@ -1554,13 +1587,19 @@ function App() {
     }
     const quantity = Number(form.quantity)
     const minStock = Number(form.minStock)
-    const price = Number(form.price || 0)
+    const price = Number(String(form.price || '').replace(',', '.'))
+    const source = form.priceSource
+    const sourceOk = source === 'coto' || source === 'carrefour' || source === 'custom'
     if (!Number.isFinite(quantity) || quantity < 0) {
       setError('La cantidad no es válida.')
       return
     }
-    if (!form.priceSource || !Number.isFinite(price) || price <= 0) {
-      setError('El precio tiene que salir de Coto o Carrefour.')
+    if (!sourceOk || !Number.isFinite(price) || price <= 0) {
+      setError(
+        allowCustomPrice || source === 'custom'
+          ? 'Ingresá un precio personalizado válido.'
+          : 'Elegí un precio de Coto/Carrefour o cargá uno personalizado si no está.',
+      )
       return
     }
 
@@ -1573,7 +1612,7 @@ function App() {
       quantity,
       minStock: Number.isFinite(minStock) ? minStock : 0,
       price,
-      priceSource: form.priceSource,
+      priceSource: source,
       priceCoto: Number(form.priceCoto) || 0,
       priceCarrefour: Number(form.priceCarrefour) || 0,
       urlCoto: form.urlCoto,
@@ -1581,9 +1620,9 @@ function App() {
       imageCoto,
       imageCarrefour,
       image:
-        form.priceSource === 'coto'
+        source === 'coto'
           ? imageCoto || form.image
-          : form.priceSource === 'carrefour'
+          : source === 'carrefour'
             ? imageCarrefour || form.image
             : form.image || imageCoto || imageCarrefour,
     }
@@ -2072,7 +2111,7 @@ function App() {
                     <IconScan />
                   </button>
                 </div>
-                {(form.priceCoto || form.priceCarrefour) && (
+                {(form.priceCoto || form.priceCarrefour || form.priceSource === 'custom') && (
                   <div className="store-selected">
                     <ItemThumb item={form} />
                     <div className="store-picked">
@@ -2094,6 +2133,9 @@ function App() {
                           Carrefour {money(form.priceCarrefour)}
                         </button>
                       ) : null}
+                      {form.priceSource === 'custom' && form.price ? (
+                        <span className="store-pill custom selected">Personalizado {money(form.price)}</span>
+                      ) : null}
                     </div>
                     <button className="btn btn-ghost btn-compact" type="button" onClick={clearStoreProduct}>
                       Quitar
@@ -2101,7 +2143,16 @@ function App() {
                   </div>
                 )}
                 {storeLoading && <p className="hint">Buscando en Coto y Carrefour…</p>}
-                {storeError && <p className="hint">{storeError}</p>}
+                {storeError && (
+                  <div className="store-miss">
+                    <p className="hint">{storeError}</p>
+                    {allowCustomPrice ? (
+                      <button className="btn btn-ghost btn-compact" type="button" onClick={enableCustomPrice}>
+                        Precio personalizado
+                      </button>
+                    ) : null}
+                  </div>
+                )}
                 {(storeResults.coto.length > 0 || storeResults.carrefour.length > 0) && (
                   <div className="store-results form-store-results" ref={storeResultsRef}>
                     <div className="store-result-tabs" role="tablist" aria-label="Supermercados">
@@ -2197,25 +2248,45 @@ function App() {
               </label>
               <label className="field full">
                 <span>Precio</span>
-                <div className="money-input locked">
+                <div
+                  className={`money-input ${
+                    allowCustomPrice || form.priceSource === 'custom' ? 'is-custom' : 'locked'
+                  }`}
+                >
                   <span>$</span>
-                  <input
-                    type="text"
-                    readOnly
-                    tabIndex={-1}
-                    value={
-                      form.price
-                        ? Number(form.price).toLocaleString('es-AR', {
-                            minimumFractionDigits: 2,
-                            maximumFractionDigits: 2,
-                          })
-                        : ''
-                    }
-                    placeholder=""
-                  />
+                  {allowCustomPrice || form.priceSource === 'custom' ? (
+                    <input
+                      ref={customPriceRef}
+                      type="text"
+                      inputMode="decimal"
+                      enterKeyHint="done"
+                      autoComplete="off"
+                      value={form.price}
+                      onChange={(event) => handleCustomPriceChange(event.target.value)}
+                      placeholder="0,00"
+                      aria-label="Precio personalizado"
+                    />
+                  ) : (
+                    <input
+                      type="text"
+                      readOnly
+                      tabIndex={-1}
+                      value={
+                        form.price
+                          ? Number(form.price).toLocaleString('es-AR', {
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 2,
+                            })
+                          : ''
+                      }
+                      placeholder=""
+                    />
+                  )}
                 </div>
                 <small className="hint">
-                  Solo se completa con el precio de Coto o Carrefour
+                  {allowCustomPrice || form.priceSource === 'custom'
+                    ? 'Precio personalizado: el producto no está en Coto ni Carrefour, o lo cargaste a mano'
+                    : 'Se completa con Coto o Carrefour; si no aparece, vas a poder poner uno personalizado'}
                 </small>
               </label>
               {error && <p className="error">{error}</p>}
