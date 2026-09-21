@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import './App.css'
 import { barcodeDigits, extractEan13, guessCategory, matchByEan, searchSupermarkets } from './supermarkets'
+import { PAYMENT_PROMOS, quoteCartPromo } from './discounts'
 import { deleteRemoteItem, fetchRemoteItems, upsertRemoteItem } from './itemsApi'
 import { changePassword, fetchMe, logout as logoutRequest, updateProfile as saveProfile } from './auth'
 import { getCameraStream, releaseCameraStream } from './camera'
@@ -878,6 +879,7 @@ function App() {
   const [cartOpen, setCartOpen] = useState(false)
   const [cartBusy, setCartBusy] = useState(false)
   const [cartRemoved, setCartRemoved] = useState(() => new Set())
+  const [cartPromoId, setCartPromoId] = useState('none')
   const [allowCustomPrice, setAllowCustomPrice] = useState(false)
   const itemsRef = useRef(items)
   const searchInputRef = useRef(null)
@@ -1156,6 +1158,15 @@ function App() {
     const total = cartLines.reduce((sum, line) => sum + line.lineTotal, 0)
     return { units, total, count: cartLines.length }
   }, [cartLines])
+
+  const cartQuote = useMemo(() => {
+    const promo = PAYMENT_PROMOS.find((entry) => entry.id === cartPromoId) || PAYMENT_PROMOS[0]
+    return quoteCartPromo(cartLines, promo)
+  }, [cartLines, cartPromoId])
+
+  const cartDisplayLines = useMemo(() => {
+    return [...cartQuote.eligible, ...cartQuote.excluded]
+  }, [cartQuote])
 
   useEffect(() => {
     if (!cartRemoved.size) return
@@ -2349,8 +2360,8 @@ function App() {
               <div>
                 <h2 id="cart-title">Carrito de compras</h2>
                 <p className="lead">
-                  Se agregan solos los productos en stock bajo o sin stock, solo con lo que falta para
-                  llegar al mínimo.
+                  Stock bajo o sin stock, solo lo faltante al mínimo. Podés estimar Mercado Pago o Visa
+                  Débito NFC según qué productos tengan precio en Coto o Carrefour.
                 </p>
               </div>
               <button
@@ -2366,46 +2377,102 @@ function App() {
             {cartLines.length === 0 ? (
               <p className="cart-empty">No hay productos en stock bajo o sin stock para comprar.</p>
             ) : (
-              <ul className="cart-list">
-                {cartLines.map((line) => (
-                  <li key={line.id} className="cart-line">
-                    <ItemThumb item={line.item} />
-                    <div className="cart-line-copy">
-                      <strong>{line.item.name}</strong>
-                      <span>
-                        Tenés {line.have} · mínimo {line.min} · comprar {line.need}
-                      </span>
-                      <em>
-                        {line.unitPrice
-                          ? `${money(line.unitPrice)} c/u · ${money(line.lineTotal)}`
-                          : 'Sin precio'}
-                      </em>
-                    </div>
-                    <div className="cart-line-side">
-                      <output className="cart-qty" aria-label={`Comprar ${line.need}`}>
-                        ×{line.need}
-                      </output>
-                      <button
-                        className="icon-btn danger"
-                        type="button"
-                        title="Quitar del carrito"
-                        aria-label={`Quitar ${line.item.name} del carrito`}
-                        onClick={() => removeFromCart(line.id)}
-                      >
-                        <IconTrash />
-                      </button>
-                    </div>
-                  </li>
-                ))}
-              </ul>
+              <>
+                <div className="cart-promos" role="tablist" aria-label="Descuentos de pago">
+                  {PAYMENT_PROMOS.map((promo) => (
+                    <button
+                      key={promo.id}
+                      type="button"
+                      role="tab"
+                      aria-selected={cartPromoId === promo.id}
+                      className={`cart-promo-chip ${cartPromoId === promo.id ? 'active' : ''}`}
+                      onClick={() => setCartPromoId(promo.id)}
+                    >
+                      {promo.short}
+                      {promo.percent > 0 ? <small>-{promo.percent}%</small> : null}
+                    </button>
+                  ))}
+                </div>
+                <p className="cart-promo-note">{cartQuote.promo.note}</p>
+
+                <ul className="cart-list">
+                  {cartDisplayLines.map((line) => (
+                    <li
+                      key={line.id}
+                      className={`cart-line ${line.eligible ? 'is-eligible' : 'is-excluded'}`}
+                    >
+                      <ItemThumb item={line.item} />
+                      <div className="cart-line-copy">
+                        <strong>{line.item.name}</strong>
+                        <span>
+                          Tenés {line.have} · mínimo {line.min} · comprar {line.need}
+                        </span>
+                        <em>
+                          {line.unitPrice
+                            ? `${money(line.unitPrice)} c/u · ${money(line.lineTotal)}`
+                            : 'Sin precio'}
+                          {line.eligible && line.discount > 0
+                            ? ` · ahorro ${money(line.discount)}`
+                            : ''}
+                        </em>
+                        <span className={`cart-elig ${line.eligible ? 'yes' : 'no'}`}>
+                          {line.eligible
+                            ? cartQuote.promo.percent > 0
+                              ? `Aplica ${cartQuote.promo.short}`
+                              : 'Sin descuento de pago'
+                            : line.reason || 'No aplica'}
+                        </span>
+                      </div>
+                      <div className="cart-line-side">
+                        <output className="cart-qty" aria-label={`Comprar ${line.need}`}>
+                          ×{line.need}
+                        </output>
+                        <button
+                          className="icon-btn danger"
+                          type="button"
+                          title="Quitar del carrito"
+                          aria-label={`Quitar ${line.item.name} del carrito`}
+                          onClick={() => removeFromCart(line.id)}
+                        >
+                          <IconTrash />
+                        </button>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+
+                {(cartQuote.eligible.length > 0 || cartQuote.excluded.length > 0) &&
+                cartQuote.promo.percent > 0 ? (
+                  <div className="cart-split">
+                    <p>
+                      <strong>{cartQuote.eligible.length}</strong> con descuento ·{' '}
+                      <strong>{cartQuote.excluded.length}</strong> sin descuento
+                    </p>
+                  </div>
+                ) : null}
+              </>
             )}
 
             <div className="cart-summary">
-              <div>
-                <span>
-                  {cartTotals.count} producto{cartTotals.count === 1 ? '' : 's'} · {cartTotals.units} u.
-                </span>
-                <strong>{money(cartTotals.total)}</strong>
+              <div className="cart-summary-rows">
+                <div>
+                  <span>
+                    {cartTotals.count} producto{cartTotals.count === 1 ? '' : 's'} · {cartTotals.units} u.
+                  </span>
+                  <strong>{money(cartQuote.subtotal || cartTotals.total)}</strong>
+                </div>
+                {cartQuote.promo.percent > 0 ? (
+                  <>
+                    <div className="is-save">
+                      <span>Descuento {cartQuote.promo.short}</span>
+                      <strong>-{money(cartQuote.discountTotal)}</strong>
+                    </div>
+                    <div className="is-pay">
+                      <span>Total a pagar</span>
+                      <strong>{money(cartQuote.payable)}</strong>
+                    </div>
+                  </>
+                ) : null}
               </div>
               <div className="modal-actions">
                 <button className="btn btn-ghost" type="button" onClick={() => setCartOpen(false)}>
