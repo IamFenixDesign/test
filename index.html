@@ -18,6 +18,9 @@
     <script>
       document.documentElement.dataset.theme =
         localStorage.getItem('stockly-theme') === 'light' ? 'light' : 'dark'
+      if (window.navigator.standalone || window.matchMedia('(display-mode: standalone)').matches) {
+        document.documentElement.classList.add('is-pwa')
+      }
     </script>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />

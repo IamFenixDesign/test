@@ -131,8 +131,8 @@ function MenuSelect({ id, value, options, onChange, openMenu, setOpenMenu, full 
 
   return (
     <div className={`menu-select ${full ? 'full' : ''} ${open ? 'open' : ''}`} data-menu={id}>
-      <button
-        type="button"
+        <button
+          type="button"
         className="menu-trigger"
         aria-haspopup="listbox"
         aria-expanded={open}
@@ -140,7 +140,7 @@ function MenuSelect({ id, value, options, onChange, openMenu, setOpenMenu, full 
       >
         <span>{selected.label}</span>
         <Chevron />
-      </button>
+        </button>
       {open && (
         <ul className={`menu-list ${align === 'right' ? 'right' : ''} ${drop === 'up' ? 'up' : ''}`} role="listbox">
           {options.map((option) => {
@@ -158,27 +158,27 @@ function MenuSelect({ id, value, options, onChange, openMenu, setOpenMenu, full 
                   <span>{option.label}</span>
                   {active && <Check />}
                 </button>
-              </li>
+            </li>
             )
           })}
-        </ul>
+          </ul>
       )}
-    </div>
+        </div>
   )
 }
 
 function IconSun() {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-      <circle cx="12" cy="12" r="4" />
-      <path d="M12 3v2M12 19v2M5 12H3M21 12h-2M6.3 6.3 4.9 4.9M19.1 19.1l-1.4-1.4M6.3 17.7 4.9 19.1M19.1 4.9l-1.4 1.4" />
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+      <circle cx="12" cy="12" r="4.2" />
+      <path d="M12 2.6v2.2M12 19.2v2.2M4.8 12H2.6M21.4 12h-2.2M6.2 6.2 4.6 4.6M19.4 19.4l-1.6-1.6M6.2 17.8 4.6 19.4M19.4 4.6l-1.6 1.6" />
     </svg>
   )
 }
 
 function IconMoon() {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
       <path d="M20 14.5A8.5 8.5 0 1 1 9.5 4 7 7 0 0 0 20 14.5Z" />
     </svg>
   )
@@ -190,7 +190,7 @@ function IconLogout() {
       <path d="M10 7V5a2 2 0 0 1 2-2h7v18h-7a2 2 0 0 1-2-2v-2" />
       <path d="M4 12h11" />
       <path d="m8 8-4 4 4 4" />
-    </svg>
+                </svg>
   )
 }
 
@@ -280,19 +280,49 @@ function BarcodeScanner({ onDetect, onCancel }) {
         return
       }
       try {
-        stream = await navigator.mediaDevices.getUserMedia({
+        function lockVideoBox() {
+          video.removeAttribute('width')
+          video.removeAttribute('height')
+          video.style.position = 'absolute'
+          video.style.top = '0'
+          video.style.left = '0'
+          video.style.width = '100%'
+          video.style.height = '100%'
+          video.style.minWidth = '100%'
+          video.style.minHeight = '100%'
+          video.style.objectFit = 'cover'
+          video.style.objectPosition = 'center'
+        }
+
+        video.setAttribute('playsinline', 'true')
+        video.setAttribute('webkit-playsinline', 'true')
+        video.muted = true
+        video.playsInline = true
+        video.autoplay = true
+        lockVideoBox()
+
+        const constraints = {
           audio: false,
           video: {
             facingMode: { ideal: 'environment' },
-            width: { ideal: 1920 },
-            height: { ideal: 1080 },
           },
-        })
+        }
+        try {
+          stream = await navigator.mediaDevices.getUserMedia(constraints)
+        } catch {
+          stream = await navigator.mediaDevices.getUserMedia({ audio: false, video: true })
+        }
         streamRef.current = stream
-        video.setAttribute('playsinline', 'true')
-        video.setAttribute('webkit-playsinline', 'true')
+        lockVideoBox()
         video.srcObject = stream
+        if (video.readyState < 1) {
+          await new Promise((resolve) => {
+            video.onloadedmetadata = resolve
+          })
+        }
+        lockVideoBox()
         await video.play()
+        lockVideoBox()
         setLive(true)
         setMessage('Mantené el código quieto dentro del recuadro')
         const track = stream.getVideoTracks()[0]
@@ -332,6 +362,7 @@ function BarcodeScanner({ onDetect, onCancel }) {
         zxingControls = await reader.decodeFromStream(stream, video, (result) => {
           if (result) finish(result.getText())
         })
+        lockVideoBox()
       } catch (err) {
         if (stopped) return
         setLive(false)
@@ -402,7 +433,7 @@ function BarcodeScanner({ onDetect, onCancel }) {
         </button>
       </div>
       <div className="scanner-view">
-        <video ref={videoRef} autoPlay muted playsInline />
+        <video ref={videoRef} autoPlay muted playsInline disablePictureInPicture />
         <div className="scanner-overlay" aria-hidden="true">
           <div className="scanner-window">
             <span className="scanner-corner tl" />
@@ -499,7 +530,7 @@ function ItemActions({ item, qtyOpen, qtyDraft, setQtyDraft, onAddQty, onEdit, o
         >
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <path d="M12 5v14M5 12h14" />
-          </svg>
+                </svg>
         </button>
         {qtyOpen && (
           <div className="qty-menu">
@@ -1094,8 +1125,8 @@ function App() {
               <h1>Stockea</h1>
               <p>Cargando…</p>
             </div>
-          </div>
-        </section>
+        </div>
+      </section>
       </div>
     )
   }
@@ -1407,11 +1438,10 @@ function App() {
                     setStoreQuery(event.target.value)
                   }}
                   placeholder="Nombre del producto"
-                  autoFocus
                 />
               </label>
               <div className="field full store-search">
-                <span>Precios en Coto y Carrefour</span>
+                <span>Buscar</span>
                 <div className="store-lookup">
                   <input
                     value={storeQuery}
@@ -1555,7 +1585,7 @@ function App() {
                           })
                         : ''
                     }
-                    placeholder="Coto o Carrefour"
+                    placeholder=""
                   />
                 </div>
                 <small className="hint">
