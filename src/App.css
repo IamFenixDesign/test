@@ -430,6 +430,11 @@
   color: var(--danger);
 }
 
+.btn-danger:hover {
+  background: var(--danger);
+  color: #fff;
+}
+
 .kpis {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -795,6 +800,19 @@
 
 .price-btn:hover strong {
   color: var(--accent-text);
+}
+
+.price-static {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.price-static strong {
+  font-variant-numeric: tabular-nums;
+  font-size: 1.05rem;
+  font-weight: 750;
+  letter-spacing: -0.03em;
 }
 
 .stock-value {
