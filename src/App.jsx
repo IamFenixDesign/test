@@ -363,8 +363,6 @@ function BarcodeScanner({ stream, onDetect, onCancel }) {
     let timer = 0
     let confirmTimer = 0
     let stopped = false
-    let lastCandidate = ''
-    let candidateHits = 0
     const canvas = document.createElement('canvas')
     const ctx = canvas.getContext('2d', { willReadFrequently: true })
     const work = document.createElement('canvas')
@@ -451,18 +449,11 @@ function BarcodeScanner({ stream, onDetect, onCancel }) {
       if (stopped || !ean) return false
       if (box) setHitBox(box)
       setDetectedEan(ean)
-      if (ean === lastCandidate) candidateHits += 1
-      else {
-        lastCandidate = ean
-        candidateHits = 1
-      }
-      setMessage(candidateHits >= 2 ? `EAN ${ean} detectado` : `Marcado EAN ${ean}…`)
-      if (candidateHits < 2) return false
-      stopped = true
       setMessage(`EAN ${ean} detectado`)
+      stopped = true
       confirmTimer = window.setTimeout(() => {
         onDetectRef.current(ean)
-      }, 380)
+      }, 220)
       return true
     }
 
@@ -1336,15 +1327,17 @@ function App() {
     closeScanner()
     setStoreQuery(ean)
     setForm((prev) => ({ ...prev, barcode: ean }))
+    setStoreResults({ coto: [], carrefour: [], errors: {} })
     setStoreError('')
-    showToast(`EAN ${ean} cargado en el buscador`)
+    setStoreTab('coto')
+    showToast(`EAN ${ean} cargado · buscando…`)
     lookupStores(ean)
   }
 
   async function lookupStores(term) {
     const q = (term || storeQuery || form.barcode || form.name).trim()
     if (!q) {
-      setStoreError('Escribí un producto para buscar precios.')
+      setStoreError('Escribí un producto o EAN y tocá Enter.')
       return
     }
     setStoreQuery(q)
@@ -1353,7 +1346,9 @@ function App() {
     try {
       const data = await searchSupermarkets(q)
       setStoreResults(data)
-      setStoreTab(data.coto.length ? 'coto' : data.carrefour.length ? 'carrefour' : 'coto')
+      const prefer =
+        data.coto.length > 0 ? 'coto' : data.carrefour.length > 0 ? 'carrefour' : 'coto'
+      setStoreTab(prefer)
       if (!data.coto.length && !data.carrefour.length) {
         setStoreError(
           data.errors?.coto ||
@@ -1912,7 +1907,7 @@ function App() {
                 />
               </label>
               <div className="field full store-search">
-                <span>Buscar</span>
+                <span>Buscar en Coto / Carrefour</span>
                 <div className="store-lookup">
                   <input
                     type="search"
@@ -1923,19 +1918,11 @@ function App() {
                     onKeyDown={(event) => {
                       if (event.key === 'Enter') {
                         event.preventDefault()
-                        lookupStores()
+                        lookupStores(event.currentTarget.value)
                       }
                     }}
-                    placeholder="Nombre o EAN, ej. 7790742335609"
+                    placeholder="Nombre o EAN · Enter para buscar"
                   />
-                  <button
-                    className="btn btn-ghost store-search-btn"
-                    type="button"
-                    onClick={() => lookupStores()}
-                    disabled={storeLoading}
-                  >
-                    Buscar
-                  </button>
                   <button
                     className={`scan-btn ${scanning ? 'open' : ''}`}
                     type="button"
@@ -1977,51 +1964,51 @@ function App() {
                     </button>
                   </div>
                 )}
-                {storeLoading && <p className="hint">Buscando…</p>}
+                {storeLoading && <p className="hint">Buscando en Coto y Carrefour…</p>}
                 {storeError && <p className="hint">{storeError}</p>}
                 {(storeResults.coto.length > 0 || storeResults.carrefour.length > 0) && (
                   <div className="store-results form-store-results" ref={storeResultsRef}>
                     <div className="store-result-tabs" role="tablist" aria-label="Supermercados">
-                      <button
-                        className={`store-result-tab coto ${storeTab === 'coto' ? 'active' : ''}`}
-                        type="button"
-                        role="tab"
-                        aria-selected={storeTab === 'coto'}
-                        onClick={() => setStoreTab('coto')}
-                      >
-                        Coto <small>{storeResults.coto.length}</small>
-                      </button>
-                      <button
-                        className={`store-result-tab carrefour ${storeTab === 'carrefour' ? 'active' : ''}`}
-                        type="button"
-                        role="tab"
-                        aria-selected={storeTab === 'carrefour'}
-                        onClick={() => setStoreTab('carrefour')}
-                      >
-                        Carrefour <small>{storeResults.carrefour.length}</small>
-                      </button>
+                      {storeResults.coto.length > 0 ? (
+                        <button
+                          className={`store-result-tab coto ${storeTab === 'coto' ? 'active' : ''}`}
+                          type="button"
+                          role="tab"
+                          aria-selected={storeTab === 'coto'}
+                          onClick={() => setStoreTab('coto')}
+                        >
+                          Coto <small>{storeResults.coto.length}</small>
+                        </button>
+                      ) : null}
+                      {storeResults.carrefour.length > 0 ? (
+                        <button
+                          className={`store-result-tab carrefour ${storeTab === 'carrefour' ? 'active' : ''}`}
+                          type="button"
+                          role="tab"
+                          aria-selected={storeTab === 'carrefour'}
+                          onClick={() => setStoreTab('carrefour')}
+                        >
+                          Carrefour <small>{storeResults.carrefour.length}</small>
+                        </button>
+                      ) : null}
                     </div>
                     <div className="store-cols">
-                      <div className={`store-col ${storeTab === 'coto' ? 'is-open' : ''}`}>
-                        <p className="store-col-title coto">Coto Digital</p>
-                        {storeResults.coto.length === 0 ? (
-                          <p className="hint">{storeResults.errors?.coto || 'Sin coincidencias'}</p>
-                        ) : (
-                          storeResults.coto.map((product) => (
+                      {storeResults.coto.length > 0 ? (
+                        <div className={`store-col ${storeTab === 'coto' ? 'is-open' : ''}`}>
+                          <p className="store-col-title coto">Coto Digital</p>
+                          {storeResults.coto.map((product) => (
                             <StoreResult key={product.ean || product.url} product={product} onPick={applyStoreProduct} />
-                          ))
-                        )}
-                      </div>
-                      <div className={`store-col ${storeTab === 'carrefour' ? 'is-open' : ''}`}>
-                        <p className="store-col-title carrefour">Carrefour</p>
-                        {storeResults.carrefour.length === 0 ? (
-                          <p className="hint">{storeResults.errors?.carrefour || 'Sin coincidencias'}</p>
-                        ) : (
-                          storeResults.carrefour.map((product) => (
+                          ))}
+                        </div>
+                      ) : null}
+                      {storeResults.carrefour.length > 0 ? (
+                        <div className={`store-col ${storeTab === 'carrefour' ? 'is-open' : ''}`}>
+                          <p className="store-col-title carrefour">Carrefour</p>
+                          {storeResults.carrefour.map((product) => (
                             <StoreResult key={product.ean || product.url} product={product} onPick={applyStoreProduct} />
-                          ))
-                        )}
-                      </div>
+                          ))}
+                        </div>
+                      ) : null}
                     </div>
                   </div>
                 )}
