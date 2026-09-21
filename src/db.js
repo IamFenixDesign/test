@@ -317,6 +317,31 @@ export async function updatePassword(userId, passwordHash) {
   return rowToUser(rows[0])
 }
 
+export async function updateProfile(userId, { firstName, lastName, email }) {
+  await ensureSchema()
+  const first = String(firstName || '').trim()
+  const last = String(lastName || '').trim()
+  const nextEmail = normalizeEmail(email)
+  if (!first) throw Object.assign(new Error('Falta el nombre'), { status: 400 })
+  if (!last) throw Object.assign(new Error('Falta el apellido'), { status: 400 })
+  if (!nextEmail.includes('@')) throw Object.assign(new Error('El correo no es válido'), { status: 400 })
+  const taken = await getUserRowByEmail(nextEmail)
+  if (taken && taken.id !== userId) {
+    throw Object.assign(new Error('Ese correo ya está en uso'), { status: 400 })
+  }
+  const name = `${first} ${last}`
+  const rows = await getSql()`
+    UPDATE stockly_users
+    SET first_name = ${first},
+        last_name = ${last},
+        name = ${name},
+        email = ${nextEmail}
+    WHERE id = ${userId}::uuid
+    RETURNING *
+  `
+  return rowToUser(rows[0])
+}
+
 export async function listItems(userId) {
   await ensureSchema()
   const rows = await getSql()`
