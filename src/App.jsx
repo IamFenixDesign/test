@@ -1200,6 +1200,24 @@ function App() {
     })
   }, [cartDay])
 
+  const cartPromoGroups = useMemo(() => {
+    const coto = cartDayPromos.filter((promo) => promo.store === 'coto')
+    const carrefour = cartDayPromos.filter((promo) => promo.store === 'carrefour')
+    const other = cartDayPromos.filter((promo) => !promo.store)
+    return { coto, carrefour, other }
+  }, [cartDayPromos])
+
+  const cartDayBest = useMemo(() => {
+    const map = {}
+    for (const day of WEEKDAYS) {
+      const best = promosForDay(day.id)
+        .filter((promo) => promo.id !== 'none')
+        .sort((a, b) => b.percent - a.percent)[0]
+      map[day.id] = best?.percent || 0
+    }
+    return map
+  }, [])
+
   const cartQuote = useMemo(() => {
     const available = promosForDay(cartDay)
     const promo =
@@ -1216,6 +1234,29 @@ function App() {
   function selectCartDay(day) {
     setCartDay(day)
     setCartPromoId(defaultPromoIdForDay(day))
+  }
+
+  function renderPromoOption(promo) {
+    const active = cartPromoId === promo.id
+    return (
+      <button
+        key={promo.id}
+        type="button"
+        role="radio"
+        aria-checked={active}
+        className={`cart-deal ${active ? 'active' : ''} ${promo.store ? `store-${promo.store}` : 'store-none'}`}
+        onClick={() => setCartPromoId(promo.id)}
+      >
+        <span className="cart-deal-pct" aria-hidden={promo.percent <= 0}>
+          {promo.percent > 0 ? `-${promo.percent}%` : '—'}
+        </span>
+        <span className="cart-deal-copy">
+          <strong>{promo.short}</strong>
+          <span>{promo.payment || 'Sin medio de pago especial'}</span>
+        </span>
+        <span className="cart-deal-check" aria-hidden="true" />
+      </button>
+    )
   }
 
   useEffect(() => {
@@ -2438,8 +2479,7 @@ function App() {
               <div>
                 <h2 id="cart-title">Carrito de compras</h2>
                 <p className="lead">
-                  Stock bajo o sin stock, solo lo faltante al mínimo. Elegí el día para ver descuentos
-                  presenciales de Coto y Carrefour (sucursales).
+                  Solo lo faltante al mínimo. Calculá el total con descuentos de sucursal según el día.
                 </p>
               </div>
               <button
@@ -2456,52 +2496,75 @@ function App() {
               <p className="cart-empty">No hay productos en stock bajo o sin stock para comprar.</p>
             ) : (
               <>
-                <div className="cart-days" role="tablist" aria-label="Día de la promo">
-                  {WEEKDAYS.map((day) => (
-                    <button
-                      key={day.id}
-                      type="button"
-                      role="tab"
-                      aria-selected={cartDay === day.id}
-                      className={`cart-day-chip ${cartDay === day.id ? 'active' : ''} ${
-                        day.id === todayWeekday() ? 'is-today' : ''
-                      }`}
-                      onClick={() => selectCartDay(day.id)}
-                    >
-                      {day.short}
-                    </button>
-                  ))}
-                </div>
-                <p className="cart-day-label">
-                  Promos presenciales · {weekdayLabel(cartDay).toLowerCase()}
-                  {cartDay === todayWeekday() ? ' · hoy' : ''}
-                </p>
-                <div className="cart-promos" role="tablist" aria-label="Descuentos de pago en sucursal">
-                  {cartDayPromos.map((promo) => (
-                    <button
-                      key={promo.id}
-                      type="button"
-                      role="tab"
-                      aria-selected={cartPromoId === promo.id}
-                      className={`cart-promo-chip ${cartPromoId === promo.id ? 'active' : ''} ${
-                        promo.store ? `store-${promo.store}` : ''
-                      }`}
-                      onClick={() => setCartPromoId(promo.id)}
-                    >
-                      <span className="cart-promo-chip-main">
-                        {promo.store === 'coto' ? (
-                          <em className="cart-promo-store">Coto</em>
-                        ) : promo.store === 'carrefour' ? (
-                          <em className="cart-promo-store">Carrefour</em>
-                        ) : null}
-                        {promo.short}
-                        {promo.percent > 0 ? <small>-{promo.percent}%</small> : null}
-                      </span>
-                      {promo.payment ? <span className="cart-promo-chip-pay">{promo.payment}</span> : null}
-                    </button>
-                  ))}
-                </div>
-                <p className="cart-promo-note">{cartQuote.promo.note}</p>
+                <section className="cart-deals-panel" aria-label="Descuentos por día">
+                  <div className="cart-deals-head">
+                    <div>
+                      <p className="cart-deals-kicker">Sucursales</p>
+                      <h3 className="cart-deals-title">
+                        {weekdayLabel(cartDay)}
+                        {cartDay === todayWeekday() ? <span>hoy</span> : null}
+                      </h3>
+                    </div>
+                    <p className="cart-deals-hint">Elegí día y medio de pago</p>
+                  </div>
+
+                  <div className="cart-days" role="tablist" aria-label="Día de la promo">
+                    {WEEKDAYS.map((day) => {
+                      const best = cartDayBest[day.id] || 0
+                      return (
+                        <button
+                          key={day.id}
+                          type="button"
+                          role="tab"
+                          aria-selected={cartDay === day.id}
+                          className={`cart-day-chip ${cartDay === day.id ? 'active' : ''} ${
+                            day.id === todayWeekday() ? 'is-today' : ''
+                          }`}
+                          onClick={() => selectCartDay(day.id)}
+                        >
+                          <span className="cart-day-name">{day.short}</span>
+                          <span className={`cart-day-best ${best ? 'has-promo' : ''}`}>
+                            {best ? `-${best}%` : '—'}
+                          </span>
+                        </button>
+                      )
+                    })}
+                  </div>
+
+                  <div
+                    key={cartDay}
+                    className="cart-deals-body"
+                    role="radiogroup"
+                    aria-label="Descuentos de pago en sucursal"
+                  >
+                    {cartPromoGroups.other.map(renderPromoOption)}
+
+                    {cartPromoGroups.coto.length > 0 ? (
+                      <div className="cart-deals-group">
+                        <p className="cart-deals-group-title store-coto">Coto</p>
+                        <div className="cart-deals-list">{cartPromoGroups.coto.map(renderPromoOption)}</div>
+                      </div>
+                    ) : null}
+
+                    {cartPromoGroups.carrefour.length > 0 ? (
+                      <div className="cart-deals-group">
+                        <p className="cart-deals-group-title store-carrefour">Carrefour</p>
+                        <div className="cart-deals-list">
+                          {cartPromoGroups.carrefour.map(renderPromoOption)}
+                        </div>
+                      </div>
+                    ) : null}
+                  </div>
+
+                  <div className="cart-promo-note" key={`note-${cartPromoId}`}>
+                    <strong>
+                      {cartQuote.promo.percent > 0
+                        ? `${cartQuote.promo.short} · -${cartQuote.promo.percent}%`
+                        : 'Precio lista'}
+                    </strong>
+                    <p>{cartQuote.promo.note}</p>
+                  </div>
+                </section>
 
                 <ul className="cart-list">
                   {cartDisplayLines.map((line) => (
@@ -2523,18 +2586,18 @@ function App() {
                             ? ` · ahorro ${money(line.discount)}`
                             : ''}
                         </em>
-                        <span className={`cart-web ${line.webDiscount ? 'yes' : 'no'}`}>
-                          {line.webDiscount
-                            ? `Web: ${line.webDiscount}`
-                            : 'Web: sin descuento en el super'}
-                        </span>
-                        <span className={`cart-elig ${line.eligible ? 'yes' : 'no'}`}>
-                          {line.eligible
-                            ? cartQuote.promo.percent > 0
-                              ? `Aplica ${cartQuote.promo.short}`
-                              : 'Sin descuento de pago'
-                            : line.reason || 'No aplica'}
-                        </span>
+                        <div className="cart-line-tags">
+                          <span className={`cart-web ${line.webDiscount ? 'yes' : 'no'}`}>
+                            {line.webDiscount ? `Web: ${line.webDiscount}` : 'Web: sin dto'}
+                          </span>
+                          <span className={`cart-elig ${line.eligible ? 'yes' : 'no'}`}>
+                            {line.eligible
+                              ? cartQuote.promo.percent > 0
+                                ? `Aplica ${cartQuote.promo.short}`
+                                : 'Sin dto de pago'
+                              : line.reason || 'No aplica'}
+                          </span>
+                        </div>
                       </div>
                       <div className="cart-line-side">
                         <output className="cart-qty" aria-label={`Comprar ${line.need}`}>
@@ -2557,20 +2620,27 @@ function App() {
                 {(cartQuote.eligible.length > 0 || cartQuote.excluded.length > 0) &&
                 cartQuote.promo.percent > 0 ? (
                   <div className="cart-split">
-                    <p>
-                      <strong>{cartQuote.eligible.length}</strong> con descuento de pago ·{' '}
-                      <strong>{cartQuote.excluded.length}</strong> sin ese descuento ·{' '}
-                      <strong>{cartQuote.withWebOffer || 0}</strong> con oferta web
-                    </p>
+                    <span>
+                      <strong>{cartQuote.eligible.length}</strong> con dto
+                    </span>
+                    <span>
+                      <strong>{cartQuote.excluded.length}</strong> sin dto
+                    </span>
+                    <span>
+                      <strong>{cartQuote.withWebOffer || 0}</strong> oferta web
+                    </span>
                   </div>
                 ) : cartLines.length > 0 ? (
                   <div className="cart-split">
-                    <p>
-                      <strong>{cartQuote.withWebOffer || 0}</strong> con descuento en la web del
-                      super ·{' '}
-                      <strong>{Math.max(0, cartLines.length - (cartQuote.withWebOffer || 0))}</strong>{' '}
+                    <span>
+                      <strong>{cartQuote.withWebOffer || 0}</strong> oferta web
+                    </span>
+                    <span>
+                      <strong>
+                        {Math.max(0, cartLines.length - (cartQuote.withWebOffer || 0))}
+                      </strong>{' '}
                       sin oferta web
-                    </p>
+                    </span>
                   </div>
                 ) : null}
               </>
