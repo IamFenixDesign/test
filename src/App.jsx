@@ -18,6 +18,9 @@ const emptyForm = {
   priceCarrefour: '',
   urlCoto: '',
   urlCarrefour: '',
+  image: '',
+  imageCoto: '',
+  imageCarrefour: '',
 }
 
 const STATUS_FILTER = [
@@ -58,6 +61,13 @@ function money(value) {
 
 function barcodeOf(item) {
   return String(item?.barcode || item?.ean || item?.sku || '').trim()
+}
+
+function productImage(item) {
+  if (!item) return ''
+  if (item.priceSource === 'coto') return item.imageCoto || item.image || ''
+  if (item.priceSource === 'carrefour') return item.imageCarrefour || item.image || ''
+  return item.image || item.imageCoto || item.imageCarrefour || ''
 }
 
 function statusOf(item) {
@@ -174,6 +184,33 @@ function IconScan() {
   )
 }
 
+function IconEdit() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <path d="M12 20h9" />
+      <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5Z" />
+    </svg>
+  )
+}
+
+function IconClose() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+      <path d="M6 6l12 12M18 6 6 18" />
+    </svg>
+  )
+}
+
+function ItemThumb({ item }) {
+  const src = productImage(item)
+  if (src) return <img className="item-thumb" src={src} alt="" />
+  return (
+    <span className="item-thumb placeholder" aria-hidden="true">
+      <IconBox />
+    </span>
+  )
+}
+
 function BarcodeScanner({ onDetect, onCancel }) {
   const videoRef = useRef(null)
   const onDetectRef = useRef(onDetect)
@@ -268,16 +305,38 @@ function BarcodeScanner({ onDetect, onCancel }) {
     }
   }, [])
 
+  useEffect(() => {
+    const previous = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    function onKey(event) {
+      if (event.key === 'Escape') onCancel()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => {
+      document.body.style.overflow = previous
+      window.removeEventListener('keydown', onKey)
+    }
+  }, [onCancel])
+
   return (
-    <div className="scanner">
+    <div className="scanner-screen">
+      <button className="scanner-close" type="button" onClick={onCancel} aria-label="Cerrar cámara">
+        <IconClose />
+      </button>
       <div className="scanner-view">
         <video ref={videoRef} autoPlay muted playsInline />
-        <span className="scanner-guide" aria-hidden="true" />
+        <div className="scanner-frame" aria-hidden="true">
+          <span className="scanner-corner tl" />
+          <span className="scanner-corner tr" />
+          <span className="scanner-corner bl" />
+          <span className="scanner-corner br" />
+          <span className="scanner-laser" />
+        </div>
       </div>
-      <p className="hint">{message}</p>
-      <button className="btn btn-ghost btn-compact" type="button" onClick={onCancel}>
-        Cerrar cámara
-      </button>
+      <div className="scanner-caption">
+        <strong>Escaneá el código de barras</strong>
+        <p>{message}</p>
+      </div>
     </div>
   )
 }
@@ -295,6 +354,102 @@ function StoreResult({ product, onPick }) {
         </em>
       </span>
     </button>
+  )
+}
+
+function PricePicker({ item, open, onToggle, onPick }) {
+  return (
+    <div className="price-cell" data-menu={`price:${item.id}`}>
+      <button className="price-btn" type="button" onClick={onToggle}>
+        <strong>{money(item.price)}</strong>
+        <span>
+          {item.priceSource === 'coto'
+            ? 'precio Coto'
+            : item.priceSource === 'carrefour'
+              ? 'precio Carrefour'
+              : 'sin supermercado'}
+        </span>
+      </button>
+      {open && (
+        <div className="qty-menu store-choice">
+          <p>Precio</p>
+          {Number(item.priceCoto) > 0 || Number(item.priceCarrefour) > 0 ? (
+            <div className="store-picked">
+              {Number(item.priceCoto) > 0 && (
+                <button
+                  className={`store-pill coto ${item.priceSource === 'coto' ? 'selected' : ''}`}
+                  type="button"
+                  onClick={() => onPick('coto')}
+                >
+                  Coto {money(item.priceCoto)}
+                </button>
+              )}
+              {Number(item.priceCarrefour) > 0 && (
+                <button
+                  className={`store-pill carrefour ${item.priceSource === 'carrefour' ? 'selected' : ''}`}
+                  type="button"
+                  onClick={() => onPick('carrefour')}
+                >
+                  Carrefour {money(item.priceCarrefour)}
+                </button>
+              )}
+            </div>
+          ) : (
+            <p>Buscá el producto en Coto o Carrefour para cargar el precio.</p>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function ItemActions({ item, qtyOpen, qtyDraft, setQtyDraft, onAddQty, onEdit, onRemove, setOpenMenu }) {
+  return (
+    <div className="row-actions">
+      <div className="qty-popover" data-menu={`qty:${item.id}`}>
+        <button
+          className="icon-btn"
+          type="button"
+          title="Agregar cantidad"
+          aria-label={`Ajustar cantidad de ${item.name}`}
+          onClick={() => setOpenMenu(qtyOpen ? null : `qty:${item.id}`)}
+        >
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M12 5v14M5 12h14" />
+          </svg>
+        </button>
+        {qtyOpen && (
+          <div className="qty-menu">
+            <p>Sumar o restar unidades</p>
+            <div className="row">
+              <input
+                type="number"
+                value={qtyDraft[item.id] ?? ''}
+                onChange={(event) =>
+                  setQtyDraft((prev) => ({
+                    ...prev,
+                    [item.id]: event.target.value,
+                  }))
+                }
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter') onAddQty(item.id, qtyDraft[item.id])
+                }}
+                placeholder="Ej. 10 o -3"
+              />
+              <button className="btn btn-primary" type="button" onClick={() => onAddQty(item.id, qtyDraft[item.id])}>
+                OK
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+      <button className="icon-btn" type="button" title="Editar" aria-label={`Editar ${item.name}`} onClick={onEdit}>
+        <IconEdit />
+      </button>
+      <button className="icon-btn" type="button" title="Eliminar" aria-label={`Eliminar ${item.name}`} onClick={onRemove}>
+        ×
+      </button>
+    </div>
   )
 }
 
@@ -348,6 +503,7 @@ function App() {
   const [category, setCategory] = useState('Alimentos')
   const [status, setStatus] = useState('all')
   const [modal, setModal] = useState(null)
+  const [editingId, setEditingId] = useState(null)
   const [form, setForm] = useState(emptyForm)
   const [error, setError] = useState('')
   const [toast, setToast] = useState('')
@@ -409,8 +565,7 @@ function App() {
     const units = items.reduce((sum, item) => sum + item.quantity, 0)
     const low = items.filter((item) => statusOf(item) === 'low').length
     const out = items.filter((item) => statusOf(item) === 'out').length
-    const value = items.reduce((sum, item) => sum + item.quantity * (item.price || 0), 0)
-    return { units, low, out, value }
+    return { units, low, out }
   }, [items])
 
   const categoryCounts = useMemo(() => {
@@ -453,7 +608,17 @@ function App() {
     }
     setItems((prev) =>
       prev.map((entry) =>
-        entry.id === id ? { ...entry, price: value, priceSource: store } : entry,
+        entry.id === id
+          ? {
+              ...entry,
+              price: value,
+              priceSource: store,
+              image:
+                store === 'coto'
+                  ? entry.imageCoto || entry.image
+                  : entry.imageCarrefour || entry.image,
+            }
+          : entry,
       ),
     )
     setOpenMenu(null)
@@ -467,6 +632,7 @@ function App() {
       ...prev,
       price: String(value),
       priceSource: store,
+      image: store === 'coto' ? prev.imageCoto || prev.image : prev.imageCarrefour || prev.image,
     }))
     setError('')
   }
@@ -481,6 +647,9 @@ function App() {
       priceCarrefour: '',
       urlCoto: '',
       urlCarrefour: '',
+      image: '',
+      imageCoto: '',
+      imageCarrefour: '',
     }))
     setStoreQuery(form.name)
     setStoreResults({ coto: [], carrefour: [], errors: {} })
@@ -490,6 +659,7 @@ function App() {
   }
 
   function openNewItem() {
+    setEditingId(null)
     setForm(emptyForm)
     setError('')
     setStoreQuery('')
@@ -498,6 +668,39 @@ function App() {
     setOpenMenu(null)
     setScanning(false)
     setModal('item')
+  }
+
+  function openEditItem(item) {
+    setEditingId(item.id)
+    setForm({
+      name: item.name,
+      barcode: barcodeOf(item),
+      category: item.category,
+      quantity: item.quantity,
+      minStock: item.minStock,
+      price: item.price ? String(item.price) : '',
+      priceSource: item.priceSource || '',
+      priceCoto: item.priceCoto ? String(item.priceCoto) : '',
+      priceCarrefour: item.priceCarrefour ? String(item.priceCarrefour) : '',
+      urlCoto: item.urlCoto || '',
+      urlCarrefour: item.urlCarrefour || '',
+      image: item.image || '',
+      imageCoto: item.imageCoto || '',
+      imageCarrefour: item.imageCarrefour || '',
+    })
+    setError('')
+    setStoreQuery('')
+    setStoreResults({ coto: [], carrefour: [], errors: {} })
+    setStoreError('')
+    setOpenMenu(null)
+    setScanning(false)
+    setModal('item')
+  }
+
+  function closeItemModal() {
+    setScanning(false)
+    setEditingId(null)
+    setModal(null)
   }
 
   function applyStoreProduct(product) {
@@ -516,6 +719,9 @@ function App() {
       priceCarrefour: carrefour ? String(carrefour.price) : prev.priceCarrefour,
       urlCoto: coto?.url || prev.urlCoto,
       urlCarrefour: carrefour?.url || prev.urlCarrefour,
+      image: product.image || prev.image,
+      imageCoto: coto?.image || prev.imageCoto,
+      imageCarrefour: carrefour?.image || prev.imageCarrefour,
     }))
     setStoreQuery('')
     setStoreResults({ coto: [], carrefour: [], errors: {} })
@@ -602,6 +808,14 @@ function App() {
             urlCoto: coto?.url ?? entry.urlCoto,
             urlCarrefour: carrefour?.url ?? entry.urlCarrefour,
             barcode: barcodeOf(entry) || detected,
+            imageCoto: coto?.image || entry.imageCoto,
+            imageCarrefour: carrefour?.image || entry.imageCarrefour,
+            image:
+              source === 'coto'
+                ? coto?.image || entry.imageCoto || entry.image
+                : source === 'carrefour'
+                  ? carrefour?.image || entry.imageCarrefour || entry.image
+                  : coto?.image || carrefour?.image || entry.image,
           }
         }),
       )
@@ -623,7 +837,7 @@ function App() {
     const minStock = Number(form.minStock)
     const price = Number(form.price || 0)
     if (!Number.isFinite(quantity) || quantity < 0) {
-      setError('La cantidad inicial no es válida.')
+      setError('La cantidad no es válida.')
       return
     }
     if (!form.priceSource || !Number.isFinite(price) || price <= 0) {
@@ -631,8 +845,9 @@ function App() {
       return
     }
 
-    const item = {
-      id: crypto.randomUUID(),
+    const imageCoto = form.imageCoto || ''
+    const imageCarrefour = form.imageCarrefour || ''
+    const payload = {
       name: form.name.trim(),
       barcode: form.barcode.trim(),
       category: form.category,
@@ -644,11 +859,29 @@ function App() {
       priceCarrefour: Number(form.priceCarrefour) || 0,
       urlCoto: form.urlCoto,
       urlCarrefour: form.urlCarrefour,
+      imageCoto,
+      imageCarrefour,
+      image:
+        form.priceSource === 'coto'
+          ? imageCoto || form.image
+          : form.priceSource === 'carrefour'
+            ? imageCarrefour || form.image
+            : form.image || imageCoto || imageCarrefour,
     }
 
+    if (editingId) {
+      setItems((prev) => prev.map((entry) => (entry.id === editingId ? { ...entry, ...payload } : entry)))
+      setCategory(payload.category)
+      closeItemModal()
+      setOpenMenu(null)
+      showToast(`${payload.name} actualizado`)
+      return
+    }
+
+    const item = { id: crypto.randomUUID(), ...payload }
     setItems((prev) => [item, ...prev])
     setCategory(item.category)
-    setModal(null)
+    closeItemModal()
     setOpenMenu(null)
     showToast(`${item.name} se agregó al inventario`)
   }
@@ -681,12 +914,12 @@ function App() {
             {theme === 'dark' ? (
               <>
                 <IconSun />
-                Claro
+                <span className="theme-label">Claro</span>
               </>
             ) : (
               <>
                 <IconMoon />
-                Oscuro
+                <span className="theme-label">Oscuro</span>
               </>
             )}
           </button>
@@ -711,11 +944,6 @@ function App() {
           <span>Alertas</span>
           <strong>{stats.low + stats.out}</strong>
           <small>{stats.out} sin stock</small>
-        </article>
-        <article className="kpi accent">
-          <span>Valor del stock</span>
-          <strong>{money(stats.value)}</strong>
-          <small>suma de todo el inventario</small>
         </article>
       </section>
 
@@ -783,6 +1011,7 @@ function App() {
             )}
           </div>
         ) : (
+          <>
           <div className="table-wrap">
             <table>
               <thead>
@@ -791,7 +1020,6 @@ function App() {
                   <th>Cantidad</th>
                   <th>Precio individual</th>
                   <th>Coto / Carrefour</th>
-                  <th className="hide-sm">Valor en stock</th>
                   <th>Estado</th>
                   <th></th>
                 </tr>
@@ -799,73 +1027,35 @@ function App() {
               <tbody>
                 {filtered.map((item) => {
                   const currentStatus = statusOf(item)
-                  const priceOpen = openMenu === `price:${item.id}`
-                  const qtyOpen = openMenu === `qty:${item.id}`
                   return (
                     <tr key={item.id}>
                       <td>
-                        <span className="item-name">{item.name}</span>
-                        <span className="sku">{barcodeOf(item) || 'Sin código de barras'}</span>
+                        <div className="item-cell">
+                          <ItemThumb item={item} />
+                          <div>
+                            <span className="item-name">{item.name}</span>
+                            <span className="sku">{barcodeOf(item) || 'Sin código de barras'}</span>
+                          </div>
+                        </div>
                       </td>
                       <td>
                         <div className="qty">
                           <button type="button" onClick={() => updateQty(item.id, item.quantity - 1)} aria-label="Restar">
                             −
                           </button>
-                          <output>
-                            {item.quantity}
-                          </output>
+                          <output>{item.quantity}</output>
                           <button type="button" onClick={() => updateQty(item.id, item.quantity + 1)} aria-label="Sumar">
                             +
                           </button>
                         </div>
                       </td>
                       <td>
-                        <div className="price-cell" data-menu={`price:${item.id}`}>
-                          <button
-                            className="price-btn"
-                            type="button"
-                            onClick={() => setOpenMenu(priceOpen ? null : `price:${item.id}`)}
-                          >
-                            <strong>{money(item.price)}</strong>
-                            <span>
-                              {item.priceSource === 'coto'
-                                ? 'precio Coto'
-                                : item.priceSource === 'carrefour'
-                                  ? 'precio Carrefour'
-                                  : 'sin supermercado'}
-                            </span>
-                          </button>
-                          {priceOpen && (
-                            <div className="qty-menu store-choice">
-                              <p>Precio</p>
-                              {Number(item.priceCoto) > 0 || Number(item.priceCarrefour) > 0 ? (
-                                <div className="store-picked">
-                                  {Number(item.priceCoto) > 0 && (
-                                    <button
-                                      className={`store-pill coto ${item.priceSource === 'coto' ? 'selected' : ''}`}
-                                      type="button"
-                                      onClick={() => applyItemStorePrice(item.id, 'coto')}
-                                    >
-                                      Coto {money(item.priceCoto)}
-                                    </button>
-                                  )}
-                                  {Number(item.priceCarrefour) > 0 && (
-                                    <button
-                                      className={`store-pill carrefour ${item.priceSource === 'carrefour' ? 'selected' : ''}`}
-                                      type="button"
-                                      onClick={() => applyItemStorePrice(item.id, 'carrefour')}
-                                    >
-                                      Carrefour {money(item.priceCarrefour)}
-                                    </button>
-                                  )}
-                                </div>
-                              ) : (
-                                <p>Buscá el producto en Coto o Carrefour para cargar el precio.</p>
-                              )}
-                            </div>
-                          )}
-                        </div>
+                        <PricePicker
+                          item={item}
+                          open={openMenu === `price:${item.id}`}
+                          onToggle={() => setOpenMenu(openMenu === `price:${item.id}` ? null : `price:${item.id}`)}
+                          onPick={(store) => applyItemStorePrice(item.id, store)}
+                        />
                       </td>
                       <td>
                         <SuperPrices
@@ -874,69 +1064,20 @@ function App() {
                           onRefresh={() => refreshStorePrices(item)}
                         />
                       </td>
-                      <td className="hide-sm">
-                        <span className="stock-value">
-                          {money(item.quantity * (item.price || 0))}
-                          <small>
-                            {item.quantity} × {money(item.price)}
-                          </small>
-                        </span>
-                      </td>
                       <td>
                         <span className={`badge ${currentStatus}`}>{statusLabel(currentStatus)}</span>
                       </td>
                       <td>
-                        <div className="row-actions">
-                          <div className="qty-popover" data-menu={`qty:${item.id}`}>
-                            <button
-                              className="icon-btn"
-                              type="button"
-                              title="Agregar cantidad"
-                              aria-label={`Ajustar cantidad de ${item.name}`}
-                              onClick={() => setOpenMenu(qtyOpen ? null : `qty:${item.id}`)}
-                            >
-                              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                <path d="M12 5v14M5 12h14" />
-                              </svg>
-                            </button>
-                            {qtyOpen && (
-                              <div className="qty-menu">
-                                <p>Sumar o restar unidades</p>
-                                <div className="row">
-                                  <input
-                                    type="number"
-                                    value={qtyDraft[item.id] ?? ''}
-                                    onChange={(event) =>
-                                      setQtyDraft((prev) => ({
-                                        ...prev,
-                                        [item.id]: event.target.value,
-                                      }))
-                                    }
-                                    onKeyDown={(event) => {
-                                      if (event.key === 'Enter') addQty(item.id, qtyDraft[item.id])
-                                    }}
-                                    placeholder="Ej. 10 o -3"
-                                  />
-                                  <button
-                                    className="btn btn-primary"
-                                    type="button"
-                                    onClick={() => addQty(item.id, qtyDraft[item.id])}
-                                  >
-                                    OK
-                                  </button>
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                          <button
-                            className="icon-btn"
-                            type="button"
-                            title="Eliminar"
-                            onClick={() => removeItem(item.id)}
-                          >
-                            ×
-                          </button>
-                        </div>
+                        <ItemActions
+                          item={item}
+                          qtyOpen={openMenu === `qty:${item.id}`}
+                          qtyDraft={qtyDraft}
+                          setQtyDraft={setQtyDraft}
+                          onAddQty={addQty}
+                          onEdit={() => openEditItem(item)}
+                          onRemove={() => removeItem(item.id)}
+                          setOpenMenu={setOpenMenu}
+                        />
                       </td>
                     </tr>
                   )
@@ -944,6 +1085,56 @@ function App() {
               </tbody>
             </table>
           </div>
+          <div className="item-cards">
+            {filtered.map((item) => {
+              const currentStatus = statusOf(item)
+              return (
+                <article className="item-card" key={item.id}>
+                  <div className="item-card-head">
+                    <ItemThumb item={item} />
+                    <div className="item-card-copy">
+                      <span className="item-name">{item.name}</span>
+                      <span className="sku">{barcodeOf(item) || 'Sin código de barras'}</span>
+                    </div>
+                    <span className={`badge ${currentStatus}`}>{statusLabel(currentStatus)}</span>
+                  </div>
+                  <div className="item-card-meta">
+                    <div className="qty">
+                      <button type="button" onClick={() => updateQty(item.id, item.quantity - 1)} aria-label="Restar">
+                        −
+                      </button>
+                      <output>{item.quantity}</output>
+                      <button type="button" onClick={() => updateQty(item.id, item.quantity + 1)} aria-label="Sumar">
+                        +
+                      </button>
+                    </div>
+                    <PricePicker
+                      item={item}
+                      open={openMenu === `price:${item.id}`}
+                      onToggle={() => setOpenMenu(openMenu === `price:${item.id}` ? null : `price:${item.id}`)}
+                      onPick={(store) => applyItemStorePrice(item.id, store)}
+                    />
+                  </div>
+                  <SuperPrices
+                    item={item}
+                    refreshing={refreshingId === item.id}
+                    onRefresh={() => refreshStorePrices(item)}
+                  />
+                  <ItemActions
+                    item={item}
+                    qtyOpen={openMenu === `qty:${item.id}`}
+                    qtyDraft={qtyDraft}
+                    setQtyDraft={setQtyDraft}
+                    onAddQty={addQty}
+                    onEdit={() => openEditItem(item)}
+                    onRemove={() => removeItem(item.id)}
+                    setOpenMenu={setOpenMenu}
+                  />
+                </article>
+              )
+            })}
+          </div>
+          </>
         )}
       </section>
 
@@ -955,8 +1146,12 @@ function App() {
           }}
         >
           <form className="modal wide" onSubmit={saveItem}>
-            <h2>Nuevo ítem</h2>
-            <p className="lead">Cargalo con el precio de Coto o Carrefour.</p>
+            <h2>{editingId ? 'Editar ítem' : 'Nuevo ítem'}</h2>
+            <p className="lead">
+              {editingId
+                ? 'Actualizá los datos o el precio de Coto o Carrefour.'
+                : 'Cargalo con el precio de Coto o Carrefour.'}
+            </p>
             <div className="form-grid">
               <label className="field full">
                 <span>Nombre</span>
@@ -987,25 +1182,20 @@ function App() {
                   <button
                     className={`scan-btn ${scanning ? 'open' : ''}`}
                     type="button"
-                    title={scanning ? 'Cerrar cámara' : 'Escanear código de barras'}
-                    aria-label={scanning ? 'Cerrar cámara' : 'Escanear código de barras'}
+                    title="Escanear código de barras"
+                    aria-label="Escanear código de barras"
                     onClick={() => {
                       setStoreError('')
-                      setScanning((open) => !open)
+                      setScanning(true)
                     }}
                     disabled={storeLoading}
                   >
                     <IconScan />
                   </button>
                 </div>
-                {scanning && (
-                  <BarcodeScanner
-                    onDetect={handleScannedCode}
-                    onCancel={() => setScanning(false)}
-                  />
-                )}
                 {(form.priceCoto || form.priceCarrefour) && (
                   <div className="store-selected">
+                    <ItemThumb item={form} />
                     <div className="store-picked">
                       {form.priceCoto ? (
                         <button
@@ -1087,7 +1277,7 @@ function App() {
                 />
               </div>
               <label className="field">
-                <span>Cantidad inicial</span>
+                <span>{editingId ? 'Cantidad' : 'Cantidad inicial'}</span>
                 <input
                   type="number"
                   min="0"
@@ -1130,22 +1320,19 @@ function App() {
               {error && <p className="error">{error}</p>}
             </div>
             <div className="modal-actions">
-              <button
-                className="btn btn-ghost"
-                type="button"
-                onClick={() => {
-                  setScanning(false)
-                  setModal(null)
-                }}
-              >
+              <button className="btn btn-ghost" type="button" onClick={closeItemModal}>
                 Cancelar
               </button>
               <button className="btn btn-primary" type="submit">
-                Agregar al stock
+                {editingId ? 'Guardar cambios' : 'Agregar al stock'}
               </button>
             </div>
           </form>
         </div>
+      )}
+
+      {scanning && (
+        <BarcodeScanner onDetect={handleScannedCode} onCancel={() => setScanning(false)} />
       )}
 
       {toast && <div className="toast">{toast}</div>}
