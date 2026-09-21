@@ -193,6 +193,10 @@ export function isBarcode(query) {
   return digits.length >= 8 && digits.length <= 14
 }
 
+export function isEan13(query) {
+  return barcodeDigits(String(query || '').replace(/\s/g, '')).length === 13
+}
+
 const FETCH_HEADERS = {
   Accept: 'application/json,text/plain,*/*',
 }

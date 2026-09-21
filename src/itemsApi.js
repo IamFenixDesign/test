@@ -29,6 +29,8 @@ export async function deleteRemoteItem(id) {
     const res = await fetch(`/api/items?id=${encodeURIComponent(id)}`, {
       method: 'DELETE',
       credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id }),
     })
     return res.ok
   } catch {

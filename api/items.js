@@ -24,7 +24,11 @@ export default async function handler(req, res) {
 
     if (req.method === 'DELETE') {
       const url = new URL(req.url || '/', 'http://localhost')
-      const id = String(req.query?.id || url.searchParams.get('id') || '').trim()
+      let id = String(req.query?.id || url.searchParams.get('id') || '').trim()
+      if (!id) {
+        const body = await readJson(req).catch(() => ({}))
+        id = String(body?.id || '').trim()
+      }
       if (!id) {
         send(res, 400, { error: 'Falta el id' })
         return

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import './App.css'
-import { barcodeDigits, cheaperOf, guessCategory, isBarcode, matchByEan, searchSupermarkets } from './supermarkets'
+import { barcodeDigits, guessCategory, isEan13, matchByEan, searchSupermarkets } from './supermarkets'
 import { deleteRemoteItem, fetchRemoteItems, upsertRemoteItem } from './itemsApi'
 import { changePassword, fetchMe, logout as logoutRequest, updateProfile as saveProfile } from './auth'
 import { getCameraStream } from './camera'
@@ -41,6 +41,26 @@ function loadItems(userId) {
     /* ignore corrupt storage */
   }
   return []
+}
+
+function loadLegacyItems() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY)
+    if (!raw) return []
+    const parsed = JSON.parse(raw)
+    return Array.isArray(parsed) ? parsed : []
+  } catch {
+    return []
+  }
+}
+
+function writeLocalItems(userId, list) {
+  if (!userId) return
+  try {
+    localStorage.setItem(`${STORAGE_KEY}:${userId}`, JSON.stringify(list))
+  } catch {
+    /* ignore quota / private mode */
+  }
 }
 
 function loadTheme() {
@@ -269,8 +289,13 @@ function BarcodeScanner({ stream, onDetect, onCancel }) {
     function finish(value) {
       const code = String(value || '').replace(/\s/g, '')
       if (stopped || !code) return
+      const ean = barcodeDigits(code)
+      if (!isEan13(ean)) {
+        setMessage('El código no es un código de barras válido de 13 dígitos.')
+        return
+      }
       stopped = true
-      onDetectRef.current(code)
+      onDetectRef.current(ean)
     }
 
     function lockVideoBox() {
@@ -522,48 +547,12 @@ function StoreResult({ product, onPick }) {
   )
 }
 
-function PricePicker({ item, open, onToggle, onPick }) {
+function ItemPrice({ item }) {
   return (
-    <div className="price-cell" data-menu={`price:${item.id}`}>
-      <button className="price-btn" type="button" onClick={onToggle}>
+    <div className="price-cell">
+      <div className="price-static">
         <strong>{money(item.price)}</strong>
-        <span>
-          {item.priceSource === 'coto'
-            ? 'precio en Coto'
-            : item.priceSource === 'carrefour'
-              ? 'precio en Carrefour'
-              : 'sin supermercado'}
-        </span>
-      </button>
-      {open && (
-        <div className="qty-menu store-choice">
-          <p>Precio</p>
-          {Number(item.priceCoto) > 0 || Number(item.priceCarrefour) > 0 ? (
-            <div className="store-picked">
-              {Number(item.priceCoto) > 0 && (
-        <button
-                  className={`store-pill coto ${item.priceSource === 'coto' ? 'selected' : ''}`}
-          type="button"
-                  onClick={() => onPick('coto')}
-        >
-                  Coto {money(item.priceCoto)}
-        </button>
-              )}
-              {Number(item.priceCarrefour) > 0 && (
-                <button
-                  className={`store-pill carrefour ${item.priceSource === 'carrefour' ? 'selected' : ''}`}
-                  type="button"
-                  onClick={() => onPick('carrefour')}
-                >
-                  Carrefour {money(item.priceCarrefour)}
-                </button>
-              )}
-            </div>
-          ) : (
-            <p>Buscá el producto en Coto o Carrefour para cargar el precio.</p>
-          )}
-        </div>
-      )}
+      </div>
     </div>
   )
 }
@@ -581,38 +570,6 @@ function ItemActions({ item, onEdit, onRemove }) {
   )
 }
 
-function SuperPrices({ item }) {
-  const cheaper = cheaperOf(item.priceCoto, item.priceCarrefour)
-  return (
-    <div className="store-prices">
-      {Number(item.priceCoto) > 0 ? (
-        <a
-          className={`store-pill coto ${cheaper === 'coto' ? 'cheaper' : ''}`}
-          href={item.urlCoto || 'https://www.coto.com.ar'}
-          target="_blank"
-          rel="noreferrer"
-        >
-          Coto {money(item.priceCoto)}
-        </a>
-      ) : (
-        <span className="store-pill muted">Coto —</span>
-      )}
-      {Number(item.priceCarrefour) > 0 ? (
-        <a
-          className={`store-pill carrefour ${cheaper === 'carrefour' ? 'cheaper' : ''}`}
-          href={item.urlCarrefour || 'https://www.carrefour.com.ar'}
-          target="_blank"
-          rel="noreferrer"
-        >
-          Carrefour {money(item.priceCarrefour)}
-        </a>
-      ) : (
-        <span className="store-pill muted">Carrefour —</span>
-      )}
-        </div>
-  )
-}
-
 function App() {
   const [theme, setTheme] = useState(loadTheme)
   const [user, setUser] = useState(undefined)
@@ -621,6 +578,7 @@ function App() {
   const [searchOpen, setSearchOpen] = useState(false)
   const [category, setCategory] = useState('Todo')
   const [modal, setModal] = useState(null)
+  const [pendingDelete, setPendingDelete] = useState(null)
   const [editingId, setEditingId] = useState(null)
   const [form, setForm] = useState(emptyForm)
   const [error, setError] = useState('')
@@ -628,6 +586,7 @@ function App() {
   const [openMenu, setOpenMenu] = useState(null)
   const [collapsed, setCollapsed] = useState({})
   const [passwordModal, setPasswordModal] = useState(false)
+  const [deleteBusy, setDeleteBusy] = useState(false)
   const [profileModal, setProfileModal] = useState(false)
   const [profileForm, setProfileForm] = useState({ firstName: '', lastName: '', email: '' })
   const [profileError, setProfileError] = useState('')
@@ -646,6 +605,7 @@ function App() {
   const itemsRef = useRef(items)
   const searchInputRef = useRef(null)
   const qtySyncRef = useRef({})
+  const deletedIdsRef = useRef(new Set())
   const lastAutoRefreshRef = useRef(0)
   const refreshStorePricesRef = useRef(async () => {})
   itemsRef.current = items
@@ -657,7 +617,7 @@ function App() {
 
   useEffect(() => {
     if (!hydrated || !user?.id) return
-    localStorage.setItem(`${STORAGE_KEY}:${user.id}`, JSON.stringify(items))
+    writeLocalItems(user.id, items)
   }, [items, hydrated, user])
 
   useEffect(() => {
@@ -681,16 +641,28 @@ function App() {
     async function hydrate() {
       const remote = await fetchRemoteItems()
       if (cancelled) return
-      if (remote && remote.length > 0) {
-        setItems(remote)
-      } else {
-        const local = loadItems(user.id)
-        if (local.length) {
-          if (remote) await Promise.all(local.map((item) => upsertRemoteItem(item)))
-          setItems(local)
+      const notDeleted = (item) => !deletedIdsRef.current.has(item.id)
+      if (Array.isArray(remote)) {
+        const alive = remote.filter(notDeleted)
+        if (alive.length > 0) {
+          setItems(alive)
         } else {
-          setItems([])
+          const legacy = loadLegacyItems().filter(notDeleted)
+          if (legacy.length) {
+            await Promise.all(legacy.map((item) => upsertRemoteItem(item)))
+            if (cancelled) return
+            setItems(legacy)
+            try {
+              localStorage.removeItem(STORAGE_KEY)
+            } catch {
+              /* ignore */
+            }
+          } else {
+            setItems([])
+          }
         }
+      } else {
+        setItems(loadItems(user.id).filter(notDeleted))
       }
       setHydrated(true)
     }
@@ -736,6 +708,15 @@ function App() {
     const t = setTimeout(() => setToast(''), 2200)
     return () => clearTimeout(t)
   }, [toast])
+
+  useEffect(() => {
+    if (!pendingDelete || deleteBusy) return undefined
+    function onKey(event) {
+      if (event.key === 'Escape') setPendingDelete(null)
+    }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [pendingDelete, deleteBusy])
 
   useEffect(() => {
     if (!openMenu) return undefined
@@ -818,9 +799,11 @@ function App() {
     await logoutRequest()
     setOpenMenu(null)
     setModal(null)
+    setPendingDelete(null)
     setPasswordModal(false)
     closeScanner()
     setHydrated(false)
+    deletedIdsRef.current = new Set()
     setItems([])
     setUser(null)
   }
@@ -886,7 +869,7 @@ function App() {
   }
 
   function persistItem(item) {
-    if (!item?.id) return
+    if (!item?.id || deletedIdsRef.current.has(item.id)) return
     upsertRemoteItem(item)
   }
 
@@ -898,35 +881,6 @@ function App() {
       const item = itemsRef.current.find((entry) => entry.id === id)
       if (item) persistItem(item)
     }, 450)
-  }
-
-  function applyItemStorePrice(id, store) {
-    const item = items.find((entry) => entry.id === id)
-    const value = store === 'coto' ? Number(item?.priceCoto) : Number(item?.priceCarrefour)
-    if (!item || !value) {
-      showToast('Elegí un precio de Coto o Carrefour')
-      return
-    }
-    setItems((prev) => {
-      const next = prev.map((entry) =>
-        entry.id === id
-          ? {
-              ...entry,
-              price: value,
-              priceSource: store,
-              image:
-                store === 'coto'
-                  ? entry.imageCoto || entry.image
-                  : entry.imageCarrefour || entry.image,
-            }
-          : entry,
-      )
-      const saved = next.find((entry) => entry.id === id)
-      if (saved) persistItem(saved)
-      return next
-    })
-    setOpenMenu(null)
-    showToast(`Precio de ${item.name} tomado de ${store === 'coto' ? 'Coto' : 'Carrefour'}`)
   }
 
   function applyFormStorePrice(store) {
@@ -1042,10 +996,10 @@ function App() {
 
   function handleScannedCode(raw) {
     closeScanner()
-    const ean = barcodeDigits(raw)
-    if (!isBarcode(ean)) {
-      setStoreQuery(String(raw || '').trim())
-      setStoreError('El código escaneado no parece un EAN válido.')
+    const ean = barcodeDigits(String(raw || '').replace(/\s/g, ''))
+    if (!isEan13(ean)) {
+      setStoreResults({ coto: [], carrefour: [], errors: {} })
+      setStoreError('El código escaneado no es un código de barras válido de 13 dígitos.')
       return
     }
     setStoreQuery(ean)
@@ -1083,6 +1037,7 @@ function App() {
   }
 
   async function refreshStorePrices(item, { silent = false } = {}) {
+    if (!item?.id || deletedIdsRef.current.has(item.id)) return
     const code = barcodeOf(item)
     try {
       const data = await searchSupermarkets(code || item.name)
@@ -1095,6 +1050,9 @@ function App() {
       }
       const detected = coto?.ean || carrefour?.ean || ''
       setItems((prev) => {
+        if (deletedIdsRef.current.has(item.id) || !prev.some((entry) => entry.id === item.id)) {
+          return prev
+        }
         const next = prev.map((entry) => {
           if (entry.id !== item.id) return entry
           const nextCoto = coto?.price ?? entry.priceCoto
@@ -1197,11 +1155,44 @@ function App() {
     showToast(`${item.name} se agregó al inventario`)
   }
 
-  function removeItem(id) {
-    const item = items.find((entry) => entry.id === id)
-    setItems((prev) => prev.filter((entry) => entry.id !== id))
-    deleteRemoteItem(id)
-    showToast(`${item?.name || 'Ítem'} eliminado`)
+  function askRemoveItem(item) {
+    if (!item?.id) return
+    setOpenMenu(null)
+    setPendingDelete(item)
+  }
+
+  async function confirmRemoveItem() {
+    const item = pendingDelete
+    if (!item?.id || deleteBusy) return
+    setDeleteBusy(true)
+    try {
+      await removeItem(item.id)
+      setPendingDelete(null)
+    } finally {
+      setDeleteBusy(false)
+    }
+  }
+
+  async function removeItem(id) {
+    const snapshot = itemsRef.current
+    const item = snapshot.find((entry) => entry.id === id)
+    if (!item) return
+    deletedIdsRef.current.add(id)
+    clearTimeout(qtySyncRef.current[id])
+    const next = snapshot.filter((entry) => entry.id !== id)
+    itemsRef.current = next
+    setItems(next)
+    writeLocalItems(user?.id, next)
+    const ok = await deleteRemoteItem(id)
+    if (!ok) {
+      deletedIdsRef.current.delete(id)
+      itemsRef.current = snapshot
+      setItems(snapshot)
+      writeLocalItems(user?.id, snapshot)
+      showToast('No se pudo eliminar en el servidor')
+      return
+    }
+    showToast(`${item.name || 'Ítem'} eliminado`)
   }
 
   if (user === undefined) {
@@ -1219,7 +1210,7 @@ function App() {
   }
 
   return (
-    <div className={`app ${modal || scanning || passwordModal || profileModal ? 'is-overlay' : ''}`}>
+    <div className={`app ${modal || scanning || passwordModal || profileModal || pendingDelete ? 'is-overlay' : ''}`}>
       <header className="topbar">
         <div className="brand">
           <h1>Stockea</h1>
@@ -1397,7 +1388,6 @@ function App() {
                   <th>Producto</th>
                   <th>Cantidad</th>
                   <th>Precio individual</th>
-                  <th className="store-col">Supermercado</th>
                   <th>Estado</th>
                   <th></th>
                 </tr>
@@ -1407,7 +1397,7 @@ function App() {
                 return (
                   <tbody key={group.category}>
                     <tr className="category-group-row">
-                      <td colSpan={6}>
+                      <td colSpan={5}>
                         <button
                           className={`category-group-toggle ${closed ? 'is-collapsed' : ''}`}
                           type="button"
@@ -1444,15 +1434,7 @@ function App() {
                               </div>
                             </td>
                             <td>
-                              <PricePicker
-                                item={item}
-                                open={openMenu === `price:${item.id}`}
-                                onToggle={() => setOpenMenu(openMenu === `price:${item.id}` ? null : `price:${item.id}`)}
-                                onPick={(store) => applyItemStorePrice(item.id, store)}
-                              />
-                            </td>
-                            <td className="store-col">
-                              <SuperPrices item={item} />
+                              <ItemPrice item={item} />
                             </td>
                             <td>
                               <span className={`badge ${currentStatus}`}>{statusLabel(currentStatus)}</span>
@@ -1461,7 +1443,7 @@ function App() {
                               <ItemActions
                                 item={item}
                                 onEdit={() => openEditItem(item)}
-                                onRemove={() => removeItem(item.id)}
+                                onRemove={() => askRemoveItem(item)}
                               />
                             </td>
                           </tr>
@@ -1508,18 +1490,12 @@ function App() {
                                 +
                               </button>
                             </div>
-                            <PricePicker
-                              item={item}
-                              open={openMenu === `price:${item.id}`}
-                              onToggle={() => setOpenMenu(openMenu === `price:${item.id}` ? null : `price:${item.id}`)}
-                              onPick={(store) => applyItemStorePrice(item.id, store)}
-                            />
+                            <ItemPrice item={item} />
                           </div>
-                          <SuperPrices item={item} />
                           <ItemActions
                             item={item}
                             onEdit={() => openEditItem(item)}
-                            onRemove={() => removeItem(item.id)}
+                            onRemove={() => askRemoveItem(item)}
                           />
                         </article>
                       )
@@ -1559,10 +1535,7 @@ function App() {
                 <span>Nombre</span>
                 <input
                   value={form.name}
-                  onChange={(event) => {
-                    setForm({ ...form, name: event.target.value })
-                    setStoreQuery(event.target.value)
-                  }}
+                  onChange={(event) => setForm({ ...form, name: event.target.value })}
                   placeholder="Nombre del producto"
                 />
               </label>
@@ -1755,6 +1728,32 @@ function App() {
 
       {scanning && cameraStream && (
         <BarcodeScanner stream={cameraStream} onDetect={handleScannedCode} onCancel={closeScanner} />
+      )}
+
+      {pendingDelete && (
+        <div className="overlay" role="presentation">
+          <div className="modal password-modal" role="dialog" aria-modal="true" aria-labelledby="delete-title">
+            <h2 id="delete-title">¿Eliminar este producto?</h2>
+            <p className="lead">
+              {pendingDelete.name
+                ? `Se va a quitar “${pendingDelete.name}” del inventario.`
+                : 'Se va a quitar este ítem del inventario.'}
+            </p>
+            <div className="modal-actions">
+              <button
+                className="btn btn-ghost"
+                type="button"
+                onClick={() => setPendingDelete(null)}
+                disabled={deleteBusy}
+              >
+                Cancelar
+              </button>
+              <button className="btn btn-danger" type="button" onClick={confirmRemoveItem} disabled={deleteBusy}>
+                {deleteBusy ? 'Eliminando…' : 'Eliminar'}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {passwordModal && (
