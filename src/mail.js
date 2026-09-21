@@ -1,3 +1,5 @@
+import { Resend } from 'resend'
+
 function mailFrom() {
   return process.env.MAIL_FROM || 'Stockea <onboarding@resend.dev>'
 }
@@ -6,25 +8,22 @@ function mailConfigured() {
   return Boolean(process.env.RESEND_API_KEY || process.env.SMTP_HOST)
 }
 
+function getResend() {
+  const key = process.env.RESEND_API_KEY
+  if (!key) return null
+  return new Resend(key)
+}
+
 async function sendWithResend({ to, subject, html, text }) {
-  const res = await fetch('https://api.resend.com/emails', {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      from: mailFrom(),
-      to,
-      subject,
-      html,
-      text,
-    }),
+  const resend = getResend()
+  const { error } = await resend.emails.send({
+    from: mailFrom(),
+    to,
+    subject,
+    html,
+    text,
   })
-  if (!res.ok) {
-    const data = await res.json().catch(() => ({}))
-    throw new Error(data.message || 'No se pudo enviar el correo')
-  }
+  if (error) throw new Error(error.message || 'No se pudo enviar el correo')
 }
 
 async function sendWithSmtp({ to, subject, html, text }) {
@@ -47,7 +46,7 @@ async function sendWithSmtp({ to, subject, html, text }) {
   })
 }
 
-export async function sendVerificationEmail({ to, firstName, code }) {
+export async function sendCodeEmail({ to, firstName, code, purpose = 'verify' }) {
   if (!mailConfigured()) {
     const error = new Error('Falta configurar el envío de correo')
     error.code = 'NO_MAIL'
@@ -55,14 +54,15 @@ export async function sendVerificationEmail({ to, firstName, code }) {
   }
 
   const greeting = firstName ? `Hola ${firstName}` : 'Hola'
+  const action = purpose === 'reset' ? 'restablecer tu contraseña' : 'confirmar tu cuenta'
   const subject = `${code} es tu código de Stockea`
-  const text = `${greeting},\n\nTu código para confirmar la cuenta es ${code}.\nVence en 15 minutos.\n\nSi no creaste una cuenta en Stockea, ignorá este correo.`
+  const text = `${greeting},\n\nTu código para ${action} es ${code}.\nVence en 15 minutos.\n\nSi no pediste esto, ignorá este correo.`
   const html = `
     <div style="background:#0b0d0c;color:#eef4ea;padding:32px 24px;font-family:Arial,sans-serif;border-radius:16px">
       <p style="margin:0 0 8px;color:#d4f562;font-weight:800;letter-spacing:-0.03em;font-size:20px">Stockea</p>
-      <p style="margin:0 0 18px;color:#8b9688">${greeting}, usá este código para confirmar tu cuenta:</p>
+      <p style="margin:0 0 18px;color:#8b9688">${greeting}, usá este código para ${action}:</p>
       <p style="margin:0 0 18px;font-size:32px;letter-spacing:0.28em;font-weight:800;color:#d4f562">${code}</p>
-      <p style="margin:0;color:#8b9688;font-size:13px">Vence en 15 minutos. Si no creaste una cuenta, ignorá este correo.</p>
+      <p style="margin:0;color:#8b9688;font-size:13px">Vence en 15 minutos. Si no pediste esto, ignorá este correo.</p>
     </div>
   `
 
@@ -71,4 +71,8 @@ export async function sendVerificationEmail({ to, firstName, code }) {
     return
   }
   await sendWithSmtp({ to, subject, html, text })
+}
+
+export async function sendVerificationEmail(payload) {
+  await sendCodeEmail({ ...payload, purpose: 'verify' })
 }

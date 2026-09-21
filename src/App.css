@@ -9,16 +9,19 @@
 
 .topbar {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
-  gap: 20px;
+  gap: 12px;
   margin-bottom: 28px;
+  min-width: 0;
 }
 
 .brand {
   display: flex;
   gap: 14px;
   align-items: center;
+  min-width: 0;
+  flex: 1;
 }
 
 .logo {
@@ -32,6 +35,7 @@
     radial-gradient(24px 20px at 92% 18%, rgba(126, 226, 184, 0.16), transparent 72%),
     #0b0d0c;
   border-radius: 12px;
+  flex-shrink: 0;
 }
 
 .logo svg {
@@ -39,11 +43,18 @@
   height: 20px;
 }
 
+.brand > div:last-child {
+  min-width: 0;
+}
+
 .brand h1 {
   margin: 0;
   font-family: var(--display);
   font-size: 1.55rem;
   letter-spacing: -0.04em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .brand p {
@@ -54,9 +65,10 @@
 
 .top-actions {
   display: flex;
-  gap: 10px;
-  flex-wrap: wrap;
+  gap: 8px;
+  flex-wrap: nowrap;
   align-items: center;
+  flex-shrink: 0;
 }
 
 .theme-toggle {
@@ -74,6 +86,7 @@
 
 .user-chip {
   position: relative;
+  flex-shrink: 0;
 }
 
 .user-btn {
@@ -97,14 +110,72 @@
 }
 
 .user-menu {
+  position: absolute;
+  top: calc(100% + 8px);
   right: 0;
-  left: auto;
-  width: 220px;
+  z-index: 30;
+  width: min(240px, calc(100vw - 24px));
+  padding: 10px;
+  border-radius: 18px;
+  background: var(--menu-bg);
+  border: 1px solid var(--line-strong);
+  box-shadow: var(--shadow);
 }
 
-.user-menu .btn {
+.user-menu-info {
+  display: grid;
+  gap: 2px;
+  padding: 6px 8px 10px;
+  min-width: 0;
+}
+
+.user-menu-info strong {
+  font-size: 0.92rem;
+  word-break: break-word;
+}
+
+.user-menu-info span {
+  color: var(--muted);
+  font-size: 0.78rem;
+  word-break: break-word;
+}
+
+.user-action,
+.user-logout {
   width: 100%;
+  min-height: 44px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
   justify-content: center;
+  gap: 8px;
+  font-weight: 700;
+}
+
+.user-action {
+  border: 1px solid var(--line-strong);
+  background: transparent;
+  color: var(--text);
+  margin-bottom: 8px;
+}
+
+.user-action:hover {
+  background: var(--bg-hover);
+}
+
+.user-logout {
+  border: 0;
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+
+.user-logout svg {
+  width: 16px;
+  height: 16px;
+}
+
+.user-logout:hover {
+  background: rgba(255, 122, 110, 0.2);
 }
 
 .login-screen {
@@ -244,6 +315,12 @@
 
 .login-text-btn {
   min-height: 36px;
+}
+
+.password-modal {
+  width: min(420px, 100%);
+  display: grid;
+  gap: 12px;
 }
 
 .login-switch {
@@ -1484,13 +1561,14 @@ html[data-theme="light"] .store-col-title.carrefour {
 @media (max-width: 760px) {
   .app {
     width: 100%;
-    padding: 12px 12px max(88px, calc(18px + env(safe-area-inset-bottom) + 64px));
+    padding: max(12px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) max(118px, calc(36px + env(safe-area-inset-bottom) + 82px)) max(12px, env(safe-area-inset-left));
+    overflow-x: clip;
   }
 
   .btn-new-item {
     position: fixed;
     left: 50%;
-    bottom: max(18px, env(safe-area-inset-bottom));
+    bottom: max(42px, calc(env(safe-area-inset-bottom) + 28px));
     z-index: 40;
     width: 60px;
     height: 60px;
@@ -1520,18 +1598,19 @@ html[data-theme="light"] .store-col-title.carrefour {
     font-weight: 500;
   }
 
-  .app.is-overlay .btn-new-item {
+  .app.is-overlay .btn-new-item,
+  .app.is-overlay .site-footer {
     display: none;
   }
 
   .topbar {
     align-items: center;
-    gap: 12px;
+    gap: 8px;
     margin-bottom: 14px;
   }
 
   .brand {
-    gap: 10px;
+    gap: 8px;
     min-width: 0;
   }
 
@@ -1540,18 +1619,23 @@ html[data-theme="light"] .store-col-title.carrefour {
   }
 
   .brand h1 {
-    font-size: 1.28rem;
+    font-size: 1.12rem;
+  }
+
+  .logo,
+  .user-btn,
+  .theme-toggle {
+    width: 38px;
+    height: 38px;
   }
 
   .logo {
-    width: 40px;
-    height: 40px;
+    border-radius: 11px;
   }
 
-  .user-btn,
-  .theme-toggle {
-    width: 40px;
-    height: 40px;
+  .logo svg {
+    width: 17px;
+    height: 17px;
   }
 
   .kpis {
@@ -1798,7 +1882,21 @@ html[data-theme="light"] .store-col-title.carrefour {
   }
 
   .site-footer {
-    padding: 24px 0 4px;
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: max(8px, env(safe-area-inset-bottom));
+    z-index: 39;
+    padding: 0 12px;
+    pointer-events: none;
+  }
+
+  .site-footer p {
+    font-size: 0.78rem;
+  }
+
+  .site-footer a {
+    pointer-events: auto;
   }
 }
 

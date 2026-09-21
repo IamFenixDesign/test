@@ -303,6 +303,20 @@ export async function markEmailVerified(userId) {
   return rowToUser(rows[0])
 }
 
+export async function updatePassword(userId, passwordHash) {
+  await ensureSchema()
+  const rows = await getSql()`
+    UPDATE stockly_users
+    SET password_hash = ${passwordHash},
+        email_verified = true,
+        verify_code_hash = NULL,
+        verify_code_expires = NULL
+    WHERE id = ${userId}::uuid
+    RETURNING *
+  `
+  return rowToUser(rows[0])
+}
+
 export async function listItems(userId) {
   await ensureSchema()
   const rows = await getSql()`

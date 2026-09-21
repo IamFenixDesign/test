@@ -75,5 +75,9 @@ export default defineConfig(({ mode }) => {
   return {
     base: process.env.GITHUB_PAGES === 'true' ? '/test/' : '/',
     plugins: [react(), supermarketProxy()],
+    server: {
+      port: 5173,
+      strictPort: true,
+    },
   }
 })

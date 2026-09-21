@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import './App.css'
 import { barcodeDigits, cheaperOf, guessCategory, isBarcode, matchByEan, searchSupermarkets } from './supermarkets'
 import { deleteRemoteItem, fetchRemoteItems, upsertRemoteItem } from './itemsApi'
-import { fetchMe, logout as logoutRequest } from './auth'
+import { changePassword, fetchMe, logout as logoutRequest } from './auth'
 import Login from './Login.jsx'
 
 const STORAGE_KEY = 'stockly-items-v2'
@@ -180,6 +180,16 @@ function IconMoon() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
       <path d="M20 14.5A8.5 8.5 0 1 1 9.5 4 7 7 0 0 0 20 14.5Z" />
+    </svg>
+  )
+}
+
+function IconLogout() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <path d="M10 7V5a2 2 0 0 1 2-2h7v18h-7a2 2 0 0 1-2-2v-2" />
+      <path d="M4 12h11" />
+      <path d="m8 8-4 4 4 4" />
     </svg>
   )
 }
@@ -583,6 +593,10 @@ function App() {
   const [toast, setToast] = useState('')
   const [qtyDraft, setQtyDraft] = useState({})
   const [openMenu, setOpenMenu] = useState(null)
+  const [passwordModal, setPasswordModal] = useState(false)
+  const [passwordForm, setPasswordForm] = useState({ currentPassword: '', newPassword: '', confirmPassword: '' })
+  const [passwordError, setPasswordError] = useState('')
+  const [passwordBusy, setPasswordBusy] = useState(false)
   const [storeQuery, setStoreQuery] = useState('')
   const [storeResults, setStoreResults] = useState({ coto: [], carrefour: [], errors: {} })
   const [storeLoading, setStoreLoading] = useState(false)
@@ -703,10 +717,40 @@ function App() {
     await logoutRequest()
     setOpenMenu(null)
     setModal(null)
+    setPasswordModal(false)
     setScanning(false)
     setHydrated(false)
     setItems([])
     setUser(null)
+  }
+
+  function openPasswordModal() {
+    setOpenMenu(null)
+    setPasswordError('')
+    setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' })
+    setPasswordModal(true)
+  }
+
+  async function handleChangePassword(event) {
+    event.preventDefault()
+    if (passwordForm.newPassword !== passwordForm.confirmPassword) {
+      setPasswordError('Las contraseñas no coinciden')
+      return
+    }
+    setPasswordBusy(true)
+    setPasswordError('')
+    try {
+      await changePassword({
+        currentPassword: passwordForm.currentPassword,
+        newPassword: passwordForm.newPassword,
+      })
+      setPasswordModal(false)
+      showToast('Contraseña actualizada')
+    } catch (err) {
+      setPasswordError(err?.message || 'No se pudo cambiar la contraseña')
+    } finally {
+      setPasswordBusy(false)
+    }
   }
 
   function persistItem(item) {
@@ -1061,7 +1105,7 @@ function App() {
   }
 
   return (
-    <div className={`app ${modal || scanning ? 'is-overlay' : ''}`}>
+    <div className={`app ${modal || scanning || passwordModal ? 'is-overlay' : ''}`}>
       <header className="topbar">
         <div className="brand">
           <div className="logo">
@@ -1087,9 +1131,16 @@ function App() {
               )}
             </button>
             {openMenu === 'user' && (
-              <div className="qty-menu user-menu">
-                <p>{user.name || user.email || 'Cuenta'}</p>
-                <button className="btn btn-ghost" type="button" onClick={handleLogout}>
+              <div className="user-menu">
+                <div className="user-menu-info">
+                  <strong>{user.name || 'Cuenta'}</strong>
+                  {user.email ? <span>{user.email}</span> : null}
+                </div>
+                <button className="user-action" type="button" onClick={openPasswordModal}>
+                  Cambiar contraseña
+                </button>
+                <button className="user-logout" type="button" onClick={handleLogout}>
+                  <IconLogout />
                   Cerrar sesión
                 </button>
               </div>
@@ -1527,6 +1578,56 @@ function App() {
 
       {scanning && (
         <BarcodeScanner onDetect={handleScannedCode} onCancel={() => setScanning(false)} />
+      )}
+
+      {passwordModal && (
+        <div className="overlay">
+          <form className="modal password-modal" onSubmit={handleChangePassword}>
+            <h2>Cambiar contraseña</h2>
+            <p className="lead">Ingresá tu contraseña actual y la nueva.</p>
+            <label className="field full">
+              <span>Contraseña actual</span>
+              <input
+                type="password"
+                autoComplete="current-password"
+                value={passwordForm.currentPassword}
+                onChange={(event) => setPasswordForm((prev) => ({ ...prev, currentPassword: event.target.value }))}
+                required
+              />
+            </label>
+            <label className="field full">
+              <span>Contraseña nueva</span>
+              <input
+                type="password"
+                autoComplete="new-password"
+                value={passwordForm.newPassword}
+                onChange={(event) => setPasswordForm((prev) => ({ ...prev, newPassword: event.target.value }))}
+                minLength={8}
+                required
+              />
+            </label>
+            <label className="field full">
+              <span>Repetir contraseña</span>
+              <input
+                type="password"
+                autoComplete="new-password"
+                value={passwordForm.confirmPassword}
+                onChange={(event) => setPasswordForm((prev) => ({ ...prev, confirmPassword: event.target.value }))}
+                minLength={8}
+                required
+              />
+            </label>
+            {passwordError ? <p className="error">{passwordError}</p> : null}
+            <div className="modal-actions">
+              <button className="btn btn-ghost" type="button" onClick={() => setPasswordModal(false)} disabled={passwordBusy}>
+                Cancelar
+              </button>
+              <button className="btn btn-primary" type="submit" disabled={passwordBusy}>
+                Guardar
+              </button>
+            </div>
+          </form>
+        </div>
       )}
 
       {toast && <div className="toast">{toast}</div>}

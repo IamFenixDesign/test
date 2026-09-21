@@ -47,6 +47,23 @@ export async function verifyEmail(email, code) {
   return data.user
 }
 
-export async function resendCode(email) {
-  return authRequest({ provider: 'resend', email })
+export async function resendCode(email, purpose = 'verify') {
+  return authRequest({ provider: 'resend', email, purpose })
+}
+
+export async function requestPasswordReset(email) {
+  return authRequest({ provider: 'forgot', email })
+}
+
+export async function resetPassword({ email, code, password }) {
+  const data = await authRequest({ provider: 'reset', email, code, password })
+  return data.user
+}
+
+export async function changePassword({ currentPassword, newPassword }) {
+  return authRequest({
+    provider: 'change-password',
+    currentPassword,
+    newPassword,
+  })
 }
