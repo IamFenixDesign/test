@@ -54,8 +54,8 @@
 .brand h1 {
   margin: 0;
   font-family: var(--display);
-  font-size: 1.55rem;
-  letter-spacing: -0.04em;
+  font-size: 1.7rem;
+  letter-spacing: -0.05em;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -484,19 +484,27 @@
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  border: 1px solid var(--line-strong);
-  background: var(--bg-elev);
+  border: 1px solid var(--line);
+  background: var(--bg);
   color: var(--text);
   border-radius: 999px;
-  padding: 8px 12px;
+  padding: 8px 8px 8px 14px;
   font-weight: 650;
   font-size: 0.86rem;
 }
 
 .category-tab small {
+  min-width: 24px;
+  height: 22px;
+  padding: 0 7px;
+  border-radius: 999px;
+  display: inline-grid;
+  place-items: center;
+  background: var(--bg-hover);
   color: var(--muted);
   font-variant-numeric: tabular-nums;
-  font-size: 0.78rem;
+  font-size: 0.74rem;
+  font-weight: 750;
 }
 
 .category-tab:hover {
@@ -510,8 +518,9 @@
 }
 
 .category-tab.active small {
+  background: rgba(20, 25, 11, 0.14);
   color: var(--accent-ink);
-  opacity: 0.72;
+  opacity: 1;
 }
 
 .search {
@@ -949,8 +958,39 @@ td:has(.item-cell) {
 
 .row-actions {
   display: flex;
-  gap: 8px;
+  align-items: center;
   justify-content: flex-end;
+  gap: 8px;
+}
+
+.row-actions .icon-btn {
+  width: 36px;
+  height: 36px;
+  min-width: 36px;
+  min-height: 36px;
+  flex: 0 0 36px;
+  border-radius: 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 0;
+  font-size: 0;
+}
+
+.row-actions .icon-btn svg {
+  width: 18px;
+  height: 18px;
+  display: block;
+  flex-shrink: 0;
+}
+
+.row-actions .icon-btn.danger {
+  color: var(--danger);
+}
+
+.row-actions .icon-btn.danger:hover {
+  border-color: var(--danger);
+  color: var(--danger);
 }
 
 .empty {
@@ -1175,21 +1215,6 @@ button.store-pill {
   font-weight: 600;
 }
 
-.refresh-btn {
-  width: 28px;
-  height: 28px;
-  border-radius: 8px;
-}
-
-.refresh-btn:disabled {
-  opacity: 0.5;
-}
-
-.refresh-btn svg {
-  width: 13px;
-  height: 13px;
-}
-
 .store-lookup {
   display: flex;
   gap: 8px;
@@ -1329,8 +1354,8 @@ button.store-pill {
 
 .scanner-window {
   position: relative;
-  width: min(86vw, 420px);
-  height: 150px;
+  width: min(88vw, 420px);
+  height: 176px;
   border-radius: 22px;
   box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.52);
 }
@@ -1510,6 +1535,10 @@ button.store-pill {
   overflow: auto;
 }
 
+.store-result-tabs {
+  display: none;
+}
+
 .store-col-title {
   margin: 0 0 8px;
   font-size: 0.78rem;
@@ -1657,7 +1686,7 @@ html[data-theme="light"] .store-col-title.carrefour {
   }
 
   .brand h1 {
-    font-size: 1.12rem;
+    font-size: 1.28rem;
   }
 
   .logo,
@@ -1730,6 +1759,11 @@ html[data-theme="light"] .store-col-title.carrefour {
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
     scrollbar-width: none;
+    width: calc(100% + 24px);
+    margin: 4px -12px 0;
+    padding: 2px 12px 8px;
+    gap: 8px;
+    scroll-snap-type: x proximity;
   }
 
   .category-tabs::-webkit-scrollbar {
@@ -1738,7 +1772,9 @@ html[data-theme="light"] .store-col-title.carrefour {
 
   .category-tab {
     flex-shrink: 0;
-    min-height: 40px;
+    min-height: 42px;
+    scroll-snap-align: start;
+    font-size: 0.84rem;
   }
 
   .table-wrap {
@@ -1790,7 +1826,16 @@ html[data-theme="light"] .store-col-title.carrefour {
   }
 
   .item-card .row-actions {
-    justify-content: flex-start;
+    justify-content: flex-end;
+    margin-top: 2px;
+  }
+
+  .row-actions .icon-btn {
+    width: 40px;
+    height: 40px;
+    min-width: 40px;
+    min-height: 40px;
+    flex-basis: 40px;
   }
 
   .item-thumb {
@@ -1876,8 +1921,71 @@ html[data-theme="light"] .store-col-title.carrefour {
   }
 
   .item-sheet .store-cols {
-    max-height: 28vh;
+    max-height: min(42vh, 320px);
     grid-template-columns: 1fr;
+    overflow: auto;
+  }
+
+  .item-sheet .store-col-title {
+    display: none;
+  }
+
+  .item-sheet .store-col {
+    display: none;
+  }
+
+  .item-sheet .store-col.is-open {
+    display: block;
+  }
+
+  .store-result-tabs {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin-top: 10px;
+  }
+
+  .store-result-tab {
+    min-height: 44px;
+    border-radius: 14px;
+    border: 1px solid var(--line);
+    background: var(--bg-elev);
+    color: var(--text);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    font-weight: 750;
+    font-size: 0.88rem;
+  }
+
+  .store-result-tab small {
+    min-width: 22px;
+    height: 22px;
+    padding: 0 6px;
+    border-radius: 999px;
+    display: inline-grid;
+    place-items: center;
+    background: var(--bg-hover);
+    font-size: 0.74rem;
+  }
+
+  .store-result-tab.active.coto {
+    border-color: #e20025;
+    color: #e20025;
+    background: rgba(226, 0, 37, 0.08);
+  }
+
+  .store-result-tab.active.carrefour {
+    border-color: #4d9dff;
+    color: #4d9dff;
+    background: rgba(77, 157, 255, 0.1);
+  }
+
+  html[data-theme="light"] .store-result-tab.active.carrefour {
+    border-color: #004e9f;
+    color: #004e9f;
+    background: rgba(0, 78, 159, 0.08);
   }
 
   .item-sheet .store-selected {
@@ -1923,8 +2031,8 @@ html[data-theme="light"] .store-col-title.carrefour {
   }
 
   .scanner-window {
-    width: min(88vw, 420px);
-    height: 140px;
+    width: min(90vw, 420px);
+    height: 168px;
   }
 
   .site-footer {
@@ -1946,7 +2054,7 @@ html[data-theme="light"] .store-col-title.carrefour {
   }
 
   html.is-pwa .app {
-    padding-top: calc(env(safe-area-inset-top, 47px) + 16px);
+    padding-top: calc(env(safe-area-inset-top, 47px) + 32px);
     padding-left: max(18px, env(safe-area-inset-left, 0px));
     padding-right: max(18px, env(safe-area-inset-right, 0px));
   }
@@ -1955,7 +2063,7 @@ html[data-theme="light"] .store-col-title.carrefour {
 @media (display-mode: standalone), (display-mode: fullscreen) {
   @media (max-width: 760px) {
     .app {
-      padding-top: calc(env(safe-area-inset-top, 47px) + 16px);
+      padding-top: calc(env(safe-area-inset-top, 47px) + 32px);
       padding-left: max(18px, env(safe-area-inset-left, 0px));
       padding-right: max(18px, env(safe-area-inset-right, 0px));
     }
