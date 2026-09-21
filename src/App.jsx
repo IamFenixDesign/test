@@ -344,13 +344,15 @@ function ItemThumb({ item }) {
 
 function BarcodeScanner({ stream, onDetect, onCancel }) {
   const videoRef = useRef(null)
+  const viewRef = useRef(null)
   const onDetectRef = useRef(onDetect)
   const streamRef = useRef(stream)
-  const [message, setMessage] = useState('Pasá el código de barras por el recuadro')
+  const [message, setMessage] = useState('Alejá o acercá el código: lo leemos de lejos')
   const [live, setLive] = useState(false)
   const [hasTorch, setHasTorch] = useState(false)
   const [torchOn, setTorchOn] = useState(false)
   const [detectedEan, setDetectedEan] = useState('')
+  const [hitBox, setHitBox] = useState(null)
   onDetectRef.current = onDetect
   streamRef.current = stream
 
@@ -361,23 +363,113 @@ function BarcodeScanner({ stream, onDetect, onCancel }) {
     let timer = 0
     let confirmTimer = 0
     let stopped = false
+    let lastCandidate = ''
+    let candidateHits = 0
     const canvas = document.createElement('canvas')
     const ctx = canvas.getContext('2d', { willReadFrequently: true })
+    const work = document.createElement('canvas')
+    const workCtx = work.getContext('2d', { willReadFrequently: true })
 
-    function finish(value) {
-      if (stopped) return false
-      const ean = extractEan13(value)
-      if (!ean) {
-        if (value) setMessage('Si hay 13 números los leemos como EAN. Seguí buscando…')
-        return false
+    const SCAN_PASSES = [
+      { w: 0.98, h: 0.58, scale: 1 },
+      { w: 0.78, h: 0.4, scale: 1.15 },
+      { w: 0.52, h: 0.28, scale: 1.7 },
+      { w: 0.36, h: 0.2, scale: 2.35 },
+      { w: 0.26, h: 0.15, scale: 3 },
+    ]
+
+    function mapVideoRectToView(sx, sy, sw, sh) {
+      const view = viewRef.current
+      if (!view || !video.videoWidth || !video.videoHeight) return null
+      const rect = view.getBoundingClientRect()
+      const vw = video.videoWidth
+      const vh = video.videoHeight
+      const scale = Math.max(rect.width / vw, rect.height / vh)
+      const displayW = vw * scale
+      const displayH = vh * scale
+      const offsetX = (rect.width - displayW) / 2
+      const offsetY = (rect.height - displayH) / 2
+      const pad = 8
+      return {
+        left: offsetX + sx * scale - pad,
+        top: offsetY + sy * scale - pad,
+        width: sw * scale + pad * 2,
+        height: sh * scale + pad * 2,
       }
-      stopped = true
+    }
+
+    function boxFromDetector(code, crop) {
+      const bb = code?.boundingBox
+      if (bb && Number.isFinite(bb.x) && Number.isFinite(bb.width)) {
+        return mapVideoRectToView(
+          crop.sx + bb.x / crop.scale,
+          crop.sy + bb.y / crop.scale,
+          bb.width / crop.scale,
+          bb.height / crop.scale,
+        )
+      }
+      const corners = code?.cornerPoints
+      if (Array.isArray(corners) && corners.length >= 2) {
+        const xs = corners.map((p) => p.x)
+        const ys = corners.map((p) => p.y)
+        const minX = Math.min(...xs)
+        const maxX = Math.max(...xs)
+        const minY = Math.min(...ys)
+        const maxY = Math.max(...ys)
+        return mapVideoRectToView(
+          crop.sx + minX / crop.scale,
+          crop.sy + minY / crop.scale,
+          (maxX - minX) / crop.scale,
+          (maxY - minY) / crop.scale,
+        )
+      }
+      return mapVideoRectToView(crop.sx, crop.sy, crop.cropW, crop.cropH)
+    }
+
+    function boxFromZxing(result, crop) {
+      const points = result?.getResultPoints?.() || []
+      if (points.length >= 2) {
+        const xs = points.map((p) => p.getX())
+        const ys = points.map((p) => p.getY())
+        const minX = Math.min(...xs)
+        const maxX = Math.max(...xs)
+        const minY = Math.min(...ys)
+        const maxY = Math.max(...ys)
+        const padX = Math.max(12, (maxX - minX) * 0.08)
+        const padY = Math.max(10, (maxY - minY) * 0.45)
+        return mapVideoRectToView(
+          crop.sx + (minX - padX) / crop.scale,
+          crop.sy + (minY - padY) / crop.scale,
+          (maxX - minX + padX * 2) / crop.scale,
+          (maxY - minY + padY * 2) / crop.scale,
+        )
+      }
+      return mapVideoRectToView(crop.sx, crop.sy, crop.cropW, crop.cropH)
+    }
+
+    function accept(ean, box) {
+      if (stopped || !ean) return false
+      if (box) setHitBox(box)
       setDetectedEan(ean)
+      if (ean === lastCandidate) candidateHits += 1
+      else {
+        lastCandidate = ean
+        candidateHits = 1
+      }
+      setMessage(candidateHits >= 2 ? `EAN ${ean} detectado` : `Marcado EAN ${ean}…`)
+      if (candidateHits < 2) return false
+      stopped = true
       setMessage(`EAN ${ean} detectado`)
       confirmTimer = window.setTimeout(() => {
         onDetectRef.current(ean)
-      }, 320)
+      }, 380)
       return true
+    }
+
+    function tryValue(value, box) {
+      const ean = extractEan13(value)
+      if (!ean) return false
+      return accept(ean, box)
     }
 
     function lockVideoBox() {
@@ -395,18 +487,52 @@ function BarcodeScanner({ stream, onDetect, onCancel }) {
       video.style.transform = 'translateZ(0)'
     }
 
-    function grabFrame(wide = false) {
+    function grabPass(mode) {
       const vw = video.videoWidth
       const vh = video.videoHeight
-      if (!vw || !vh || !ctx) return null
-      const cropW = Math.max(280, Math.floor(vw * (wide ? 0.96 : 0.86)))
-      const cropH = Math.max(120, Math.floor(vh * (wide ? 0.42 : 0.28)))
+      if (!vw || !vh || !ctx || !workCtx) return null
+      const cropW = Math.max(220, Math.floor(vw * mode.w))
+      const cropH = Math.max(100, Math.floor(vh * mode.h))
       const sx = Math.floor((vw - cropW) / 2)
-      const sy = Math.max(0, Math.floor((vh - cropH) / 2 - vh * 0.06))
-      canvas.width = cropW
-      canvas.height = cropH
-      ctx.drawImage(video, sx, sy, cropW, cropH, 0, 0, cropW, cropH)
-      return canvas
+      const sy = Math.max(0, Math.floor((vh - cropH) / 2 - vh * 0.04))
+      const outW = Math.min(1600, Math.floor(cropW * mode.scale))
+      const outH = Math.min(900, Math.floor(cropH * mode.scale))
+      canvas.width = outW
+      canvas.height = outH
+      ctx.imageSmoothingEnabled = mode.scale > 1.2
+      ctx.drawImage(video, sx, sy, cropW, cropH, 0, 0, outW, outH)
+
+      let contrast = canvas
+      if (mode.scale >= 1.5 && workCtx) {
+        work.width = outW
+        work.height = outH
+        workCtx.drawImage(canvas, 0, 0)
+        try {
+          const image = workCtx.getImageData(0, 0, outW, outH)
+          const data = image.data
+          for (let i = 0; i < data.length; i += 4) {
+            const gray = data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114
+            const boosted = Math.max(0, Math.min(255, (gray - 128) * 1.4 + 128))
+            data[i] = boosted
+            data[i + 1] = boosted
+            data[i + 2] = boosted
+          }
+          workCtx.putImageData(image, 0, 0)
+          contrast = work
+        } catch {
+          contrast = canvas
+        }
+      }
+
+      return {
+        canvas,
+        contrast,
+        sx,
+        sy,
+        cropW,
+        cropH,
+        scale: mode.scale,
+      }
     }
 
     function waitForFrame() {
@@ -455,7 +581,7 @@ function BarcodeScanner({ stream, onDetect, onCancel }) {
         lockVideoBox()
         if (stopped) return
         setLive(true)
-        setMessage('Pasá el código por el recuadro')
+        setMessage('Alejá el teléfono: buscamos el código a mayor distancia')
 
         const track = stream.getVideoTracks()[0]
         const caps = track?.getCapabilities?.() || {}
@@ -487,7 +613,7 @@ function BarcodeScanner({ stream, onDetect, onCancel }) {
           BarcodeFormat.CODABAR,
         ])
         hints.set(DecodeHintType.TRY_HARDER, true)
-        const reader = new BrowserMultiFormatReader(hints, { delayBetweenScanAttempts: 40 })
+        const reader = new BrowserMultiFormatReader(hints, { delayBetweenScanAttempts: 20 })
 
         let pass = 0
         const formatRank = (format) => {
@@ -502,23 +628,32 @@ function BarcodeScanner({ stream, onDetect, onCancel }) {
           if (stopped) return
           try {
             if (video.readyState >= 2) {
-              const frame = grabFrame(pass % 3 === 2)
-              if (frame) {
+              const mode = SCAN_PASSES[pass % SCAN_PASSES.length]
+              const crop = grabPass(mode)
+              if (crop) {
                 if (detector) {
-                  const codes = await detector.detect(frame)
+                  const codes = await detector.detect(crop.canvas)
                   const ranked = [...codes].sort(
                     (a, b) => formatRank(a.format) - formatRank(b.format),
                   )
                   for (const code of ranked) {
-                    if (finish(code?.rawValue)) return
+                    const box = boxFromDetector(code, crop)
+                    if (tryValue(code?.rawValue, box)) return
                   }
                 }
-                try {
-                  const result = reader.decodeFromCanvas(frame)
-                  const text = result?.getText?.()
-                  if (text && finish(text)) return
-                } catch {
-                  /* frame without a readable code */
+                const sources =
+                  crop.contrast === crop.canvas ? [crop.canvas] : [crop.contrast, crop.canvas]
+                for (const source of sources) {
+                  try {
+                    const result = reader.decodeFromCanvas(source)
+                    const text = result?.getText?.()
+                    if (text) {
+                      const box = boxFromZxing(result, crop)
+                      if (tryValue(text, box)) return
+                    }
+                  } catch {
+                    /* frame without a readable code */
+                  }
                 }
               }
             }
@@ -527,7 +662,7 @@ function BarcodeScanner({ stream, onDetect, onCancel }) {
           }
           if (stopped) return
           pass += 1
-          timer = window.setTimeout(tick, 45)
+          timer = window.setTimeout(tick, 28)
         }
         tick()
       } catch (err) {
@@ -602,8 +737,22 @@ function BarcodeScanner({ stream, onDetect, onCancel }) {
           <IconClose />
         </button>
       </div>
-      <div className="scanner-view">
+      <div className="scanner-view" ref={viewRef}>
         <video ref={videoRef} autoPlay muted playsInline disablePictureInPicture />
+        {hitBox ? (
+          <div
+            className={`scanner-hit-box ${detectedEan ? 'locked' : ''}`}
+            style={{
+              left: `${hitBox.left}px`,
+              top: `${hitBox.top}px`,
+              width: `${Math.max(hitBox.width, 48)}px`,
+              height: `${Math.max(hitBox.height, 28)}px`,
+            }}
+            aria-hidden="true"
+          >
+            {detectedEan ? <span className="scanner-ean-badge">EAN {detectedEan}</span> : null}
+          </div>
+        ) : null}
         <div className="scanner-overlay" aria-hidden="true">
           <div className={`scanner-window ${detectedEan ? 'is-ean' : ''}`}>
             <span className="scanner-corner tl" />
@@ -611,7 +760,6 @@ function BarcodeScanner({ stream, onDetect, onCancel }) {
             <span className="scanner-corner bl" />
             <span className="scanner-corner br" />
             <span className="scanner-laser" />
-            {detectedEan ? <span className="scanner-ean-badge">EAN {detectedEan}</span> : null}
           </div>
         </div>
       </div>
