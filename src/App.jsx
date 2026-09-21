@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import './App.css'
 import { barcodeDigits, extractEan13, guessCategory, matchByEan, searchSupermarkets } from './supermarkets'
+import { PAYMENT_PROMOS, quoteCartPromo } from './discounts'
 import { deleteRemoteItem, fetchRemoteItems, upsertRemoteItem } from './itemsApi'
 import { changePassword, fetchMe, logout as logoutRequest, updateProfile as saveProfile } from './auth'
 import { getCameraStream, releaseCameraStream } from './camera'
@@ -38,6 +39,8 @@ const emptyForm = {
   image: '',
   imageCoto: '',
   imageCarrefour: '',
+  discountCoto: '',
+  discountCarrefour: '',
 }
 
 function loadItems(userId) {
@@ -150,6 +153,8 @@ function mergeItemRecords(base, incoming) {
     image: incoming.image || base.image,
     imageCoto: incoming.imageCoto || base.imageCoto,
     imageCarrefour: incoming.imageCarrefour || base.imageCarrefour,
+    discountCoto: incoming.discountCoto || base.discountCoto || '',
+    discountCarrefour: incoming.discountCarrefour || base.discountCarrefour || '',
   }
 }
 
@@ -814,17 +819,30 @@ function StoreResult({ product, onPick }) {
           {product.ean ? `${product.ean} · ` : ''}
           {product.brand ? `${product.brand} · ` : ''}
           {money(product.price)}
+          {product.hasDiscount && product.discountLabel ? ` · ${product.discountLabel}` : ''}
         </em>
+        {product.hasDiscount ? (
+          <span className="store-offer-tag">Con descuento web</span>
+        ) : (
+          <span className="store-offer-tag muted">Sin descuento web</span>
+        )}
       </span>
     </button>
   )
 }
 
 function ItemPrice({ item }) {
+  const offer =
+    item.priceSource === 'coto'
+      ? item.discountCoto
+      : item.priceSource === 'carrefour'
+        ? item.discountCarrefour
+        : item.discountCoto || item.discountCarrefour
   return (
     <div className="price-cell">
       <div className="price-static">
         <strong>{money(item.price)}</strong>
+        {offer ? <span className="price-offer">{offer}</span> : null}
       </div>
     </div>
   )
@@ -878,6 +896,7 @@ function App() {
   const [cartOpen, setCartOpen] = useState(false)
   const [cartBusy, setCartBusy] = useState(false)
   const [cartRemoved, setCartRemoved] = useState(() => new Set())
+  const [cartPromoId, setCartPromoId] = useState('none')
   const [allowCustomPrice, setAllowCustomPrice] = useState(false)
   const itemsRef = useRef(items)
   const searchInputRef = useRef(null)
@@ -1157,6 +1176,15 @@ function App() {
     return { units, total, count: cartLines.length }
   }, [cartLines])
 
+  const cartQuote = useMemo(() => {
+    const promo = PAYMENT_PROMOS.find((entry) => entry.id === cartPromoId) || PAYMENT_PROMOS[0]
+    return quoteCartPromo(cartLines, promo)
+  }, [cartLines, cartPromoId])
+
+  const cartDisplayLines = useMemo(() => {
+    return [...cartQuote.eligible, ...cartQuote.excluded]
+  }, [cartQuote])
+
   useEffect(() => {
     if (!cartRemoved.size) return
     const liveIds = new Set(items.map((item) => item.id))
@@ -1361,6 +1389,8 @@ function App() {
       image: '',
       imageCoto: '',
       imageCarrefour: '',
+      discountCoto: '',
+      discountCarrefour: '',
     }))
     setStoreQuery(form.name)
     setStoreResults({ coto: [], carrefour: [], errors: {} })
@@ -1401,6 +1431,8 @@ function App() {
       image: item.image || '',
       imageCoto: item.imageCoto || '',
       imageCarrefour: item.imageCarrefour || '',
+      discountCoto: item.discountCoto || '',
+      discountCarrefour: item.discountCarrefour || '',
     })
     setError('')
     setStoreQuery('')
@@ -1438,6 +1470,16 @@ function App() {
       image: product.image || prev.image,
       imageCoto: coto?.image || prev.imageCoto,
       imageCarrefour: carrefour?.image || prev.imageCarrefour,
+      discountCoto: coto
+        ? coto.hasDiscount
+          ? coto.discountLabel || 'Oferta'
+          : ''
+        : prev.discountCoto,
+      discountCarrefour: carrefour
+        ? carrefour.hasDiscount
+          ? carrefour.discountLabel || 'Oferta'
+          : ''
+        : prev.discountCarrefour,
     }))
     setStoreQuery('')
     setStoreResults({ coto: [], carrefour: [], errors: {} })
@@ -1561,6 +1603,16 @@ function App() {
             barcode: barcodeOf(entry) || detected,
             imageCoto: coto?.image || entry.imageCoto,
             imageCarrefour: carrefour?.image || entry.imageCarrefour,
+            discountCoto: coto
+              ? coto.hasDiscount
+                ? coto.discountLabel || 'Oferta'
+                : ''
+              : entry.discountCoto || '',
+            discountCarrefour: carrefour
+              ? carrefour.hasDiscount
+                ? carrefour.discountLabel || 'Oferta'
+                : ''
+              : entry.discountCarrefour || '',
             image:
               source === 'coto'
                 ? coto?.image || entry.imageCoto || entry.image
@@ -1620,6 +1672,8 @@ function App() {
       urlCarrefour: form.urlCarrefour,
       imageCoto,
       imageCarrefour,
+      discountCoto: source === 'custom' ? '' : form.discountCoto || '',
+      discountCarrefour: source === 'custom' ? '' : form.discountCarrefour || '',
       image:
         source === 'coto'
           ? imageCoto || form.image
@@ -2123,6 +2177,7 @@ function App() {
                           onClick={() => applyFormStorePrice('coto')}
                         >
                           Coto {money(form.priceCoto)}
+                          {form.discountCoto ? ` · ${form.discountCoto}` : ''}
                         </button>
                       ) : null}
                       {form.priceCarrefour ? (
@@ -2132,6 +2187,7 @@ function App() {
                           onClick={() => applyFormStorePrice('carrefour')}
                         >
                           Carrefour {money(form.priceCarrefour)}
+                          {form.discountCarrefour ? ` · ${form.discountCarrefour}` : ''}
                         </button>
                       ) : null}
                       {form.priceSource === 'custom' && form.price ? (
@@ -2349,8 +2405,8 @@ function App() {
               <div>
                 <h2 id="cart-title">Carrito de compras</h2>
                 <p className="lead">
-                  Se agregan solos los productos en stock bajo o sin stock, solo con lo que falta para
-                  llegar al mínimo.
+                  Stock bajo o sin stock, solo lo faltante al mínimo. Podés estimar Mercado Pago o Visa
+                  Débito NFC según qué productos tengan precio en Coto o Carrefour.
                 </p>
               </div>
               <button
@@ -2366,46 +2422,117 @@ function App() {
             {cartLines.length === 0 ? (
               <p className="cart-empty">No hay productos en stock bajo o sin stock para comprar.</p>
             ) : (
-              <ul className="cart-list">
-                {cartLines.map((line) => (
-                  <li key={line.id} className="cart-line">
-                    <ItemThumb item={line.item} />
-                    <div className="cart-line-copy">
-                      <strong>{line.item.name}</strong>
-                      <span>
-                        Tenés {line.have} · mínimo {line.min} · comprar {line.need}
-                      </span>
-                      <em>
-                        {line.unitPrice
-                          ? `${money(line.unitPrice)} c/u · ${money(line.lineTotal)}`
-                          : 'Sin precio'}
-                      </em>
-                    </div>
-                    <div className="cart-line-side">
-                      <output className="cart-qty" aria-label={`Comprar ${line.need}`}>
-                        ×{line.need}
-                      </output>
-                      <button
-                        className="icon-btn danger"
-                        type="button"
-                        title="Quitar del carrito"
-                        aria-label={`Quitar ${line.item.name} del carrito`}
-                        onClick={() => removeFromCart(line.id)}
-                      >
-                        <IconTrash />
-                      </button>
-                    </div>
-                  </li>
-                ))}
-              </ul>
+              <>
+                <div className="cart-promos" role="tablist" aria-label="Descuentos de pago">
+                  {PAYMENT_PROMOS.map((promo) => (
+                    <button
+                      key={promo.id}
+                      type="button"
+                      role="tab"
+                      aria-selected={cartPromoId === promo.id}
+                      className={`cart-promo-chip ${cartPromoId === promo.id ? 'active' : ''}`}
+                      onClick={() => setCartPromoId(promo.id)}
+                    >
+                      {promo.short}
+                      {promo.percent > 0 ? <small>-{promo.percent}%</small> : null}
+                    </button>
+                  ))}
+                </div>
+                <p className="cart-promo-note">{cartQuote.promo.note}</p>
+
+                <ul className="cart-list">
+                  {cartDisplayLines.map((line) => (
+                    <li
+                      key={line.id}
+                      className={`cart-line ${line.eligible ? 'is-eligible' : 'is-excluded'}`}
+                    >
+                      <ItemThumb item={line.item} />
+                      <div className="cart-line-copy">
+                        <strong>{line.item.name}</strong>
+                        <span>
+                          Tenés {line.have} · mínimo {line.min} · comprar {line.need}
+                        </span>
+                        <em>
+                          {line.unitPrice
+                            ? `${money(line.unitPrice)} c/u · ${money(line.lineTotal)}`
+                            : 'Sin precio'}
+                          {line.eligible && line.discount > 0
+                            ? ` · ahorro ${money(line.discount)}`
+                            : ''}
+                        </em>
+                        <span className={`cart-web ${line.webDiscount ? 'yes' : 'no'}`}>
+                          {line.webDiscount
+                            ? `Web: ${line.webDiscount}`
+                            : 'Web: sin descuento en el super'}
+                        </span>
+                        <span className={`cart-elig ${line.eligible ? 'yes' : 'no'}`}>
+                          {line.eligible
+                            ? cartQuote.promo.percent > 0
+                              ? `Aplica ${cartQuote.promo.short}`
+                              : 'Sin descuento de pago'
+                            : line.reason || 'No aplica'}
+                        </span>
+                      </div>
+                      <div className="cart-line-side">
+                        <output className="cart-qty" aria-label={`Comprar ${line.need}`}>
+                          ×{line.need}
+                        </output>
+                        <button
+                          className="icon-btn danger"
+                          type="button"
+                          title="Quitar del carrito"
+                          aria-label={`Quitar ${line.item.name} del carrito`}
+                          onClick={() => removeFromCart(line.id)}
+                        >
+                          <IconTrash />
+                        </button>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+
+                {(cartQuote.eligible.length > 0 || cartQuote.excluded.length > 0) &&
+                cartQuote.promo.percent > 0 ? (
+                  <div className="cart-split">
+                    <p>
+                      <strong>{cartQuote.eligible.length}</strong> con descuento de pago ·{' '}
+                      <strong>{cartQuote.excluded.length}</strong> sin ese descuento ·{' '}
+                      <strong>{cartQuote.withWebOffer || 0}</strong> con oferta web
+                    </p>
+                  </div>
+                ) : cartLines.length > 0 ? (
+                  <div className="cart-split">
+                    <p>
+                      <strong>{cartQuote.withWebOffer || 0}</strong> con descuento en la web del
+                      super ·{' '}
+                      <strong>{Math.max(0, cartLines.length - (cartQuote.withWebOffer || 0))}</strong>{' '}
+                      sin oferta web
+                    </p>
+                  </div>
+                ) : null}
+              </>
             )}
 
             <div className="cart-summary">
-              <div>
-                <span>
-                  {cartTotals.count} producto{cartTotals.count === 1 ? '' : 's'} · {cartTotals.units} u.
-                </span>
-                <strong>{money(cartTotals.total)}</strong>
+              <div className="cart-summary-rows">
+                <div>
+                  <span>
+                    {cartTotals.count} producto{cartTotals.count === 1 ? '' : 's'} · {cartTotals.units} u.
+                  </span>
+                  <strong>{money(cartQuote.subtotal || cartTotals.total)}</strong>
+                </div>
+                {cartQuote.promo.percent > 0 ? (
+                  <>
+                    <div className="is-save">
+                      <span>Descuento {cartQuote.promo.short}</span>
+                      <strong>-{money(cartQuote.discountTotal)}</strong>
+                    </div>
+                    <div className="is-pay">
+                      <span>Total a pagar</span>
+                      <strong>{money(cartQuote.payable)}</strong>
+                    </div>
+                  </>
+                ) : null}
               </div>
               <div className="modal-actions">
                 <button className="btn btn-ghost" type="button" onClick={() => setCartOpen(false)}>
