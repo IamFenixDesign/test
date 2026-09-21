@@ -5,7 +5,7 @@ function fold(text) {
     .replace(/\p{M}/gu, '')
 }
 
-/** Heurísticas de exclusiones típicas de Visa Débito NFC en Coto. */
+/** Heurísticas de exclusiones típicas de Visa Débito NFC / rubros bancarios en Coto. */
 const VISA_NFC_COTO_EXCLUSIONS = [
   'electro',
   'heladera',
@@ -29,6 +29,23 @@ const VISA_NFC_COTO_EXCLUSIONS = [
   'alma negra',
 ]
 
+/** Exclusiones frecuentes en promos bancarias Carrefour (electro / carnicería). */
+const CARREFOUR_BANK_EXCLUSIONS = [
+  'electro',
+  'heladera',
+  'lavarropa',
+  'notebook',
+  'televisor',
+  'smart tv',
+  'celular',
+  'telefon',
+  'carnicer',
+  'vacuna',
+  'pollo',
+  'cerdo',
+  'embutido',
+]
+
 /** 0=Dom … 6=Sáb (igual que Date#getDay). */
 export const WEEKDAYS = [
   { id: 1, short: 'Lun', label: 'Lunes' },
@@ -41,8 +58,9 @@ export const WEEKDAYS = [
 ]
 
 /**
- * Promos de pago organizadas por día.
+ * Promos de pago en sucursales (presencial), organizadas por día.
  * days: null = siempre; array = días de la semana (0=Dom … 6=Sáb).
+ * channel: 'presencial' = solo locales físicos.
  */
 export const PAYMENT_PROMOS = [
   {
@@ -53,18 +71,72 @@ export const PAYMENT_PROMOS = [
     short: 'Lista',
     days: null,
     payment: '',
+    channel: 'presencial',
     note: 'Total con el precio cargado de cada producto, sin descuento de medio de pago.',
   },
+
+  // —— Coto · Lunes ——
   {
-    id: 'mp-carrefour',
-    label: 'Mercado Pago · Carrefour',
-    store: 'carrefour',
-    percent: 15,
-    short: 'MP Carrefour',
-    days: [4],
-    payment: 'Dinero en cuenta',
-    note: 'Jueves · 15% pagando con dinero en cuenta de Mercado Pago (QR). Solo productos con precio Carrefour.',
+    id: 'coto-modo-ciudad-lun',
+    label: 'MODO Ciudad · Coto',
+    store: 'coto',
+    percent: 25,
+    short: 'MODO Ciudad',
+    days: [1],
+    payment: 'MODO QR · Visa/MC/Cabal Ciudad',
+    channel: 'presencial',
+    note: 'Lunes · 25% presencial con MODO (app Ciudad/Buepp). Tope aprox. $30.000. No aplica si ya tiene descuento web.',
   },
+  {
+    id: 'coto-anses',
+    label: 'ANSES · Coto',
+    store: 'coto',
+    percent: 10,
+    short: 'ANSES Coto',
+    days: [1, 2, 3, 4],
+    payment: 'Débito/crédito + DNI ANSES',
+    channel: 'presencial',
+    note: 'Lunes a jueves · 10% presencial para beneficiarios ANSES (presentar DNI). Sin tope. No aplica si ya tiene descuento web.',
+  },
+
+  // —— Coto · Martes ——
+  {
+    id: 'coto-modo-mar',
+    label: 'MODO · Coto',
+    store: 'coto',
+    percent: 20,
+    short: 'MODO Coto',
+    days: [2],
+    payment: 'MODO QR · bancos adheridos',
+    channel: 'presencial',
+    note: 'Martes · 20% presencial con MODO (Nación, Santander, Galicia, BBVA, Macro, etc.). Sin tope en productos alcanzados. No aplica si ya tiene descuento web.',
+  },
+  {
+    id: 'coto-comunidad',
+    label: 'Comunidad Coto',
+    store: 'coto',
+    percent: 15,
+    short: 'Comunidad',
+    days: [2, 3, 4],
+    payment: 'Cualquier medio · DNI Comunidad',
+    channel: 'presencial',
+    note: 'Martes a jueves · 15% presencial para miembros Comunidad Coto (DNI en caja). No acumulable con promos bancarias. No aplica si ya tiene descuento web.',
+  },
+
+  // —— Coto · Miércoles ——
+  {
+    id: 'coto-superapp-mie',
+    label: 'SuperApp · Coto',
+    store: 'coto',
+    percent: 25,
+    short: 'SuperApp',
+    days: [3],
+    payment: 'SuperApp Coto · cualquier medio',
+    channel: 'presencial',
+    note: 'Miércoles · 25% presencial pagando con SuperApp Coto. Sin tope. No válido online. No aplica si ya tiene descuento web.',
+  },
+
+  // —— Coto · Jueves ——
   {
     id: 'visa-nfc-coto',
     label: 'Visa Débito NFC · Coto',
@@ -72,9 +144,24 @@ export const PAYMENT_PROMOS = [
     percent: 30,
     short: 'Visa NFC',
     days: [4],
-    payment: 'Visa Débito NFC',
-    note: 'Jueves · 30% con Visa Débito NFC. No aplica si ya tiene descuento web en Coto, ni electro/patios/bodegas.',
+    payment: 'Visa Débito NFC (Apple/Google Pay)',
+    channel: 'presencial',
+    excludeVisaNfc: true,
+    note: 'Jueves · 30% presencial con Visa Débito NFC. No QR. No aplica si ya tiene descuento web, ni electro/patios/bodegas.',
   },
+  {
+    id: 'coto-icbc-deb-jue',
+    label: 'ICBC Visa Débito · Coto',
+    store: 'coto',
+    percent: 20,
+    short: 'ICBC Coto',
+    days: [4],
+    payment: 'Visa Débito ICBC',
+    channel: 'presencial',
+    note: 'Jueves · 20% presencial con Visa Débito ICBC. Sin tope. No aplica si ya tiene descuento web.',
+  },
+
+  // —— Coto · Viernes / finde ——
   {
     id: 'mp-coto-vie',
     label: 'Mercado Pago · Coto',
@@ -82,8 +169,9 @@ export const PAYMENT_PROMOS = [
     percent: 25,
     short: 'MP Coto',
     days: [5],
-    payment: 'Mercado Pago',
-    note: 'Viernes · 25% con Mercado Pago. No aplica si el producto ya tiene descuento web en Coto.',
+    payment: 'Mercado Pago QR',
+    channel: 'presencial',
+    note: 'Viernes · 25% presencial con Mercado Pago (QR). Sin tope. No aplica si el producto ya tiene descuento web en Coto.',
   },
   {
     id: 'mp-coto-finde',
@@ -92,8 +180,129 @@ export const PAYMENT_PROMOS = [
     percent: 20,
     short: 'MP Coto',
     days: [6, 0],
-    payment: 'Mercado Pago',
-    note: 'Sábado/Domingo · 20% con Mercado Pago. No aplica si el producto ya tiene descuento web en Coto.',
+    payment: 'Mercado Pago QR',
+    channel: 'presencial',
+    note: 'Sábado/Domingo · 20% presencial con Mercado Pago (QR). No aplica si el producto ya tiene descuento web en Coto.',
+  },
+
+  // —— Carrefour · Lunes ——
+  {
+    id: 'mp-carrefour-lun',
+    label: 'Mercado Pago · Carrefour',
+    store: 'carrefour',
+    percent: 15,
+    short: 'MP Carrefour',
+    days: [1],
+    payment: 'Crédito vía Mercado Pago QR',
+    channel: 'presencial',
+    excludeCarrefourBank: true,
+    note: 'Lunes · 15% presencial con tarjeta de crédito vía Mercado Pago (QR). Tope aprox. $15.000/mes. No válido online.',
+  },
+  {
+    id: 'carrefour-banco-maxi-lunmar',
+    label: 'Carrefour Banco · Maxi',
+    store: 'carrefour',
+    percent: 15,
+    short: 'CF Banco Maxi',
+    days: [1, 2],
+    payment: 'Tarjeta crédito Carrefour Banco',
+    channel: 'presencial',
+    excludeCarrefourBank: true,
+    note: 'Lunes y martes · 15% presencial en Carrefour Maxi con tarjeta Carrefour Banco. Sin tope. Excluye electro y carnicería.',
+  },
+  {
+    id: 'carrefour-anses',
+    label: 'Mi Carrefour ANSES/60+',
+    store: 'carrefour',
+    percent: 10,
+    short: 'ANSES CF',
+    days: [1, 2, 3],
+    payment: 'Débito o Mi Carrefour',
+    channel: 'presencial',
+    excludeCarrefourBank: true,
+    note: 'Lunes a miércoles · 10% presencial si sos beneficiario ANSES o mayor de 60 (Mi Carrefour). Tope aprox. $35.000.',
+  },
+
+  // —— Carrefour · Martes ——
+  {
+    id: 'carrefour-banco-mar',
+    label: 'Carrefour Banco · Carrefour',
+    store: 'carrefour',
+    percent: 20,
+    short: 'CF Banco',
+    days: [2],
+    payment: 'Tarjeta crédito Carrefour Banco',
+    channel: 'presencial',
+    excludeCarrefourBank: true,
+    note: 'Martes · 20% presencial en Hiper/Market/Express con Carrefour Banco (no Maxi). Sin tope. Excluye electro y carnicería.',
+  },
+
+  // —— Carrefour · Miércoles ——
+  {
+    id: 'carrefour-cuenta-dni-mie',
+    label: 'Cuenta DNI · Carrefour',
+    store: 'carrefour',
+    percent: 10,
+    short: 'Cuenta DNI',
+    days: [3],
+    payment: 'Cuenta DNI',
+    channel: 'presencial',
+    note: 'Miércoles · 10% presencial con Cuenta DNI en formatos adheridos. Sin tope (sujeto a compra mínima según vigencia).',
+  },
+
+  // —— Carrefour · Jueves ——
+  {
+    id: 'mp-carrefour',
+    label: 'Mercado Pago · Carrefour',
+    store: 'carrefour',
+    percent: 15,
+    short: 'MP Carrefour',
+    days: [4],
+    payment: 'Dinero en cuenta',
+    channel: 'presencial',
+    note: 'Jueves · 15% presencial pagando con dinero en cuenta de Mercado Pago (QR). Solo productos con precio Carrefour.',
+  },
+
+  // —— Carrefour · Viernes ——
+  {
+    id: 'mp-carrefour-maxi-vie',
+    label: 'Mercado Pago · Carrefour Maxi',
+    store: 'carrefour',
+    percent: 10,
+    short: 'MP Maxi',
+    days: [5],
+    payment: 'Dinero en cuenta',
+    channel: 'presencial',
+    excludeCarrefourBank: true,
+    note: 'Viernes · 10% presencial en Carrefour Maxi con dinero en cuenta de Mercado Pago (QR). Sin tope. Excluye carnicería/electro/bazar.',
+  },
+
+  // —— Carrefour · Finde ——
+  {
+    id: 'carrefour-cuenta-digital-finde',
+    label: 'Cuenta Digital Carrefour Banco',
+    store: 'carrefour',
+    percent: 10,
+    short: 'CF Digital',
+    days: [6, 0],
+    payment: 'Cuenta Digital Carrefour Banco',
+    channel: 'presencial',
+    excludeCarrefourBank: true,
+    note: 'Sábado/Domingo · 10% presencial con Cuenta Digital Carrefour Banco (Hiper/Market/Express). Sin tope. Excluye carnicería/electro.',
+  },
+
+  // —— Carrefour · Lun a Vie (menor %) ——
+  {
+    id: 'carrefour-nacion-modo',
+    label: 'Banco Nación MODO · Carrefour',
+    store: 'carrefour',
+    percent: 5,
+    short: 'Nación MODO',
+    days: [1, 2, 3, 4, 5],
+    payment: 'MODO · débito/crédito Nación',
+    channel: 'presencial',
+    excludeCarrefourBank: true,
+    note: 'Lunes a viernes · 5% presencial con MODO Banco Nación (jubilados/pensionados según vigencia). Tope semanal aprox. $5.000.',
   },
 ]
 
@@ -158,6 +367,11 @@ export function isVisaNfcCotoExcluded(item) {
   return VISA_NFC_COTO_EXCLUSIONS.some((key) => hay.includes(key))
 }
 
+export function isCarrefourBankExcluded(item) {
+  const hay = fold(`${item?.name || ''} ${item?.category || ''} ${item?.brand || ''}`)
+  return CARREFOUR_BANK_EXCLUSIONS.some((key) => hay.includes(key))
+}
+
 function exclusionReason(promo, item, unitPrice) {
   if (!promo.store) return ''
   if (!unitPrice) {
@@ -167,8 +381,11 @@ function exclusionReason(promo, item, unitPrice) {
   if (promo.store === 'coto' && hasWebDiscount(item, 'coto')) {
     return 'Ya tiene descuento web en Coto'
   }
-  if (promo.id === 'visa-nfc-coto' && isVisaNfcCotoExcluded(item)) {
+  if ((promo.id === 'visa-nfc-coto' || promo.excludeVisaNfc) && isVisaNfcCotoExcluded(item)) {
     return 'Excluido de Visa NFC'
+  }
+  if (promo.excludeCarrefourBank && isCarrefourBankExcluded(item)) {
+    return 'Excluido de promo bancaria'
   }
   if (item?.priceSource === 'custom' && !storeUnitPrice(item, promo.store)) {
     return 'Precio personalizado'
