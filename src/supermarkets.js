@@ -96,6 +96,72 @@ function cotoPrice(attrs) {
   return 0
 }
 
+function parseMaybeArray(value) {
+  const raw = first(value)
+  if (Array.isArray(raw)) return raw
+  if (raw && typeof raw === 'object') return [raw]
+  if (typeof raw === 'string') {
+    const text = raw.trim()
+    if (text.startsWith('[') || text.startsWith('{')) {
+      try {
+        const parsed = JSON.parse(text)
+        if (Array.isArray(parsed)) return parsed
+        if (parsed && typeof parsed === 'object') return [parsed]
+      } catch {
+        return []
+      }
+    }
+  }
+  return []
+}
+
+/** Oferta/descuento publicado en Coto Digital. */
+export function cotoOfferInfo(attrs = {}) {
+  const deals = parseMaybeArray(attrs['product.dtoDescuentos'])
+  const deal = deals[0] || null
+  const tipos = Array.isArray(attrs['product.tipoOferta'])
+    ? attrs['product.tipoOferta'].map((value) => String(value || '').trim()).filter(Boolean)
+    : []
+  const tipo = tipos.find((value) => !/^todas las ofertas$/i.test(value)) || ''
+
+  let label = ''
+  let percent = 0
+  if (deal?.textoDescuento) {
+    label = String(deal.textoDescuento).trim()
+    const match = label.match(/(\d+)\s*%/)
+    if (match) percent = Number(match[1])
+  } else if (tipo) {
+    label = tipo
+  }
+
+  const dealPrice = toPrice(deal?.precioDesc)
+  return {
+    hasDiscount: Boolean(label),
+    discountLabel: label,
+    discountPercent: percent,
+    dealPrice,
+  }
+}
+
+/** Oferta/descuento de VTEX Carrefour (Price vs ListPrice). */
+export function carrefourOfferInfo(offer = {}) {
+  const price = toPrice(offer?.Price)
+  const listPrice =
+    toPrice(offer?.ListPrice) || toPrice(offer?.PriceWithoutDiscount) || price
+  if (!(price > 0)) {
+    return { price: 0, listPrice: 0, hasDiscount: false, discountLabel: '', discountPercent: 0 }
+  }
+  const hasDiscount = listPrice > price * 1.005
+  const discountPercent = hasDiscount ? Math.max(1, Math.round((1 - price / listPrice) * 100)) : 0
+  return {
+    price,
+    listPrice: hasDiscount ? listPrice : price,
+    hasDiscount,
+    discountLabel: hasDiscount ? `${discountPercent}% OFF` : '',
+    discountPercent,
+  }
+}
+
 function findCotoResultsList(node) {
   if (!node || typeof node !== 'object') return null
   if (node['@type'] === 'Category_ResultsList') return node
@@ -140,6 +206,7 @@ export function parseCoto(data) {
       const key = sku || ean
       if (!key || seen.has(key)) return null
       seen.add(key)
+      const offer = cotoOfferInfo(attrs)
       return {
         store: 'coto',
         name: String(first(attrs['product.displayName']) || first(attrs['sku.displayName']) || '').replace(/\s+/g, ' ').trim(),
@@ -149,6 +216,9 @@ export function parseCoto(data) {
           ? attrs['allAncestors.displayName']
           : [first(attrs['product.category'])].filter(Boolean),
         price: cotoPrice(attrs),
+        hasDiscount: offer.hasDiscount,
+        discountLabel: offer.discountLabel,
+        discountPercent: offer.discountPercent,
         ean,
         image: String(first(attrs['product.mediumImage.url']) || ''),
         url: cotoUrl(record, sku),
@@ -166,6 +236,7 @@ export function parseCarrefour(products) {
       const seller =
         item?.sellers?.find((entry) => entry.sellerDefault) || item?.sellers?.[0]
       const offer = seller?.commertialOffer
+      const pricing = carrefourOfferInfo(offer || {})
       const ean = String(item?.ean || product.EAN?.[0] || '')
       const link = String(product.link || '')
       return {
@@ -174,7 +245,11 @@ export function parseCarrefour(products) {
         brand: String(product.brand || ''),
         department: String(product.categories?.[0] || ''),
         categories: Array.isArray(product.categories) ? product.categories : [],
-        price: toPrice(offer?.ListPrice || offer?.Price),
+        price: pricing.price,
+        listPrice: pricing.listPrice,
+        hasDiscount: pricing.hasDiscount,
+        discountLabel: pricing.discountLabel,
+        discountPercent: pricing.discountPercent,
         ean,
         image: String(item?.images?.[0]?.imageUrl || ''),
         url: link.startsWith('http') ? link : `https://www.carrefour.com.ar${link}`,
