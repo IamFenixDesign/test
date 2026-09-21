@@ -1638,6 +1638,49 @@ button.store-pill {
   display: none;
 }
 
+.store-result-tab {
+  min-height: 44px;
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  background: var(--bg-elev);
+  color: var(--text);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-weight: 750;
+  font-size: 0.88rem;
+}
+
+.store-result-tab small {
+  min-width: 22px;
+  height: 22px;
+  padding: 0 6px;
+  border-radius: 999px;
+  display: inline-grid;
+  place-items: center;
+  background: var(--bg-hover);
+  font-size: 0.74rem;
+}
+
+.store-result-tab.active.coto {
+  border-color: #e20025;
+  color: #e20025;
+  background: rgba(226, 0, 37, 0.08);
+}
+
+.store-result-tab.active.carrefour {
+  border-color: #4d9dff;
+  color: #4d9dff;
+  background: rgba(77, 157, 255, 0.1);
+}
+
+html[data-theme="light"] .store-result-tab.active.carrefour {
+  border-color: #004e9f;
+  color: #004e9f;
+  background: rgba(0, 78, 159, 0.08);
+}
+
 .store-col-title {
   margin: 0 0 8px;
   font-size: 0.78rem;
@@ -2078,6 +2121,11 @@ html[data-theme="light"] .store-col-title.carrefour {
     gap: 12px;
   }
 
+  .password-modal input {
+    min-height: 48px;
+    font-size: 16px;
+  }
+
   .sheet-handle {
     display: block;
     width: 42px;
@@ -2161,11 +2209,13 @@ html[data-theme="light"] .store-col-title.carrefour {
     margin: 8px 0 0;
   }
 
-  .item-sheet .store-results {
-    display: block;
+  .item-sheet .store-results,
+  .item-sheet .form-store-results {
+    display: block !important;
   }
 
   .item-sheet .store-cols {
+    display: grid !important;
     max-height: min(42vh, 320px);
     grid-template-columns: 1fr;
     overflow: auto;
@@ -2179,43 +2229,41 @@ html[data-theme="light"] .store-col-title.carrefour {
     display: none;
   }
 
-  .item-sheet .store-col.is-open {
+  .item-sheet .store-col.is-open,
+  .item-sheet .form-store-results .store-col.is-open {
     display: block !important;
   }
 
-  .delete-modal {
-    width: 100%;
-    max-height: none;
-    padding: 0 20px calc(18px + env(safe-area-inset-bottom, 0px));
-    overflow: visible;
-  }
-
+  .password-modal .sheet-handle,
   .delete-modal .sheet-handle {
-    display: block;
-    margin: 10px auto 18px;
+    display: none;
   }
 
+  .password-modal h2,
   .delete-modal h2 {
-    margin: 0 0 8px;
-    font-size: 1.26rem;
+    margin: 0;
+    font-size: 1.22rem;
     text-align: center;
     line-height: 1.25;
   }
 
+  .password-modal .lead,
   .delete-modal .lead {
     display: block;
-    margin: 0 0 20px;
+    margin: 0 0 4px;
     text-align: center;
     font-size: 0.94rem;
   }
 
+  .password-modal .modal-actions,
   .delete-modal .modal-actions {
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 10px;
-    margin: 0;
+    margin: 6px 0 0;
   }
 
+  .password-modal .modal-actions .btn,
   .delete-modal .modal-actions .btn {
     width: 100%;
     min-height: 48px;
@@ -2375,7 +2423,26 @@ html[data-theme="light"] .store-col-title.carrefour {
     display: none !important;
   }
 
-  .item-sheet .store-col.is-open {
+  .item-sheet .store-results,
+  .item-sheet .form-store-results {
+    display: block !important;
+  }
+
+  .item-sheet .store-result-tabs {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .item-sheet .store-cols {
+    display: grid !important;
+  }
+
+  .item-sheet .store-col {
+    display: none;
+  }
+
+  .item-sheet .store-col.is-open,
+  .item-sheet .form-store-results .store-col.is-open {
     display: block !important;
   }
 }
@@ -2396,17 +2463,51 @@ html.is-pwa .kpis {
   grid-template-columns: 1fr;
 }
 
+html.is-pwa .overlay-dialog {
+  padding:
+    max(16px, env(safe-area-inset-top, 47px))
+    max(16px, env(safe-area-inset-right, 0px))
+    max(16px, env(safe-area-inset-bottom, 0px))
+    max(16px, env(safe-area-inset-left, 0px));
+}
+
+html.is-pwa .password-modal,
+html.is-pwa .delete-modal {
+  max-height: min(78dvh, calc(100dvh - env(safe-area-inset-top, 47px) - env(safe-area-inset-bottom, 0px) - 32px));
+}
+
 html.is-pwa .item-card .store-prices,
 html.is-pwa .item-card .store-col {
   display: none !important;
 }
 
-html.is-pwa .item-sheet .store-col.is-open {
+html.is-pwa .item-sheet .store-results,
+html.is-pwa .item-sheet .form-store-results {
   display: block !important;
 }
 
-html.is-pwa .delete-modal {
-  padding-bottom: calc(20px + env(safe-area-inset-bottom, 0px));
+html.is-pwa .item-sheet .store-result-tabs {
+  display: grid !important;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+html.is-pwa .item-sheet .store-cols {
+  display: grid !important;
+}
+
+html.is-pwa .item-sheet .store-col-title {
+  display: none;
+}
+
+html.is-pwa .item-sheet .store-col {
+  display: none;
+}
+
+html.is-pwa .item-sheet .store-col.is-open,
+html.is-pwa .item-sheet .form-store-results .store-col.is-open {
+  display: block !important;
 }
 
 
