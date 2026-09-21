@@ -1088,6 +1088,14 @@ html[data-theme="light"] .cart-web.yes {
   letter-spacing: -0.03em;
 }
 
+.price-offer {
+  display: block;
+  margin-top: 2px;
+  color: var(--ok);
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
 .stock-value {
   display: flex;
   flex-direction: column;
