@@ -101,11 +101,46 @@ async function backCameraDeviceId() {
   return videos[0].deviceId
 }
 
+const HIGH_RES = {
+  width: { ideal: 1920 },
+  height: { ideal: 1080 },
+  frameRate: { ideal: 30 },
+}
+
 const REAR_CONSTRAINTS = [
-  { audio: false, video: { facingMode: { exact: 'environment' } } },
-  { audio: false, video: { facingMode: { ideal: 'environment' } } },
-  { audio: false, video: { facingMode: 'environment' } },
+  { audio: false, video: { facingMode: { exact: 'environment' }, ...HIGH_RES } },
+  { audio: false, video: { facingMode: { ideal: 'environment' }, ...HIGH_RES } },
+  { audio: false, video: { facingMode: 'environment', ...HIGH_RES } },
 ]
+
+async function enhanceForBarcode(stream) {
+  const track = stream?.getVideoTracks?.()[0]
+  if (!track?.applyConstraints) return stream
+
+  const caps = track.getCapabilities?.() || {}
+  try {
+    const widthIdeal = Math.min(1920, caps.width?.max || 1920)
+    const heightIdeal = Math.min(1080, caps.height?.max || 1080)
+    const advanced = []
+    if (caps.focusMode?.includes?.('continuous')) {
+      advanced.push({ focusMode: 'continuous' })
+    }
+    await track.applyConstraints({
+      width: { ideal: widthIdeal },
+      height: { ideal: heightIdeal },
+      ...(advanced.length ? { advanced } : {}),
+    })
+  } catch {
+    try {
+      if (caps.focusMode?.includes?.('continuous')) {
+        await track.applyConstraints({ advanced: [{ focusMode: 'continuous' }] })
+      }
+    } catch {
+      /* device may reject advanced focus/resolution */
+    }
+  }
+  return stream
+}
 
 async function openWithConstraints(constraints) {
   const stream = await navigator.mediaDevices.getUserMedia(constraints)
@@ -202,19 +237,20 @@ export async function getCameraStream() {
       ? await openRearCamera()
       : await navigator.mediaDevices.getUserMedia({
           audio: false,
-          video: { facingMode: 'environment' },
+          video: { facingMode: 'environment', ...HIGH_RES },
         })
 
-  heldStream = stream
-  stream.getVideoTracks()[0]?.addEventListener(
+  heldStream = await enhanceForBarcode(stream)
+  const active = heldStream
+  active.getVideoTracks()[0]?.addEventListener(
     'ended',
     () => {
-      if (heldStream === stream) heldStream = null
+      if (heldStream === active) heldStream = null
     },
     { once: true },
   )
-  saveDevice(stream)
-  return stream
+  saveDevice(active)
+  return active
 }
 
 export function releaseCameraStream(stream) {
