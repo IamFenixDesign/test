@@ -47,7 +47,7 @@ function loadItems(userId) {
       const raw = localStorage.getItem(key)
       if (!raw) continue
       const parsed = JSON.parse(raw)
-      if (Array.isArray(parsed)) return parsed
+      if (Array.isArray(parsed)) return parsed.map(normalizeItemCounts)
     }
   } catch {
     /* ignore corrupt storage */
@@ -60,9 +60,18 @@ function loadLegacyItems() {
     const raw = localStorage.getItem(STORAGE_KEY)
     if (!raw) return []
     const parsed = JSON.parse(raw)
-    return Array.isArray(parsed) ? parsed : []
+    return Array.isArray(parsed) ? parsed.map(normalizeItemCounts) : []
   } catch {
     return []
+  }
+}
+
+function normalizeItemCounts(item) {
+  if (!item || typeof item !== 'object') return item
+  return {
+    ...item,
+    quantity: toCount(item.quantity),
+    minStock: toCount(item.minStock),
   }
 }
 
@@ -169,9 +178,17 @@ function productImage(item) {
   return item.image || item.imageCoto || item.imageCarrefour || ''
 }
 
+function toCount(value) {
+  const n = Number(value)
+  return Number.isFinite(n) ? n : 0
+}
+
 function statusOf(item) {
-  if (item.quantity <= 0) return 'out'
-  if (item.quantity <= item.minStock) return 'low'
+  const quantity = toCount(item?.quantity)
+  const minStock = toCount(item?.minStock)
+  if (quantity <= 0) return 'out'
+  // Cantidad igual al mínimo = stock bajo (no "en stock")
+  if (quantity <= minStock) return 'low'
   return 'ok'
 }
 
