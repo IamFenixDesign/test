@@ -284,18 +284,9 @@ export async function fetchCarrefourProducts(query) {
   return firstMatch(urls, parseCarrefour)
 }
 
-export async function searchSupermarkets(query) {
-  const q = isBarcode(query) ? barcodeDigits(query) : query.trim()
+export async function searchSupermarketsServer(query) {
+  const q = isBarcode(query) ? barcodeDigits(query) : String(query || '').trim()
   if (!q) return { coto: [], carrefour: [], errors: {} }
-
-  if (import.meta.env?.DEV) {
-    try {
-      const res = await fetch(`/api/supers?q=${encodeURIComponent(q)}`)
-      if (res.ok) return res.json()
-    } catch {
-      /* preview or GitHub Pages without local proxy */
-    }
-  }
 
   const [cotoResult, carrefourResult] = await Promise.allSettled([
     fetchCotoProducts(q),
@@ -309,6 +300,20 @@ export async function searchSupermarkets(query) {
       carrefour: carrefourResult.status === 'rejected' ? 'Carrefour no respondió' : null,
     },
   }
+}
+
+export async function searchSupermarkets(query) {
+  const q = isBarcode(query) ? barcodeDigits(query) : query.trim()
+  if (!q) return { coto: [], carrefour: [], errors: {} }
+
+  try {
+    const res = await fetch(`/api/supers?q=${encodeURIComponent(q)}`)
+    if (res.ok) return res.json()
+  } catch {
+    /* GitHub Pages has no API; fall back to the browser */
+  }
+
+  return searchSupermarketsServer(q)
 }
 
 export function matchByEan(product, otherList) {
