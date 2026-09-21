@@ -187,8 +187,8 @@ function statusOf(item) {
   const quantity = toCount(item?.quantity)
   const minStock = toCount(item?.minStock)
   if (quantity <= 0) return 'out'
-  // Cantidad igual al mínimo = stock bajo (no "en stock")
-  if (quantity <= minStock) return 'low'
+  // Igual al mínimo = en stock; solo por debajo = stock bajo
+  if (quantity < minStock) return 'low'
   return 'ok'
 }
 
