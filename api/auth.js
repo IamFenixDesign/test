@@ -1,14 +1,16 @@
-import { destroySession, readSession, startSession } from '../src/session.js'
+import { destroySession, readSession, requireUser, startSession } from '../src/session.js'
 import { readJson, send } from '../src/http.js'
 import {
   getUserRowByEmail,
+  getUserRowById,
   markEmailVerified,
   registerEmailUser,
   rowToUser,
   saveEmailCode,
+  updatePassword,
 } from '../src/db.js'
 import { createEmailCode, hashEmailCode, hashPassword, verifyEmailCode, verifyPassword } from '../src/passwords.js'
-import { sendVerificationEmail } from '../src/mail.js'
+import { sendCodeEmail, sendVerificationEmail } from '../src/mail.js'
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 const CODE_TTL_MS = 15 * 60 * 1000
@@ -34,10 +36,10 @@ function expiresAt() {
   return new Date(Date.now() + CODE_TTL_MS).toISOString()
 }
 
-async function issueEmailCode(user) {
+async function issueEmailCode(user, purpose = 'verify') {
   const code = createEmailCode()
   await saveEmailCode(user.id, hashEmailCode(code, user.email), expiresAt())
-  await sendVerificationEmail({ to: user.email, firstName: user.firstName, code })
+  await sendCodeEmail({ to: user.email, firstName: user.firstName, code, purpose })
 }
 
 async function handleRegister(body) {
@@ -99,15 +101,59 @@ async function handleVerify(body) {
 
 async function handleResend(body) {
   const email = normalizeEmail(body.email || body.correo)
+  const purpose = body.purpose === 'reset' ? 'reset' : 'verify'
   const row = await getUserRowByEmail(email)
   if (!row || row.provider !== 'email') {
     throw Object.assign(new Error('No encontramos esa cuenta'), { status: 400 })
   }
-  if (row.email_verified) {
+  if (purpose === 'verify' && row.email_verified) {
     throw Object.assign(new Error('Esa cuenta ya está confirmada'), { status: 400 })
   }
-  await issueEmailCode(rowToUser(row))
+  await issueEmailCode(rowToUser(row), purpose)
   return { pending: true, email: row.email }
+}
+
+async function handleForgot(body) {
+  const email = normalizeEmail(body.email || body.correo)
+  if (!EMAIL_RE.test(email)) throw Object.assign(new Error('El correo no es válido'), { status: 400 })
+  const row = await getUserRowByEmail(email)
+  if (row?.provider === 'email') await issueEmailCode(rowToUser(row), 'reset')
+  return { pending: true, email }
+}
+
+async function handleReset(body) {
+  const email = normalizeEmail(body.email || body.correo)
+  const code = String(body.code || body.codigo || '').replace(/\s/g, '')
+  const password = String(body.password || body.contrasena || body.newPassword || '')
+  if (!EMAIL_RE.test(email)) throw Object.assign(new Error('El correo no es válido'), { status: 400 })
+  if (password.length < 8) throw Object.assign(new Error('La contraseña debe tener al menos 8 caracteres'), { status: 400 })
+  const row = await getUserRowByEmail(email)
+  if (!row || row.provider !== 'email') {
+    throw Object.assign(new Error('No encontramos esa cuenta'), { status: 400 })
+  }
+  if (!row.verify_code_expires || new Date(row.verify_code_expires).getTime() < Date.now()) {
+    throw Object.assign(new Error('El código venció. Pedí uno nuevo'), { status: 400 })
+  }
+  if (!verifyEmailCode(code, email, row.verify_code_hash)) {
+    throw Object.assign(new Error('El código no es válido'), { status: 400 })
+  }
+  return { user: await updatePassword(row.id, await hashPassword(password)) }
+}
+
+async function handleChangePassword(req, res, body) {
+  const user = await requireUser(req, res)
+  if (!user) return null
+  const currentPassword = String(body.currentPassword || body.password || '')
+  const newPassword = String(body.newPassword || body.contrasena || '')
+  if (newPassword.length < 8) throw Object.assign(new Error('La contraseña debe tener al menos 8 caracteres'), { status: 400 })
+  const row = await getUserRowById(user.id)
+  if (!row || row.provider !== 'email') {
+    throw Object.assign(new Error('No se puede cambiar la contraseña de esta cuenta'), { status: 400 })
+  }
+  if (!(await verifyPassword(currentPassword, row.password_hash))) {
+    throw Object.assign(new Error('La contraseña actual no es correcta'), { status: 401 })
+  }
+  return { user: await updatePassword(row.id, await hashPassword(newPassword)) }
 }
 
 export default async function handler(req, res) {
@@ -154,6 +200,25 @@ export default async function handler(req, res) {
 
     if (body.provider === 'resend') {
       send(res, 200, await handleResend(body))
+      return
+    }
+
+    if (body.provider === 'forgot') {
+      send(res, 200, await handleForgot(body))
+      return
+    }
+
+    if (body.provider === 'reset') {
+      const result = await handleReset(body)
+      const user = await startSession(res, result.user)
+      send(res, 200, { user: publicUser(user) })
+      return
+    }
+
+    if (body.provider === 'change-password') {
+      const result = await handleChangePassword(req, res, body)
+      if (!result) return
+      send(res, 200, { user: publicUser(result.user), ok: true })
       return
     }
 

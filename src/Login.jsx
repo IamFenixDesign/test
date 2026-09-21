@@ -1,5 +1,12 @@
 import { useState } from 'react'
-import { loginWithEmail, registerWithEmail, resendCode, verifyEmail } from './auth'
+import {
+  loginWithEmail,
+  registerWithEmail,
+  requestPasswordReset,
+  resendCode,
+  resetPassword,
+  verifyEmail,
+} from './auth'
 
 function IconMark() {
   return (
@@ -33,6 +40,7 @@ const emptyForm = {
   lastName: '',
   email: '',
   password: '',
+  confirmPassword: '',
 }
 
 export default function Login({ theme, setTheme, onLoggedIn }) {
@@ -111,7 +119,8 @@ export default function Login({ theme, setTheme, onLoggedIn }) {
     setBusy(true)
     setError('')
     try {
-      await resendCode(pendingEmail || form.email)
+      if (mode === 'reset') await requestPasswordReset(pendingEmail || form.email)
+      else await resendCode(pendingEmail || form.email)
       setInfo('Te mandamos un código nuevo')
     } catch (err) {
       setError(err?.message || 'No se pudo reenviar el código')
@@ -120,7 +129,56 @@ export default function Login({ theme, setTheme, onLoggedIn }) {
     }
   }
 
-  const title = mode === 'register' ? 'Creá tu cuenta' : mode === 'verify' ? 'Confirmá tu correo' : 'Entrá para guardar tu inventario'
+  async function handleForgot(event) {
+    event.preventDefault()
+    setBusy(true)
+    setError('')
+    try {
+      const data = await requestPasswordReset(form.email)
+      setPendingEmail(data.email || form.email)
+      setForm((prev) => ({ ...prev, password: '', confirmPassword: '' }))
+      setInfo('Te mandamos un código al correo')
+      setMode('reset')
+      setCode('')
+    } catch (err) {
+      setError(err?.message || 'No se pudo enviar el código')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function handleReset(event) {
+    event.preventDefault()
+    if (form.password !== form.confirmPassword) {
+      setError('Las contraseñas no coinciden')
+      return
+    }
+    setBusy(true)
+    setError('')
+    try {
+      const user = await resetPassword({
+        email: pendingEmail || form.email,
+        code,
+        password: form.password,
+      })
+      onLoggedIn(user)
+    } catch (err) {
+      setError(err?.message || 'No se pudo restablecer la contraseña')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const title =
+    mode === 'register'
+      ? 'Creá tu cuenta'
+      : mode === 'verify'
+        ? 'Confirmá tu correo'
+        : mode === 'forgot'
+          ? 'Recuperá tu contraseña'
+          : mode === 'reset'
+            ? 'Nueva contraseña'
+            : 'Entrá para guardar tu inventario'
 
   return (
     <div className="login-screen">
@@ -167,6 +225,9 @@ export default function Login({ theme, setTheme, onLoggedIn }) {
             </label>
             <button className="login-btn login-submit" type="submit" disabled={busy}>
               Entrar
+            </button>
+            <button className="login-text-btn" type="button" onClick={() => go('forgot')}>
+              ¿Olvidaste tu contraseña?
             </button>
           </form>
         )}
@@ -249,6 +310,73 @@ export default function Login({ theme, setTheme, onLoggedIn }) {
           </form>
         )}
 
+        {mode === 'forgot' && (
+          <form className="login-form" onSubmit={handleForgot}>
+            <p className="login-copy">Ingresá el correo de tu cuenta. Te mandamos un código para crear una contraseña nueva.</p>
+            <label className="login-field">
+              Correo
+              <input
+                type="email"
+                autoComplete="email"
+                value={form.email}
+                onChange={(event) => update('email', event.target.value)}
+                required
+              />
+            </label>
+            <button className="login-btn login-submit" type="submit" disabled={busy}>
+              Enviar código
+            </button>
+          </form>
+        )}
+
+        {mode === 'reset' && (
+          <form className="login-form" onSubmit={handleReset}>
+            <p className="login-copy">
+              Mandamos un código a <strong>{pendingEmail || form.email}</strong>
+            </p>
+            <label className="login-field">
+              Código
+              <input
+                className="login-code"
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                maxLength={6}
+                value={code}
+                onChange={(event) => setCode(event.target.value.replace(/\D/g, '').slice(0, 6))}
+                required
+              />
+            </label>
+            <label className="login-field">
+              Contraseña nueva
+              <input
+                type="password"
+                autoComplete="new-password"
+                value={form.password}
+                onChange={(event) => update('password', event.target.value)}
+                minLength={8}
+                required
+              />
+            </label>
+            <label className="login-field">
+              Repetir contraseña
+              <input
+                type="password"
+                autoComplete="new-password"
+                value={form.confirmPassword}
+                onChange={(event) => update('confirmPassword', event.target.value)}
+                minLength={8}
+                required
+              />
+            </label>
+            <button className="login-btn login-submit" type="submit" disabled={busy || code.length !== 6}>
+              Guardar contraseña
+            </button>
+            <button className="login-text-btn" type="button" disabled={busy} onClick={handleResend}>
+              Reenviar código
+            </button>
+          </form>
+        )}
+
         {info ? <p className="login-info">{info}</p> : null}
         {error ? <p className="login-error">{error}</p> : null}
 
@@ -269,6 +397,13 @@ export default function Login({ theme, setTheme, onLoggedIn }) {
           </p>
         )}
         {mode === 'verify' && (
+          <p className="login-switch">
+            <button type="button" onClick={() => go('login')}>
+              Volver al inicio
+            </button>
+          </p>
+        )}
+        {(mode === 'forgot' || mode === 'reset') && (
           <p className="login-switch">
             <button type="button" onClick={() => go('login')}>
               Volver al inicio
