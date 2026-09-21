@@ -481,7 +481,7 @@ function BarcodeScanner({ stream, onDetect, onCancel }) {
         <button className="scanner-close" type="button" onClick={onCancel} aria-label="Cerrar cámara">
           <IconClose />
         </button>
-      </div>
+        </div>
       <div className="scanner-view">
         <video ref={videoRef} autoPlay muted playsInline disablePictureInPicture />
         <div className="scanner-overlay" aria-hidden="true">
@@ -540,13 +540,13 @@ function PricePicker({ item, open, onToggle, onPick }) {
           {Number(item.priceCoto) > 0 || Number(item.priceCarrefour) > 0 ? (
             <div className="store-picked">
               {Number(item.priceCoto) > 0 && (
-                <button
+        <button
                   className={`store-pill coto ${item.priceSource === 'coto' ? 'selected' : ''}`}
-                  type="button"
+          type="button"
                   onClick={() => onPick('coto')}
-                >
+        >
                   Coto {money(item.priceCoto)}
-                </button>
+        </button>
               )}
               {Number(item.priceCarrefour) > 0 && (
                 <button
@@ -608,7 +608,7 @@ function SuperPrices({ item }) {
       ) : (
         <span className="store-pill muted">Carrefour —</span>
       )}
-    </div>
+        </div>
   )
 }
 
@@ -760,17 +760,10 @@ function App() {
   }, [items, query, category])
 
   const stats = useMemo(() => {
+    const units = items.reduce((sum, item) => sum + item.quantity, 0)
     const low = items.filter((item) => statusOf(item) === 'low').length
     const out = items.filter((item) => statusOf(item) === 'out').length
-    return { low, out }
-  }, [items])
-
-  const categoryCounts = useMemo(() => {
-    const counts = Object.fromEntries(CATEGORIES.map((entry) => [entry, 0]))
-    for (const item of items) {
-      counts[item.category] = (counts[item.category] || 0) + 1
-    }
-    return counts
+    return { units, low, out }
   }, [items])
 
   function showToast(message) {
@@ -1233,6 +1226,16 @@ function App() {
       </header>
 
       <section className="kpis">
+        <article className="kpi">
+          <span>Productos</span>
+          <strong>{items.length}</strong>
+          <small>ítems activos</small>
+        </article>
+        <article className="kpi">
+          <span>Unidades</span>
+          <strong>{stats.units}</strong>
+          <small>en inventario</small>
+        </article>
         <article className={`kpi ${stats.low || stats.out ? 'warn' : ''}`}>
           <span>Alertas</span>
           <strong>{stats.low + stats.out}</strong>
@@ -1254,7 +1257,7 @@ function App() {
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <circle cx="11" cy="11" r="7" />
               <path d="m20 20-3.2-3.2" />
-            </svg>
+                </svg>
           </button>
           <label className="search">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -1284,7 +1287,7 @@ function App() {
             value={category}
             options={CATEGORIES.map((entry) => ({
               value: entry,
-              label: `${entry} · ${categoryCounts[entry] || 0}`,
+              label: entry,
             }))}
             onChange={setCategory}
             openMenu={openMenu}
@@ -1307,11 +1310,10 @@ function App() {
                   }}
                 >
                   {entry}
-                  <small>{categoryCounts[entry] || 0}</small>
                 </button>
               )
             })}
-          </div>
+        </div>
         </div>
 
         {filtered.length === 0 ? (
