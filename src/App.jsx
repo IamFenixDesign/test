@@ -199,6 +199,11 @@ function neededToMin(item) {
   return Math.max(0, minStock - quantity)
 }
 
+function shouldAutoCart(item) {
+  const status = statusOf(item)
+  return (status === 'low' || status === 'out') && neededToMin(item) > 0
+}
+
 function statusLabel(status) {
   if (status === 'out') return 'Sin stock'
   if (status === 'low') return 'Stock bajo'
@@ -1128,7 +1133,7 @@ function App() {
 
   const cartLines = useMemo(() => {
     return items
-      .filter((item) => statusOf(item) === 'low' && !cartRemoved.has(item.id))
+      .filter((item) => shouldAutoCart(item) && !cartRemoved.has(item.id))
       .map((item) => {
         const need = neededToMin(item)
         const unitPrice = Number(item.price) || 0
@@ -1142,7 +1147,6 @@ function App() {
           lineTotal: unitPrice * need,
         }
       })
-      .filter((line) => line.need > 0)
   }, [items, cartRemoved])
 
   const cartTotals = useMemo(() => {
@@ -1163,7 +1167,7 @@ function App() {
           continue
         }
         const item = items.find((entry) => entry.id === id)
-        if (!item || statusOf(item) !== 'low' || neededToMin(item) <= 0) {
+        if (!item || !shouldAutoCart(item)) {
           changed = true
           continue
         }
@@ -2273,7 +2277,8 @@ function App() {
               <div>
                 <h2 id="cart-title">Carrito de compras</h2>
                 <p className="lead">
-                  Se agregan solos los productos en stock bajo, solo con lo que falta para llegar al mínimo.
+                  Se agregan solos los productos en stock bajo o sin stock, solo con lo que falta para
+                  llegar al mínimo.
                 </p>
               </div>
               <button
@@ -2287,7 +2292,7 @@ function App() {
             </div>
 
             {cartLines.length === 0 ? (
-              <p className="cart-empty">No hay productos en stock bajo para comprar.</p>
+              <p className="cart-empty">No hay productos en stock bajo o sin stock para comprar.</p>
             ) : (
               <ul className="cart-list">
                 {cartLines.map((line) => (
