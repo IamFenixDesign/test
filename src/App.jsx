@@ -10,6 +10,18 @@ const STORAGE_KEY = 'stockly-items-v2'
 const THEME_KEY = 'stockly-theme'
 const CATEGORIES = ['Alimentos', 'Bebidas', 'Limpieza', 'Papelería', 'Insumos']
 const FILTER_CATEGORIES = ['Todo', ...CATEGORIES]
+const SYNC_MS = 2500
+const DIRTY_MS = 2500
+const syncChannel = typeof BroadcastChannel === 'function' ? new BroadcastChannel('stockly-inventory') : null
+
+function inventoryFingerprint(list) {
+  return list
+    .map((item) =>
+      [item.id, item.name, item.quantity, item.minStock, item.price, item.category, item.barcode].join(':'),
+    )
+    .sort()
+    .join('|')
+}
 
 const emptyForm = {
   name: '',
@@ -84,6 +96,70 @@ function money(value) {
 
 function barcodeOf(item) {
   return String(item?.barcode || item?.ean || item?.sku || '').trim()
+}
+
+function normalizeProductName(name) {
+  return String(name || '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/\p{M}/gu, '')
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim()
+}
+
+function eanOf(item) {
+  return barcodeDigits(barcodeOf(item) || item?.barcode || '')
+}
+
+function findDuplicate(list, incoming, exceptId) {
+  const ean = eanOf(incoming)
+  const name = normalizeProductName(incoming.name)
+  return list.find((item) => {
+    if (exceptId && item.id === exceptId) return false
+    const itemEan = eanOf(item)
+    if (ean && itemEan) return ean === itemEan
+    return Boolean(name) && name === normalizeProductName(item.name)
+  })
+}
+
+function mergeItemRecords(base, incoming) {
+  const extraQty = Number(incoming.quantity)
+  return {
+    ...base,
+    id: base.id,
+    name: String(incoming.name || base.name || '').trim() || base.name,
+    barcode: barcodeOf(incoming) || barcodeOf(base),
+    category: incoming.category || base.category,
+    quantity: Number(base.quantity || 0) + (Number.isFinite(extraQty) ? extraQty : 0),
+    minStock: Math.max(Number(base.minStock || 0), Number(incoming.minStock || 0)),
+    price: incoming.price || base.price,
+    priceSource: incoming.priceSource || base.priceSource,
+    priceCoto: incoming.priceCoto || base.priceCoto,
+    priceCarrefour: incoming.priceCarrefour || base.priceCarrefour,
+    urlCoto: incoming.urlCoto || base.urlCoto,
+    urlCarrefour: incoming.urlCarrefour || base.urlCarrefour,
+    image: incoming.image || base.image,
+    imageCoto: incoming.imageCoto || base.imageCoto,
+    imageCarrefour: incoming.imageCarrefour || base.imageCarrefour,
+  }
+}
+
+function coalesceDuplicates(list) {
+  const kept = []
+  const removedIds = []
+  const absorbedIds = new Set()
+  for (const item of list) {
+    const dup = findDuplicate(kept, item)
+    if (!dup) {
+      kept.push(item)
+      continue
+    }
+    const index = kept.findIndex((entry) => entry.id === dup.id)
+    kept[index] = mergeItemRecords(dup, item)
+    absorbedIds.add(dup.id)
+    if (item.id !== dup.id) removedIds.push(item.id)
+  }
+  return { kept, removedIds, absorbedIds }
 }
 
 function productImage(item) {
@@ -288,14 +364,15 @@ function BarcodeScanner({ stream, onDetect, onCancel }) {
 
     function finish(value) {
       const code = String(value || '').replace(/\s/g, '')
-      if (stopped || !code) return
+      if (stopped || !code) return false
       const ean = barcodeDigits(code)
       if (!isEan13(ean)) {
-        setMessage('El código no es un código de barras válido de 13 dígitos.')
-        return
+        setMessage('El código no es un código de barras válido de 13 dígitos. Seguí buscando…')
+        return false
       }
       stopped = true
       onDetectRef.current(ean)
+      return true
     }
 
     function lockVideoBox() {
@@ -417,18 +494,12 @@ function BarcodeScanner({ stream, onDetect, onCancel }) {
                 if (detector) {
                   const codes = await detector.detect(frame)
                   const raw = codes[0]?.rawValue
-                  if (raw) {
-                    finish(raw)
-                    return
-                  }
+                  if (raw && finish(raw)) return
                 }
                 try {
                   const result = reader.decodeFromCanvas(frame)
                   const text = result?.getText?.()
-                  if (text) {
-                    finish(text)
-                    return
-                  }
+                  if (text && finish(text)) return
                 } catch {
                   /* frame without a readable code */
                 }
@@ -437,6 +508,7 @@ function BarcodeScanner({ stream, onDetect, onCancel }) {
           } catch {
             /* skip unreadable frame */
           }
+          if (stopped) return
           pass += 1
           timer = window.setTimeout(tick, 45)
         }
@@ -458,6 +530,11 @@ function BarcodeScanner({ stream, onDetect, onCancel }) {
     return () => {
       stopped = true
       window.clearTimeout(timer)
+      try {
+        video.pause()
+      } catch {
+        /* ignore */
+      }
       video.srcObject = null
     }
   }, [stream])
@@ -606,6 +683,7 @@ function App() {
   const storeResultsRef = useRef(null)
   const qtySyncRef = useRef({})
   const deletedIdsRef = useRef(new Set())
+  const dirtyIdsRef = useRef(new Map())
   const lastAutoRefreshRef = useRef(0)
   const refreshStorePricesRef = useRef(async () => {})
   itemsRef.current = items
@@ -645,10 +723,19 @@ function App() {
       if (Array.isArray(remote)) {
         const alive = remote.filter(notDeleted)
         if (alive.length > 0) {
-          setItems(alive)
+          const { kept, removedIds, absorbedIds } = coalesceDuplicates(alive)
+          setItems(kept)
+          removedIds.forEach((id) => {
+            deletedIdsRef.current.add(id)
+            deleteRemoteItem(id)
+          })
+          absorbedIds.forEach((id) => {
+            const item = kept.find((entry) => entry.id === id)
+            if (item) persistItem(item)
+          })
         } else {
           const legacy = loadLegacyItems().filter(notDeleted)
-          if (legacy.length) {
+          if (legacy.length && !loadItems(user.id).length) {
             await Promise.all(legacy.map((item) => upsertRemoteItem(item)))
             if (cancelled) return
             setItems(legacy)
@@ -671,6 +758,78 @@ function App() {
       cancelled = true
     }
   }, [user])
+
+  useEffect(() => {
+    if (!hydrated || !user?.id) return undefined
+    let cancelled = false
+
+    function mergeRemote(remote) {
+      const now = Date.now()
+      const dirty = dirtyIdsRef.current
+      const alive = remote.filter((item) => !deletedIdsRef.current.has(item.id))
+      const remoteIds = new Set(alive.map((item) => item.id))
+      const localById = new Map(itemsRef.current.map((item) => [item.id, item]))
+      const next = alive.map((item) => {
+        const dirtyAt = dirty.get(item.id)
+        if (dirtyAt && now - dirtyAt < DIRTY_MS) {
+          return localById.get(item.id) || item
+        }
+        dirty.delete(item.id)
+        return item
+      })
+      for (const [id, dirtyAt] of dirty) {
+        if (remoteIds.has(id) || deletedIdsRef.current.has(id)) continue
+        if (now - dirtyAt >= DIRTY_MS) continue
+        const local = localById.get(id)
+        if (local) next.unshift(local)
+      }
+      const { kept, removedIds, absorbedIds } = coalesceDuplicates(next)
+      for (const id of removedIds) {
+        deletedIdsRef.current.add(id)
+        deleteRemoteItem(id)
+      }
+      if (absorbedIds.size) {
+        kept.forEach((item) => {
+          if (absorbedIds.has(item.id)) persistItem(item)
+        })
+      }
+      if (inventoryFingerprint(kept) === inventoryFingerprint(itemsRef.current)) return
+      itemsRef.current = kept
+      setItems(kept)
+    }
+
+    async function pullRemote() {
+      if (cancelled || document.visibilityState === 'hidden') return
+      const remote = await fetchRemoteItems()
+      if (cancelled || !Array.isArray(remote)) return
+      mergeRemote(remote)
+    }
+
+    function onBroadcast(event) {
+      if (event.data?.type === 'deleted' && event.data.id) {
+        deletedIdsRef.current.add(event.data.id)
+        setItems((prev) => {
+          const next = prev.filter((item) => item.id !== event.data.id)
+          itemsRef.current = next
+          return next
+        })
+      }
+      pullRemote()
+    }
+
+    pullRemote()
+    const timer = window.setInterval(pullRemote, SYNC_MS)
+    window.addEventListener('focus', pullRemote)
+    document.addEventListener('visibilitychange', pullRemote)
+    syncChannel?.addEventListener('message', onBroadcast)
+    return () => {
+      cancelled = true
+      window.clearInterval(timer)
+      window.removeEventListener('focus', pullRemote)
+      document.removeEventListener('visibilitychange', pullRemote)
+      syncChannel?.removeEventListener('message', onBroadcast)
+    }
+  }, [hydrated, user?.id])
 
   useEffect(() => {
     if (!hydrated || !user?.id) return undefined
@@ -717,6 +876,13 @@ function App() {
     document.addEventListener('keydown', onKey)
     return () => document.removeEventListener('keydown', onKey)
   }, [pendingDelete, deleteBusy])
+
+  useEffect(() => {
+    if (!pendingDelete?.id || deleteBusy) return
+    if (!items.some((item) => item.id === pendingDelete.id)) {
+      setPendingDelete(null)
+    }
+  }, [items, pendingDelete, deleteBusy])
 
   useEffect(() => {
     if (!openMenu) return undefined
@@ -804,6 +970,7 @@ function App() {
     closeScanner()
     setHydrated(false)
     deletedIdsRef.current = new Set()
+    dirtyIdsRef.current = new Map()
     setItems([])
     setUser(null)
   }
@@ -870,11 +1037,13 @@ function App() {
 
   function persistItem(item) {
     if (!item?.id || deletedIdsRef.current.has(item.id)) return
+    dirtyIdsRef.current.set(item.id, Date.now())
     upsertRemoteItem(item)
   }
 
   function updateQty(id, next) {
     const quantity = Math.max(0, next)
+    dirtyIdsRef.current.set(id, Date.now())
     setItems((prev) => prev.map((item) => (item.id === id ? { ...item, quantity } : item)))
     clearTimeout(qtySyncRef.current[id])
     qtySyncRef.current[id] = setTimeout(() => {
@@ -995,13 +1164,9 @@ function App() {
   }
 
   function handleScannedCode(raw) {
-    closeScanner()
     const ean = barcodeDigits(String(raw || '').replace(/\s/g, ''))
-    if (!isEan13(ean)) {
-      setStoreResults({ coto: [], carrefour: [], errors: {} })
-      setStoreError('El código escaneado no es un código de barras válido de 13 dígitos.')
-      return
-    }
+    if (!isEan13(ean)) return
+    closeScanner()
     setStoreQuery(ean)
     setForm((prev) => ({ ...prev, barcode: ean }))
     setStoreError('')
@@ -1139,6 +1304,23 @@ function App() {
     }
 
     if (editingId) {
+      const other = findDuplicate(itemsRef.current, payload, editingId)
+      if (other) {
+        const merged = mergeItemRecords(other, payload)
+        deletedIdsRef.current.add(editingId)
+        const next = itemsRef.current
+          .filter((entry) => entry.id !== editingId)
+          .map((entry) => (entry.id === other.id ? merged : entry))
+        itemsRef.current = next
+        setItems(next)
+        persistItem(merged)
+        deleteRemoteItem(editingId)
+        setCategory(merged.category)
+        closeItemModal()
+        setOpenMenu(null)
+        showToast(`${merged.name}: se unificó con el ítem existente`)
+        return
+      }
       const saved = { id: editingId, ...payload }
       setItems((prev) => prev.map((entry) => (entry.id === editingId ? { ...entry, ...payload } : entry)))
       persistItem(saved)
@@ -1149,8 +1331,23 @@ function App() {
       return
     }
 
+    const existing = findDuplicate(itemsRef.current, payload)
+    if (existing) {
+      const merged = mergeItemRecords(existing, payload)
+      const next = itemsRef.current.map((entry) => (entry.id === existing.id ? merged : entry))
+      itemsRef.current = next
+      setItems(next)
+      persistItem(merged)
+      setCategory(merged.category)
+      closeItemModal()
+      setOpenMenu(null)
+      showToast(`${merged.name}: se sumó al stock existente`)
+      return
+    }
+
     const item = { id: crypto.randomUUID(), ...payload }
     setItems((prev) => [item, ...prev])
+    dirtyIdsRef.current.set(item.id, Date.now())
     persistItem(item)
     setCategory(item.category)
     closeItemModal()
@@ -1194,6 +1391,11 @@ function App() {
       writeLocalItems(user?.id, snapshot)
       showToast('No se pudo eliminar en el servidor')
       return
+    }
+    try {
+      syncChannel?.postMessage({ type: 'deleted', id })
+    } catch {
+      /* ignore */
     }
     showToast(`${item.name || 'Ítem'} eliminado`)
   }
@@ -1415,7 +1617,7 @@ function App() {
                       group.items.map((item) => {
                         const currentStatus = statusOf(item)
                         return (
-                          <tr key={item.id}>
+                          <tr className="item-row" key={item.id}>
                             <td>
                               <div className="item-cell">
                                 <ItemThumb item={item} />
