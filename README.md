@@ -1,4 +1,4 @@
-# Stockly
+# Stockea
 
 Control de stock con precios de Coto Digital y Carrefour.
 

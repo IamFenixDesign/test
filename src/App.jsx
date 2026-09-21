@@ -1,6 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import './App.css'
 import { barcodeDigits, cheaperOf, guessCategory, isBarcode, matchByEan, searchSupermarkets } from './supermarkets'
+import { deleteRemoteItem, fetchRemoteItems, upsertRemoteItem } from './itemsApi'
+import { fetchMe, logout as logoutRequest } from './auth'
+import Login from './Login.jsx'
 
 const STORAGE_KEY = 'stockly-items-v2'
 const THEME_KEY = 'stockly-theme'
@@ -30,10 +33,15 @@ const STATUS_FILTER = [
   { value: 'out', label: 'Sin stock' },
 ]
 
-function loadItems() {
+function loadItems(userId) {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY)
-    if (raw) return JSON.parse(raw)
+    const keys = userId ? [`${STORAGE_KEY}:${userId}`, STORAGE_KEY] : [STORAGE_KEY]
+    for (const key of keys) {
+      const raw = localStorage.getItem(key)
+      if (!raw) continue
+      const parsed = JSON.parse(raw)
+      if (Array.isArray(parsed)) return parsed
+    }
   } catch {
     /* ignore corrupt storage */
   }
@@ -80,6 +88,16 @@ function statusLabel(status) {
   if (status === 'out') return 'Sin stock'
   if (status === 'low') return 'Stock bajo'
   return 'En stock'
+}
+
+function IconMark() {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <path d="M12 3.1 21.2 8 12 12.9 2.8 8 12 3.1Z" />
+      <path d="M2.8 8 12 12.9V21L2.8 16.1V8Z" opacity="0.55" />
+      <path d="M21.2 8 12 12.9V21l9.2-4.9V8Z" opacity="0.38" />
+    </svg>
+  )
 }
 
 function IconBox() {
@@ -201,6 +219,16 @@ function IconClose() {
   )
 }
 
+function IconTorch() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <path d="M7 10h10l-1.2 10.2a2 2 0 0 1-2 1.8h-3.6a2 2 0 0 1-2-1.8L7 10Z" />
+      <path d="M9 10V6a3 3 0 0 1 6 0v4" />
+      <path d="M12 2v2" />
+    </svg>
+  )
+}
+
 function ItemThumb({ item }) {
   const src = productImage(item)
   if (src) return <img className="item-thumb" src={src} alt="" />
@@ -214,7 +242,11 @@ function ItemThumb({ item }) {
 function BarcodeScanner({ onDetect, onCancel }) {
   const videoRef = useRef(null)
   const onDetectRef = useRef(onDetect)
-  const [message, setMessage] = useState('Apuntá el código de barras a la cámara')
+  const streamRef = useRef(null)
+  const [message, setMessage] = useState('Apuntá el código de barras al recuadro')
+  const [live, setLive] = useState(false)
+  const [hasTorch, setHasTorch] = useState(false)
+  const [torchOn, setTorchOn] = useState(false)
   onDetectRef.current = onDetect
 
   useEffect(() => {
@@ -242,12 +274,19 @@ function BarcodeScanner({ onDetect, onCancel }) {
           audio: false,
           video: {
             facingMode: { ideal: 'environment' },
-            width: { ideal: 1280 },
-            height: { ideal: 720 },
+            width: { ideal: 1920 },
+            height: { ideal: 1080 },
           },
         })
+        streamRef.current = stream
+        video.setAttribute('playsinline', 'true')
+        video.setAttribute('webkit-playsinline', 'true')
         video.srcObject = stream
         await video.play()
+        setLive(true)
+        setMessage('Mantené el código quieto dentro del recuadro')
+        const track = stream.getVideoTracks()[0]
+        if (track?.getCapabilities?.().torch) setHasTorch(true)
 
         const Detector = window.BarcodeDetector
         if (typeof Detector === 'function') {
@@ -285,6 +324,7 @@ function BarcodeScanner({ onDetect, onCancel }) {
         })
       } catch (err) {
         if (stopped) return
+        setLive(false)
         if (err?.name === 'NotAllowedError') {
           setMessage('Habilitá la cámara para escanear el código.')
         } else if (err?.name === 'NotFoundError') {
@@ -301,6 +341,7 @@ function BarcodeScanner({ onDetect, onCancel }) {
       cancelAnimationFrame(raf)
       zxingControls?.stop?.()
       stream?.getTracks().forEach((track) => track.stop())
+      streamRef.current = null
       video.srcObject = null
     }
   }, [])
@@ -318,24 +359,56 @@ function BarcodeScanner({ onDetect, onCancel }) {
     }
   }, [onCancel])
 
+  async function toggleTorch() {
+    const track = streamRef.current?.getVideoTracks?.()[0]
+    if (!track) return
+    try {
+      const next = !torchOn
+      await track.applyConstraints({ advanced: [{ torch: next }] })
+      setTorchOn(next)
+    } catch {
+      setHasTorch(false)
+    }
+  }
+
   return (
-    <div className="scanner-screen">
-      <button className="scanner-close" type="button" onClick={onCancel} aria-label="Cerrar cámara">
-        <IconClose />
-      </button>
+    <div className={`scanner-screen ${live ? 'is-live' : ''}`}>
+      <div className="scanner-topbar">
+        {hasTorch ? (
+          <button
+            className={`scanner-torch ${torchOn ? 'on' : ''}`}
+            type="button"
+            onClick={toggleTorch}
+            aria-label={torchOn ? 'Apagar linterna' : 'Prender linterna'}
+          >
+            <IconTorch />
+          </button>
+        ) : (
+          <span className="scanner-top-spacer" />
+        )}
+        <strong>Escanear código</strong>
+        <button className="scanner-close" type="button" onClick={onCancel} aria-label="Cerrar cámara">
+          <IconClose />
+        </button>
+      </div>
       <div className="scanner-view">
         <video ref={videoRef} autoPlay muted playsInline />
-        <div className="scanner-frame" aria-hidden="true">
-          <span className="scanner-corner tl" />
-          <span className="scanner-corner tr" />
-          <span className="scanner-corner bl" />
-          <span className="scanner-corner br" />
-          <span className="scanner-laser" />
+        <div className="scanner-overlay" aria-hidden="true">
+          <div className="scanner-window">
+            <span className="scanner-corner tl" />
+            <span className="scanner-corner tr" />
+            <span className="scanner-corner bl" />
+            <span className="scanner-corner br" />
+            <span className="scanner-laser" />
+          </div>
         </div>
       </div>
-      <div className="scanner-caption">
-        <strong>Escaneá el código de barras</strong>
+      <div className="scanner-dock">
+        <span className="scanner-pulse" aria-hidden="true" />
         <p>{message}</p>
+        <button className="scanner-cancel" type="button" onClick={onCancel}>
+          Cancelar
+        </button>
       </div>
     </div>
   )
@@ -498,7 +571,8 @@ function SuperPrices({ item, onRefresh, refreshing }) {
 
 function App() {
   const [theme, setTheme] = useState(loadTheme)
-  const [items, setItems] = useState(loadItems)
+  const [user, setUser] = useState(undefined)
+  const [items, setItems] = useState([])
   const [query, setQuery] = useState('')
   const [category, setCategory] = useState('Alimentos')
   const [status, setStatus] = useState('all')
@@ -515,6 +589,10 @@ function App() {
   const [storeError, setStoreError] = useState('')
   const [refreshingId, setRefreshingId] = useState(null)
   const [scanning, setScanning] = useState(false)
+  const [hydrated, setHydrated] = useState(false)
+  const itemsRef = useRef(items)
+  const qtySyncRef = useRef({})
+  itemsRef.current = items
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme
@@ -522,8 +600,48 @@ function App() {
   }, [theme])
 
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(items))
-  }, [items])
+    if (!hydrated || !user?.id) return
+    localStorage.setItem(`${STORAGE_KEY}:${user.id}`, JSON.stringify(items))
+  }, [items, hydrated, user])
+
+  useEffect(() => {
+    let cancelled = false
+    fetchMe().then((current) => {
+      if (!cancelled) setUser(current)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!user) {
+      setItems([])
+      setHydrated(false)
+      return undefined
+    }
+    let cancelled = false
+    async function hydrate() {
+      const remote = await fetchRemoteItems()
+      if (cancelled) return
+      if (remote && remote.length > 0) {
+        setItems(remote)
+      } else {
+        const local = loadItems(user.id)
+        if (local.length) {
+          if (remote) await Promise.all(local.map((item) => upsertRemoteItem(item)))
+          setItems(local)
+        } else {
+          setItems([])
+        }
+      }
+      setHydrated(true)
+    }
+    hydrate()
+    return () => {
+      cancelled = true
+    }
+  }, [user])
 
   useEffect(() => {
     if (!toast) return undefined
@@ -577,15 +695,33 @@ function App() {
   }, [items])
 
   function showToast(message) {
+    if (window.matchMedia('(max-width: 760px)').matches) return
     setToast(message)
   }
 
+  async function handleLogout() {
+    await logoutRequest()
+    setOpenMenu(null)
+    setModal(null)
+    setScanning(false)
+    setHydrated(false)
+    setItems([])
+    setUser(null)
+  }
+
+  function persistItem(item) {
+    if (!item?.id) return
+    upsertRemoteItem(item)
+  }
+
   function updateQty(id, next) {
-    setItems((prev) =>
-      prev.map((item) =>
-        item.id === id ? { ...item, quantity: Math.max(0, next) } : item,
-      ),
-    )
+    const quantity = Math.max(0, next)
+    setItems((prev) => prev.map((item) => (item.id === id ? { ...item, quantity } : item)))
+    clearTimeout(qtySyncRef.current[id])
+    qtySyncRef.current[id] = setTimeout(() => {
+      const item = itemsRef.current.find((entry) => entry.id === id)
+      if (item) persistItem(item)
+    }, 450)
   }
 
   function addQty(id, amount) {
@@ -606,8 +742,8 @@ function App() {
       showToast('Elegí un precio de Coto o Carrefour')
       return
     }
-    setItems((prev) =>
-      prev.map((entry) =>
+    setItems((prev) => {
+      const next = prev.map((entry) =>
         entry.id === id
           ? {
               ...entry,
@@ -619,8 +755,11 @@ function App() {
                   : entry.imageCarrefour || entry.image,
             }
           : entry,
-      ),
-    )
+      )
+      const saved = next.find((entry) => entry.id === id)
+      if (saved) persistItem(saved)
+      return next
+    })
     setOpenMenu(null)
     showToast(`Precio de ${item.name} tomado de ${store === 'coto' ? 'Coto' : 'Carrefour'}`)
   }
@@ -788,8 +927,8 @@ function App() {
         return
       }
       const detected = coto?.ean || carrefour?.ean || ''
-      setItems((prev) =>
-        prev.map((entry) => {
+      setItems((prev) => {
+        const next = prev.map((entry) => {
           if (entry.id !== item.id) return entry
           const nextCoto = coto?.price ?? entry.priceCoto
           const nextCarrefour = carrefour?.price ?? entry.priceCarrefour
@@ -817,8 +956,11 @@ function App() {
                   ? carrefour?.image || entry.imageCarrefour || entry.image
                   : coto?.image || carrefour?.image || entry.image,
           }
-        }),
-      )
+        })
+        const saved = next.find((entry) => entry.id === item.id)
+        if (saved) persistItem(saved)
+        return next
+      })
       showToast(`Precios de ${item.name} actualizados`)
     } catch {
       showToast('No se pudieron consultar los supermercados')
@@ -870,7 +1012,9 @@ function App() {
     }
 
     if (editingId) {
+      const saved = { id: editingId, ...payload }
       setItems((prev) => prev.map((entry) => (entry.id === editingId ? { ...entry, ...payload } : entry)))
+      persistItem(saved)
       setCategory(payload.category)
       closeItemModal()
       setOpenMenu(null)
@@ -880,6 +1024,7 @@ function App() {
 
     const item = { id: crypto.randomUUID(), ...payload }
     setItems((prev) => [item, ...prev])
+    persistItem(item)
     setCategory(item.category)
     closeItemModal()
     setOpenMenu(null)
@@ -889,42 +1034,83 @@ function App() {
   function removeItem(id) {
     const item = items.find((entry) => entry.id === id)
     setItems((prev) => prev.filter((entry) => entry.id !== id))
+    deleteRemoteItem(id)
     showToast(`${item?.name || 'Ítem'} eliminado`)
   }
 
+  if (user === undefined) {
+    return (
+      <div className="login-screen">
+        <section className="login-card">
+          <div className="login-brand">
+            <div className="logo">
+              <IconMark />
+            </div>
+            <div>
+              <h1>Stockea</h1>
+              <p>Cargando…</p>
+            </div>
+          </div>
+        </section>
+      </div>
+    )
+  }
+
+  if (!user) {
+    return <Login theme={theme} setTheme={setTheme} onLoggedIn={setUser} />
+  }
+
   return (
-    <div className="app">
+    <div className={`app ${modal || scanning ? 'is-overlay' : ''}`}>
       <header className="topbar">
         <div className="brand">
           <div className="logo">
-            <IconBox />
+            <IconMark />
           </div>
           <div>
-            <h1>Stockly</h1>
+            <h1>Stockea</h1>
             <p>Control de inventario en tiempo real</p>
           </div>
         </div>
         <div className="top-actions">
+          <div className="user-chip" data-menu="user">
+            <button
+              className="user-btn"
+              type="button"
+              aria-label="Cuenta"
+              onClick={() => setOpenMenu(openMenu === 'user' ? null : 'user')}
+            >
+              {user.picture ? (
+                <img src={user.picture} alt="" referrerPolicy="no-referrer" />
+              ) : (
+                <span>{(user.name || user.email || 'S').slice(0, 1)}</span>
+              )}
+            </button>
+            {openMenu === 'user' && (
+              <div className="qty-menu user-menu">
+                <p>{user.name || user.email || 'Cuenta'}</p>
+                <button className="btn btn-ghost" type="button" onClick={handleLogout}>
+                  Cerrar sesión
+                </button>
+              </div>
+            )}
+          </div>
           <button
             className="btn btn-ghost theme-toggle"
             type="button"
             onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
             aria-label={theme === 'dark' ? 'Cambiar a tema claro' : 'Cambiar a tema oscuro'}
           >
-            {theme === 'dark' ? (
-              <>
-                <IconSun />
-                <span className="theme-label">Claro</span>
-              </>
-            ) : (
-              <>
-                <IconMoon />
-                <span className="theme-label">Oscuro</span>
-              </>
-            )}
+            {theme === 'dark' ? <IconSun /> : <IconMoon />}
           </button>
-          <button className="btn btn-primary" type="button" onClick={openNewItem}>
-            + Nuevo ítem
+          <button
+            className="btn btn-primary btn-new-item"
+            type="button"
+            onClick={openNewItem}
+            aria-label="Nuevo ítem"
+          >
+            <span className="new-item-plus" aria-hidden="true">+</span>
+            <span className="new-item-label">Nuevo ítem</span>
           </button>
         </div>
       </header>
@@ -953,7 +1139,7 @@ function App() {
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <circle cx="11" cy="11" r="7" />
               <path d="m20 20-3.2-3.2" />
-            </svg>
+                </svg>
             <input
               value={query}
               onChange={(event) => setQuery(event.target.value)}
@@ -1145,13 +1331,21 @@ function App() {
             if (event.target === event.currentTarget) event.preventDefault()
           }}
         >
-          <form className="modal wide" onSubmit={saveItem}>
-            <h2>{editingId ? 'Editar ítem' : 'Nuevo ítem'}</h2>
-            <p className="lead">
-              {editingId
-                ? 'Actualizá los datos o el precio de Coto o Carrefour.'
-                : 'Cargalo con el precio de Coto o Carrefour.'}
-            </p>
+          <form className="modal wide item-sheet" onSubmit={saveItem}>
+            <div className="sheet-handle" aria-hidden="true" />
+            <div className="sheet-header">
+              <div>
+                <h2>{editingId ? 'Editar ítem' : 'Nuevo ítem'}</h2>
+                <p className="lead">
+                  {editingId
+                    ? 'Actualizá los datos o el precio de Coto o Carrefour.'
+                    : 'Cargalo con el precio de Coto o Carrefour.'}
+                </p>
+              </div>
+              <button className="icon-btn sheet-close" type="button" onClick={closeItemModal} aria-label="Cerrar">
+                <IconClose />
+              </button>
+            </div>
             <div className="form-grid">
               <label className="field full">
                 <span>Nombre</span>
@@ -1260,7 +1454,7 @@ function App() {
                     }
                   }}
                   inputMode="numeric"
-                  placeholder="EAN o se completa al elegir un producto"
+                  placeholder="EAN"
                 />
               </label>
               <div className="field">
@@ -1294,7 +1488,7 @@ function App() {
                   onChange={(event) => setForm({ ...form, minStock: event.target.value })}
                 />
               </label>
-              <label className="field">
+              <label className="field full">
                 <span>Precio</span>
                 <div className="money-input locked">
                   <span>$</span>
