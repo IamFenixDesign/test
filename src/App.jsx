@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import './App.css'
-import { barcodeDigits, guessCategory, isEan13, matchByEan, searchSupermarkets } from './supermarkets'
+import { barcodeDigits, extractEan13, guessCategory, matchByEan, searchSupermarkets } from './supermarkets'
 import { deleteRemoteItem, fetchRemoteItems, upsertRemoteItem } from './itemsApi'
 import { changePassword, fetchMe, logout as logoutRequest, updateProfile as saveProfile } from './auth'
 import { getCameraStream, releaseCameraStream } from './camera'
@@ -350,6 +350,7 @@ function BarcodeScanner({ stream, onDetect, onCancel }) {
   const [live, setLive] = useState(false)
   const [hasTorch, setHasTorch] = useState(false)
   const [torchOn, setTorchOn] = useState(false)
+  const [detectedEan, setDetectedEan] = useState('')
   onDetectRef.current = onDetect
   streamRef.current = stream
 
@@ -358,20 +359,24 @@ function BarcodeScanner({ stream, onDetect, onCancel }) {
     if (!video || !stream) return undefined
 
     let timer = 0
+    let confirmTimer = 0
     let stopped = false
     const canvas = document.createElement('canvas')
     const ctx = canvas.getContext('2d', { willReadFrequently: true })
 
     function finish(value) {
-      const code = String(value || '').replace(/\s/g, '')
-      if (stopped || !code) return false
-      const ean = barcodeDigits(code)
-      if (!isEan13(ean)) {
-        setMessage('El código no es un código de barras válido de 13 dígitos. Seguí buscando…')
+      if (stopped) return false
+      const ean = extractEan13(value)
+      if (!ean) {
+        if (value) setMessage('Si hay 13 números los leemos como EAN. Seguí buscando…')
         return false
       }
       stopped = true
-      onDetectRef.current(ean)
+      setDetectedEan(ean)
+      setMessage(`EAN ${ean} detectado`)
+      confirmTimer = window.setTimeout(() => {
+        onDetectRef.current(ean)
+      }, 320)
       return true
     }
 
@@ -485,6 +490,14 @@ function BarcodeScanner({ stream, onDetect, onCancel }) {
         const reader = new BrowserMultiFormatReader(hints, { delayBetweenScanAttempts: 40 })
 
         let pass = 0
+        const formatRank = (format) => {
+          const name = String(format || '').toLowerCase()
+          if (name.includes('ean_13') || name.includes('ean13')) return 0
+          if (name.includes('upc_a') || name.includes('upca')) return 1
+          if (name.includes('ean')) return 2
+          return 3
+        }
+
         const tick = async () => {
           if (stopped) return
           try {
@@ -493,8 +506,12 @@ function BarcodeScanner({ stream, onDetect, onCancel }) {
               if (frame) {
                 if (detector) {
                   const codes = await detector.detect(frame)
-                  const raw = codes[0]?.rawValue
-                  if (raw && finish(raw)) return
+                  const ranked = [...codes].sort(
+                    (a, b) => formatRank(a.format) - formatRank(b.format),
+                  )
+                  for (const code of ranked) {
+                    if (finish(code?.rawValue)) return
+                  }
                 }
                 try {
                   const result = reader.decodeFromCanvas(frame)
@@ -530,6 +547,7 @@ function BarcodeScanner({ stream, onDetect, onCancel }) {
     return () => {
       stopped = true
       window.clearTimeout(timer)
+      window.clearTimeout(confirmTimer)
       try {
         video.pause()
       } catch {
@@ -565,7 +583,7 @@ function BarcodeScanner({ stream, onDetect, onCancel }) {
   }
 
   return (
-    <div className={`scanner-screen ${live ? 'is-live' : ''}`}>
+    <div className={`scanner-screen ${live ? 'is-live' : ''} ${detectedEan ? 'is-ean' : ''}`}>
       <div className="scanner-topbar">
         {hasTorch ? (
           <button
@@ -579,25 +597,26 @@ function BarcodeScanner({ stream, onDetect, onCancel }) {
         ) : (
           <span className="scanner-top-spacer" />
         )}
-        <strong>Escanear código</strong>
+        <strong>{detectedEan ? 'EAN detectado' : 'Escanear código'}</strong>
         <button className="scanner-close" type="button" onClick={onCancel} aria-label="Cerrar cámara">
           <IconClose />
         </button>
-        </div>
+      </div>
       <div className="scanner-view">
         <video ref={videoRef} autoPlay muted playsInline disablePictureInPicture />
         <div className="scanner-overlay" aria-hidden="true">
-          <div className="scanner-window">
+          <div className={`scanner-window ${detectedEan ? 'is-ean' : ''}`}>
             <span className="scanner-corner tl" />
             <span className="scanner-corner tr" />
             <span className="scanner-corner bl" />
             <span className="scanner-corner br" />
             <span className="scanner-laser" />
+            {detectedEan ? <span className="scanner-ean-badge">EAN {detectedEan}</span> : null}
           </div>
         </div>
       </div>
       <div className="scanner-dock">
-        <span className="scanner-pulse" aria-hidden="true" />
+        <span className={`scanner-pulse ${detectedEan ? 'ok' : ''}`} aria-hidden="true" />
         <p>{message}</p>
         <button className="scanner-cancel" type="button" onClick={onCancel}>
           Cancelar
@@ -1164,8 +1183,8 @@ function App() {
   }
 
   function handleScannedCode(raw) {
-    const ean = barcodeDigits(String(raw || '').replace(/\s/g, ''))
-    if (!isEan13(ean)) return
+    const ean = extractEan13(raw)
+    if (!ean) return
     closeScanner()
     setStoreQuery(ean)
     setForm((prev) => ({ ...prev, barcode: ean }))

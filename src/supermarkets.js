@@ -193,8 +193,48 @@ export function isBarcode(query) {
   return digits.length >= 8 && digits.length <= 14
 }
 
+export function isValidEan13Checksum(digits) {
+  const ean = barcodeDigits(digits)
+  if (ean.length !== 13) return false
+  let sum = 0
+  for (let i = 0; i < 12; i += 1) {
+    sum += Number(ean[i]) * (i % 2 === 0 ? 1 : 3)
+  }
+  const check = (10 - (sum % 10)) % 10
+  return check === Number(ean[12])
+}
+
+/** Extrae un EAN-13 si el escaneo contiene 13 dígitos (UPC-A de 12 → EAN con 0). */
+export function extractEan13(query) {
+  const raw = String(query || '')
+  if (!raw.trim()) return ''
+
+  const compact = raw.replace(/\s/g, '')
+  const runs = compact.match(/\d{13}/g) || []
+  const digits = barcodeDigits(raw)
+  const candidates = [...runs]
+
+  if (digits.length === 13) candidates.push(digits)
+  if (digits.length === 12) candidates.push(`0${digits}`)
+  if (digits.length > 13) {
+    for (let i = 0; i <= digits.length - 13; i += 1) {
+      candidates.push(digits.slice(i, i + 13))
+    }
+  }
+
+  const unique = [...new Set(candidates.filter((value) => value.length === 13))]
+  if (!unique.length) return ''
+
+  const withChecksum = unique.find(isValidEan13Checksum)
+  if (withChecksum) return withChecksum
+  if (runs[0]) return runs[0]
+  if (digits.length === 13) return digits
+  if (digits.length === 12) return `0${digits}`
+  return unique[0] || ''
+}
+
 export function isEan13(query) {
-  return barcodeDigits(String(query || '').replace(/\s/g, '')).length === 13
+  return extractEan13(query).length === 13
 }
 
 const FETCH_HEADERS = {
