@@ -228,7 +228,30 @@
 .cart-promo-chip-main {
   display: inline-flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 6px;
+}
+
+.cart-promo-store {
+  font-style: normal;
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.cart-promo-chip.store-coto .cart-promo-store {
+  color: color-mix(in srgb, #e20025 75%, var(--muted));
+}
+
+.cart-promo-chip.store-carrefour .cart-promo-store {
+  color: color-mix(in srgb, #005ca9 75%, var(--muted));
+}
+
+.cart-promo-chip.active .cart-promo-store {
+  color: inherit;
+  opacity: 0.85;
 }
 
 .cart-promo-chip small {
