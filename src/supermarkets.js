@@ -228,7 +228,7 @@ export function parseCoto(data) {
     .slice(0, 24)
 }
 
-export function parseCarrefour(products) {
+function parseVtexProducts(products, { store, origin, limit = 8 }) {
   if (!Array.isArray(products)) return []
   return products
     .map((product) => {
@@ -240,7 +240,7 @@ export function parseCarrefour(products) {
       const ean = String(item?.ean || product.EAN?.[0] || '')
       const link = String(product.link || '')
       return {
-        store: 'carrefour',
+        store,
         name: String(product.productName || ''),
         brand: String(product.brand || ''),
         department: String(product.categories?.[0] || ''),
@@ -252,11 +252,27 @@ export function parseCarrefour(products) {
         discountPercent: pricing.discountPercent,
         ean,
         image: String(item?.images?.[0]?.imageUrl || ''),
-        url: link.startsWith('http') ? link : `https://www.carrefour.com.ar${link}`,
+        url: link.startsWith('http') ? link : `${origin}${link}`,
       }
     })
     .filter((item) => item.name && item.price > 0)
-    .slice(0, 8)
+    .slice(0, limit)
+}
+
+export function parseCarrefour(products) {
+  return parseVtexProducts(products, {
+    store: 'carrefour',
+    origin: 'https://www.carrefour.com.ar',
+    limit: 8,
+  })
+}
+
+export function parseDia(products) {
+  return parseVtexProducts(products, {
+    store: 'dia',
+    origin: 'https://diaonline.supermercadosdia.com.ar',
+    limit: 8,
+  })
 }
 
 export function barcodeDigits(query) {
@@ -403,27 +419,45 @@ export async function fetchCarrefourProducts(query) {
   return firstMatch(urls, parseCarrefour)
 }
 
+export async function fetchDiaProducts(query) {
+  const encoded = encodeURIComponent(query)
+  const urls = []
+  if (isBarcode(query)) {
+    const ean = barcodeDigits(query)
+    urls.push(
+      `https://diaonline.supermercadosdia.com.ar/api/catalog_system/pub/products/search?fq=alternateIds_Ean:${ean}`,
+    )
+  }
+  urls.push(
+    `https://diaonline.supermercadosdia.com.ar/api/catalog_system/pub/products/search?ft=${encoded}&_from=0&_to=9`,
+  )
+  return firstMatch(urls, parseDia)
+}
+
 export async function searchSupermarketsServer(query) {
   const q = isBarcode(query) ? barcodeDigits(query) : String(query || '').trim()
-  if (!q) return { coto: [], carrefour: [], errors: {} }
+  if (!q) return { coto: [], carrefour: [], dia: [], errors: {} }
 
-  const [cotoResult, carrefourResult] = await Promise.allSettled([
+  const [cotoResult, carrefourResult, diaResult] = await Promise.allSettled([
     fetchCotoProducts(q),
     fetchCarrefourProducts(q),
+    fetchDiaProducts(q),
   ])
   return {
     coto: cotoResult.status === 'fulfilled' ? cotoResult.value : [],
     carrefour: carrefourResult.status === 'fulfilled' ? carrefourResult.value : [],
+    dia: diaResult.status === 'fulfilled' ? diaResult.value : [],
     errors: {
       coto: cotoResult.status === 'rejected' ? 'Coto no respondió' : null,
       carrefour: carrefourResult.status === 'rejected' ? 'Carrefour no respondió' : null,
+      dia: diaResult.status === 'rejected' ? 'Día no respondió' : null,
     },
   }
 }
 
 export async function searchSupermarkets(query) {
   const q = isBarcode(query) ? barcodeDigits(query) : query.trim()
-  if (!q) return { coto: [], carrefour: [], errors: {} }
+  if (!q) return { coto: [], carrefour: [], dia: [], errors: {} }
 
   try {
     const res = await fetch(`/api/supers?q=${encodeURIComponent(q)}`)
@@ -440,11 +474,12 @@ export function matchByEan(product, otherList) {
   return otherList.find((entry) => entry.ean && entry.ean === product.ean) || null
 }
 
-export function cheaperOf(priceCoto, priceCarrefour) {
-  const coto = Number(priceCoto) || 0
-  const carrefour = Number(priceCarrefour) || 0
-  if (coto > 0 && carrefour > 0) return coto <= carrefour ? 'coto' : 'carrefour'
-  if (coto > 0) return 'coto'
-  if (carrefour > 0) return 'carrefour'
-  return null
+export function cheaperOf(priceCoto, priceCarrefour, priceDia = 0) {
+  const entries = [
+    ['coto', Number(priceCoto) || 0],
+    ['carrefour', Number(priceCarrefour) || 0],
+    ['dia', Number(priceDia) || 0],
+  ].filter(([, price]) => price > 0)
+  if (!entries.length) return null
+  return entries.sort((a, b) => a[1] - b[1])[0][0]
 }
