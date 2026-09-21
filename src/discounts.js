@@ -44,7 +44,7 @@ export const PAYMENT_PROMOS = [
     store: 'coto',
     percent: 25,
     short: 'MP Coto',
-    note: 'Estimado 25% sobre productos con precio Coto. Confirmá la promo vigente en Mercado Pago.',
+    note: 'Estimado 25% solo si el producto no tiene ya descuento en la web de Coto (no acumulable).',
   },
   {
     id: 'mp-carrefour',
@@ -60,7 +60,7 @@ export const PAYMENT_PROMOS = [
     store: 'coto',
     percent: 30,
     short: 'Visa NFC',
-    note: '30% jueves, pago sin contacto en sucursal. No suma electro, patios ni algunas bodegas.',
+    note: '30% jueves NFC. No aplica si el producto ya tiene descuento web en Coto, ni en electro/patios/bodegas.',
   },
 ]
 
@@ -109,6 +109,10 @@ function exclusionReason(promo, item, unitPrice) {
   if (!promo.store) return ''
   if (!unitPrice) {
     return promo.store === 'coto' ? 'Sin precio en Coto' : 'Sin precio en Carrefour'
+  }
+  // En Coto las promos de pago no se acumulan con descuento web del producto
+  if (promo.store === 'coto' && hasWebDiscount(item, 'coto')) {
+    return 'Ya tiene descuento web en Coto'
   }
   if (promo.id === 'visa-nfc-coto' && isVisaNfcCotoExcluded(item)) {
     return 'Excluido de Visa NFC'

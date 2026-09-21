@@ -131,8 +131,31 @@
 
 .cart-sheet {
   width: min(560px, 100%);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-height: min(92vh, 920px);
+  overflow: hidden;
+}
+
+.cart-sheet .sheet-header,
+.cart-sheet .cart-promos,
+.cart-sheet .cart-promo-note,
+.cart-sheet .cart-empty,
+.cart-sheet .cart-split {
+  flex-shrink: 0;
+}
+
+.cart-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
   display: grid;
-  gap: 14px;
+  gap: 10px;
+  flex: 1 1 auto;
+  min-height: 120px;
+  max-height: min(36vh, 320px);
+  overflow: auto;
 }
 
 .cart-empty {
@@ -180,16 +203,6 @@
   color: var(--muted);
   font-size: 0.78rem;
   line-height: 1.35;
-}
-
-.cart-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: grid;
-  gap: 10px;
-  max-height: min(42vh, 380px);
-  overflow: auto;
 }
 
 .cart-line.is-excluded {
@@ -255,6 +268,13 @@ html[data-theme="light"] .cart-web.yes {
 .cart-summary-rows {
   display: grid;
   gap: 8px;
+}
+
+.cart-summary-meta {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 650;
 }
 
 .cart-summary-rows > div {
@@ -342,8 +362,11 @@ html[data-theme="light"] .cart-web.yes {
 .cart-summary {
   display: grid;
   gap: 12px;
-  padding-top: 4px;
+  flex-shrink: 0;
+  margin-top: auto;
+  padding: 12px 0 0;
   border-top: 1px solid var(--line);
+  background: var(--bg-card);
 }
 
 .cart-summary .modal-actions {
@@ -2501,8 +2524,7 @@ html[data-theme="light"] .store-col-title.carrefour {
   }
 
   .password-modal,
-  .delete-modal,
-  .cart-sheet {
+  .delete-modal {
     width: 100%;
     max-height: min(78dvh, calc(100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 24px));
     margin: 0;
@@ -2511,6 +2533,18 @@ html[data-theme="light"] .store-col-title.carrefour {
     overflow: auto;
     display: grid;
     gap: 12px;
+  }
+
+  .cart-sheet {
+    width: 100%;
+    max-height: min(86dvh, calc(100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 16px));
+    margin: 0;
+    padding: 12px 16px 16px;
+    border-radius: 22px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
   }
 
   .password-modal input {
@@ -2541,7 +2575,13 @@ html[data-theme="light"] .store-col-title.carrefour {
   }
 
   .cart-list {
-    max-height: min(42vh, 360px);
+    max-height: none;
+    flex: 1 1 auto;
+    min-height: 0;
+  }
+
+  .cart-summary {
+    padding-top: 10px;
   }
 
   .cart-summary .modal-actions {

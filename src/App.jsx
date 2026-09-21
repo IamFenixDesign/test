@@ -2514,25 +2514,30 @@ function App() {
             )}
 
             <div className="cart-summary">
+              <p className="cart-summary-meta">
+                {cartTotals.count} producto{cartTotals.count === 1 ? '' : 's'} · {cartTotals.units} u.
+              </p>
               <div className="cart-summary-rows">
                 <div>
-                  <span>
-                    {cartTotals.count} producto{cartTotals.count === 1 ? '' : 's'} · {cartTotals.units} u.
-                  </span>
+                  <span>Subtotal (sin descuento de pago)</span>
                   <strong>{money(cartQuote.subtotal || cartTotals.total)}</strong>
                 </div>
-                {cartQuote.promo.percent > 0 ? (
-                  <>
-                    <div className="is-save">
-                      <span>Descuento {cartQuote.promo.short}</span>
-                      <strong>-{money(cartQuote.discountTotal)}</strong>
-                    </div>
-                    <div className="is-pay">
-                      <span>Total a pagar</span>
-                      <strong>{money(cartQuote.payable)}</strong>
-                    </div>
-                  </>
-                ) : null}
+                <div className={cartQuote.discountTotal > 0 ? 'is-save' : ''}>
+                  <span>
+                    {cartQuote.promo.percent > 0
+                      ? `Descuento ${cartQuote.promo.short}`
+                      : 'Descuento de pago'}
+                  </span>
+                  <strong>
+                    {cartQuote.discountTotal > 0 ? `-${money(cartQuote.discountTotal)}` : money(0)}
+                  </strong>
+                </div>
+                <div className="is-pay">
+                  <span>
+                    {cartQuote.promo.percent > 0 ? 'Total con descuento' : 'Total de la compra'}
+                  </span>
+                  <strong>{money(cartQuote.payable || cartQuote.subtotal || cartTotals.total)}</strong>
+                </div>
               </div>
               <div className="modal-actions">
                 <button className="btn btn-ghost" type="button" onClick={() => setCartOpen(false)}>
