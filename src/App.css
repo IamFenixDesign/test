@@ -217,6 +217,31 @@
   color: var(--warn);
 }
 
+.cart-web {
+  display: inline-flex;
+  width: fit-content;
+  margin-top: 2px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 750;
+}
+
+.cart-web.yes {
+  background: color-mix(in srgb, #4d9dff 16%, transparent);
+  color: #4d9dff;
+}
+
+html[data-theme="light"] .cart-web.yes {
+  color: #004e9f;
+  background: rgba(0, 78, 159, 0.1);
+}
+
+.cart-web.no {
+  background: var(--bg-elev);
+  color: var(--muted);
+}
+
 .cart-split {
   margin: 0;
 }
@@ -2090,6 +2115,22 @@ html[data-theme="light"] .store-col-title.carrefour {
   font-style: normal;
   font-size: 0.75rem;
   font-weight: 650;
+}
+
+.store-offer-tag {
+  display: inline-flex;
+  margin-top: 5px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--ok) 16%, transparent);
+  color: var(--ok);
+  font-size: 0.7rem;
+  font-weight: 750;
+}
+
+.store-offer-tag.muted {
+  background: var(--bg);
+  color: var(--muted);
 }
 
 @media (max-width: 900px) {

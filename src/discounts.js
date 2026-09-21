@@ -87,6 +87,19 @@ export function storeUnitPrice(item, store) {
   return 0
 }
 
+export function webDiscountLabel(item, store) {
+  if (!item) return ''
+  if (store === 'coto') return String(item.discountCoto || '').trim()
+  if (store === 'carrefour') return String(item.discountCarrefour || '').trim()
+  if (item.priceSource === 'coto') return String(item.discountCoto || '').trim()
+  if (item.priceSource === 'carrefour') return String(item.discountCarrefour || '').trim()
+  return String(item.discountCoto || item.discountCarrefour || '').trim()
+}
+
+export function hasWebDiscount(item, store) {
+  return Boolean(webDiscountLabel(item, store))
+}
+
 export function isVisaNfcCotoExcluded(item) {
   const hay = fold(`${item?.name || ''} ${item?.category || ''} ${item?.brand || ''}`)
   return VISA_NFC_COTO_EXCLUSIONS.some((key) => hay.includes(key))
@@ -119,6 +132,8 @@ export function quoteCartPromo(cartLines, promo) {
   for (const line of cartLines || []) {
     const need = Number(line.need) || 0
     if (need <= 0) continue
+    const webStore = selected.store || line.item?.priceSource
+    const webDiscount = webDiscountLabel(line.item, webStore)
 
     if (!selected.store || selected.percent <= 0) {
       const unitPrice = Number(line.unitPrice) || Number(line.item?.price) || 0
@@ -131,6 +146,7 @@ export function quoteCartPromo(cartLines, promo) {
         payable: lineTotal,
         eligible: true,
         reason: '',
+        webDiscount,
       })
       continue
     }
@@ -149,6 +165,7 @@ export function quoteCartPromo(cartLines, promo) {
         payable: unitPrice ? lineTotal : fallbackTotal,
         eligible: false,
         reason: reason || 'Sin precio del super',
+        webDiscount,
       })
       continue
     }
@@ -162,6 +179,7 @@ export function quoteCartPromo(cartLines, promo) {
       payable: Math.max(0, lineTotal - discount),
       eligible: true,
       reason: '',
+      webDiscount,
     })
   }
 
@@ -171,6 +189,7 @@ export function quoteCartPromo(cartLines, promo) {
   const discountTotal = sum(eligible, 'discount')
   const payableEligible = sum(eligible, 'payable')
   const payableExcluded = sum(excluded, 'payable')
+  const withWebOffer = [...eligible, ...excluded].filter((row) => row.webDiscount).length
 
   return {
     promo: selected,
@@ -181,5 +200,6 @@ export function quoteCartPromo(cartLines, promo) {
     discountTotal,
     subtotal: eligibleSubtotal + excludedSubtotal,
     payable: payableEligible + payableExcluded,
+    withWebOffer,
   }
 }

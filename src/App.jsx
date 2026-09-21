@@ -39,6 +39,8 @@ const emptyForm = {
   image: '',
   imageCoto: '',
   imageCarrefour: '',
+  discountCoto: '',
+  discountCarrefour: '',
 }
 
 function loadItems(userId) {
@@ -151,6 +153,8 @@ function mergeItemRecords(base, incoming) {
     image: incoming.image || base.image,
     imageCoto: incoming.imageCoto || base.imageCoto,
     imageCarrefour: incoming.imageCarrefour || base.imageCarrefour,
+    discountCoto: incoming.discountCoto || base.discountCoto || '',
+    discountCarrefour: incoming.discountCarrefour || base.discountCarrefour || '',
   }
 }
 
@@ -815,17 +819,30 @@ function StoreResult({ product, onPick }) {
           {product.ean ? `${product.ean} · ` : ''}
           {product.brand ? `${product.brand} · ` : ''}
           {money(product.price)}
+          {product.hasDiscount && product.discountLabel ? ` · ${product.discountLabel}` : ''}
         </em>
+        {product.hasDiscount ? (
+          <span className="store-offer-tag">Con descuento web</span>
+        ) : (
+          <span className="store-offer-tag muted">Sin descuento web</span>
+        )}
       </span>
     </button>
   )
 }
 
 function ItemPrice({ item }) {
+  const offer =
+    item.priceSource === 'coto'
+      ? item.discountCoto
+      : item.priceSource === 'carrefour'
+        ? item.discountCarrefour
+        : item.discountCoto || item.discountCarrefour
   return (
     <div className="price-cell">
       <div className="price-static">
         <strong>{money(item.price)}</strong>
+        {offer ? <span className="price-offer">{offer}</span> : null}
       </div>
     </div>
   )
@@ -1372,6 +1389,8 @@ function App() {
       image: '',
       imageCoto: '',
       imageCarrefour: '',
+      discountCoto: '',
+      discountCarrefour: '',
     }))
     setStoreQuery(form.name)
     setStoreResults({ coto: [], carrefour: [], errors: {} })
@@ -1412,6 +1431,8 @@ function App() {
       image: item.image || '',
       imageCoto: item.imageCoto || '',
       imageCarrefour: item.imageCarrefour || '',
+      discountCoto: item.discountCoto || '',
+      discountCarrefour: item.discountCarrefour || '',
     })
     setError('')
     setStoreQuery('')
@@ -1449,6 +1470,16 @@ function App() {
       image: product.image || prev.image,
       imageCoto: coto?.image || prev.imageCoto,
       imageCarrefour: carrefour?.image || prev.imageCarrefour,
+      discountCoto: coto
+        ? coto.hasDiscount
+          ? coto.discountLabel || 'Oferta'
+          : ''
+        : prev.discountCoto,
+      discountCarrefour: carrefour
+        ? carrefour.hasDiscount
+          ? carrefour.discountLabel || 'Oferta'
+          : ''
+        : prev.discountCarrefour,
     }))
     setStoreQuery('')
     setStoreResults({ coto: [], carrefour: [], errors: {} })
@@ -1572,6 +1603,16 @@ function App() {
             barcode: barcodeOf(entry) || detected,
             imageCoto: coto?.image || entry.imageCoto,
             imageCarrefour: carrefour?.image || entry.imageCarrefour,
+            discountCoto: coto
+              ? coto.hasDiscount
+                ? coto.discountLabel || 'Oferta'
+                : ''
+              : entry.discountCoto || '',
+            discountCarrefour: carrefour
+              ? carrefour.hasDiscount
+                ? carrefour.discountLabel || 'Oferta'
+                : ''
+              : entry.discountCarrefour || '',
             image:
               source === 'coto'
                 ? coto?.image || entry.imageCoto || entry.image
@@ -1631,6 +1672,8 @@ function App() {
       urlCarrefour: form.urlCarrefour,
       imageCoto,
       imageCarrefour,
+      discountCoto: source === 'custom' ? '' : form.discountCoto || '',
+      discountCarrefour: source === 'custom' ? '' : form.discountCarrefour || '',
       image:
         source === 'coto'
           ? imageCoto || form.image
@@ -2134,6 +2177,7 @@ function App() {
                           onClick={() => applyFormStorePrice('coto')}
                         >
                           Coto {money(form.priceCoto)}
+                          {form.discountCoto ? ` · ${form.discountCoto}` : ''}
                         </button>
                       ) : null}
                       {form.priceCarrefour ? (
@@ -2143,6 +2187,7 @@ function App() {
                           onClick={() => applyFormStorePrice('carrefour')}
                         >
                           Carrefour {money(form.priceCarrefour)}
+                          {form.discountCarrefour ? ` · ${form.discountCarrefour}` : ''}
                         </button>
                       ) : null}
                       {form.priceSource === 'custom' && form.price ? (
@@ -2415,6 +2460,11 @@ function App() {
                             ? ` · ahorro ${money(line.discount)}`
                             : ''}
                         </em>
+                        <span className={`cart-web ${line.webDiscount ? 'yes' : 'no'}`}>
+                          {line.webDiscount
+                            ? `Web: ${line.webDiscount}`
+                            : 'Web: sin descuento en el super'}
+                        </span>
                         <span className={`cart-elig ${line.eligible ? 'yes' : 'no'}`}>
                           {line.eligible
                             ? cartQuote.promo.percent > 0
@@ -2445,8 +2495,18 @@ function App() {
                 cartQuote.promo.percent > 0 ? (
                   <div className="cart-split">
                     <p>
-                      <strong>{cartQuote.eligible.length}</strong> con descuento ·{' '}
-                      <strong>{cartQuote.excluded.length}</strong> sin descuento
+                      <strong>{cartQuote.eligible.length}</strong> con descuento de pago ·{' '}
+                      <strong>{cartQuote.excluded.length}</strong> sin ese descuento ·{' '}
+                      <strong>{cartQuote.withWebOffer || 0}</strong> con oferta web
+                    </p>
+                  </div>
+                ) : cartLines.length > 0 ? (
+                  <div className="cart-split">
+                    <p>
+                      <strong>{cartQuote.withWebOffer || 0}</strong> con descuento en la web del
+                      super ·{' '}
+                      <strong>{Math.max(0, cartLines.length - (cartQuote.withWebOffer || 0))}</strong>{' '}
+                      sin oferta web
                     </p>
                   </div>
                 ) : null}

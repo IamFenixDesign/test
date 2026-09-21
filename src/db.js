@@ -61,11 +61,15 @@ export async function ensureSchema() {
       image TEXT DEFAULT '',
       image_coto TEXT DEFAULT '',
       image_carrefour TEXT DEFAULT '',
+      discount_coto TEXT DEFAULT '',
+      discount_carrefour TEXT DEFAULT '',
       user_id UUID,
       updated_at TIMESTAMPTZ DEFAULT now()
     )
   `
   await db`ALTER TABLE stockly_items ADD COLUMN IF NOT EXISTS user_id UUID`
+  await db`ALTER TABLE stockly_items ADD COLUMN IF NOT EXISTS discount_coto TEXT DEFAULT ''`
+  await db`ALTER TABLE stockly_items ADD COLUMN IF NOT EXISTS discount_carrefour TEXT DEFAULT ''`
   await db`CREATE INDEX IF NOT EXISTS stockly_items_user_id_idx ON stockly_items (user_id)`
 }
 
@@ -91,6 +95,8 @@ export function rowToItem(row) {
     image: row.image || '',
     imageCoto: row.image_coto || '',
     imageCarrefour: row.image_carrefour || '',
+    discountCoto: row.discount_coto || '',
+    discountCarrefour: row.discount_carrefour || '',
   }
 }
 
@@ -357,7 +363,8 @@ export async function upsertItem(item, userId) {
   await getSql()`
     INSERT INTO stockly_items (
       id, name, barcode, category, quantity, min_stock, price, price_source,
-      price_coto, price_carrefour, url_coto, url_carrefour, image, image_coto, image_carrefour, user_id, updated_at
+      price_coto, price_carrefour, url_coto, url_carrefour, image, image_coto, image_carrefour,
+      discount_coto, discount_carrefour, user_id, updated_at
     )
     VALUES (
       ${item.id}::uuid,
@@ -375,6 +382,8 @@ export async function upsertItem(item, userId) {
       ${item.image || ''},
       ${item.imageCoto || ''},
       ${item.imageCarrefour || ''},
+      ${item.discountCoto || ''},
+      ${item.discountCarrefour || ''},
       ${userId}::uuid,
       now()
     )
@@ -393,6 +402,8 @@ export async function upsertItem(item, userId) {
       image = EXCLUDED.image,
       image_coto = EXCLUDED.image_coto,
       image_carrefour = EXCLUDED.image_carrefour,
+      discount_coto = EXCLUDED.discount_coto,
+      discount_carrefour = EXCLUDED.discount_carrefour,
       updated_at = now()
     WHERE stockly_items.user_id = EXCLUDED.user_id
   `
