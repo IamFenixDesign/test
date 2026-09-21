@@ -172,7 +172,7 @@ function IconSun() {
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
       <circle cx="12" cy="12" r="4.2" />
       <path d="M12 2.6v2.2M12 19.2v2.2M4.8 12H2.6M21.4 12h-2.2M6.2 6.2 4.6 4.6M19.4 19.4l-1.6-1.6M6.2 17.8 4.6 19.4M19.4 4.6l-1.6 1.6" />
-    </svg>
+          </svg>
   )
 }
 
@@ -180,7 +180,7 @@ function IconMoon() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
       <path d="M20 14.5A8.5 8.5 0 1 1 9.5 4 7 7 0 0 0 20 14.5Z" />
-    </svg>
+                </svg>
   )
 }
 
@@ -191,15 +191,6 @@ function IconLogout() {
       <path d="M4 12h11" />
       <path d="m8 8-4 4 4 4" />
                 </svg>
-  )
-}
-
-function IconRefresh() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-      <path d="M21 12a9 9 0 1 1-2.6-6.3" />
-      <path d="M21 3v6h-6" />
-    </svg>
   )
 }
 
@@ -214,9 +205,20 @@ function IconScan() {
 
 function IconEdit() {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <path d="M12 20h9" />
       <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5Z" />
+    </svg>
+  )
+}
+
+function IconTrash() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M4 7h16" />
+      <path d="M9 7V5h6v2" />
+      <path d="M6 7l1 13h10l1-13" />
+      <path d="M10 11v6M14 11v6" />
     </svg>
   )
 }
@@ -253,7 +255,7 @@ function BarcodeScanner({ onDetect, onCancel }) {
   const videoRef = useRef(null)
   const onDetectRef = useRef(onDetect)
   const streamRef = useRef(null)
-  const [message, setMessage] = useState('Apuntá el código de barras al recuadro')
+  const [message, setMessage] = useState('Pasá el código de barras por el recuadro')
   const [live, setLive] = useState(false)
   const [hasTorch, setHasTorch] = useState(false)
   const [torchOn, setTorchOn] = useState(false)
@@ -264,14 +266,44 @@ function BarcodeScanner({ onDetect, onCancel }) {
     if (!video) return undefined
 
     let stream
-    let raf = 0
+    let timer = 0
     let stopped = false
-    let zxingControls
+    const canvas = document.createElement('canvas')
+    const ctx = canvas.getContext('2d', { willReadFrequently: true })
 
     function finish(value) {
-      if (stopped) return
+      const code = String(value || '').replace(/\s/g, '')
+      if (stopped || !code) return
       stopped = true
-      onDetectRef.current(value)
+      onDetectRef.current(code)
+    }
+
+    function lockVideoBox() {
+      video.removeAttribute('width')
+      video.removeAttribute('height')
+      video.style.position = 'absolute'
+      video.style.top = '0'
+      video.style.left = '0'
+      video.style.width = '100%'
+      video.style.height = '100%'
+      video.style.minWidth = '100%'
+      video.style.minHeight = '100%'
+      video.style.objectFit = 'cover'
+      video.style.objectPosition = 'center'
+    }
+
+    function grabFrame(wide = false) {
+      const vw = video.videoWidth
+      const vh = video.videoHeight
+      if (!vw || !vh || !ctx) return null
+      const cropW = Math.max(280, Math.floor(vw * (wide ? 0.96 : 0.86)))
+      const cropH = Math.max(120, Math.floor(vh * (wide ? 0.42 : 0.28)))
+      const sx = Math.floor((vw - cropW) / 2)
+      const sy = Math.max(0, Math.floor((vh - cropH) / 2 - vh * 0.06))
+      canvas.width = cropW
+      canvas.height = cropH
+      ctx.drawImage(video, sx, sy, cropW, cropH, 0, 0, cropW, cropH)
+      return canvas
     }
 
     async function start() {
@@ -280,20 +312,6 @@ function BarcodeScanner({ onDetect, onCancel }) {
         return
       }
       try {
-        function lockVideoBox() {
-          video.removeAttribute('width')
-          video.removeAttribute('height')
-          video.style.position = 'absolute'
-          video.style.top = '0'
-          video.style.left = '0'
-          video.style.width = '100%'
-          video.style.height = '100%'
-          video.style.minWidth = '100%'
-          video.style.minHeight = '100%'
-          video.style.objectFit = 'cover'
-          video.style.objectPosition = 'center'
-        }
-
         video.setAttribute('playsinline', 'true')
         video.setAttribute('webkit-playsinline', 'true')
         video.muted = true
@@ -305,12 +323,17 @@ function BarcodeScanner({ onDetect, onCancel }) {
           audio: false,
           video: {
             facingMode: { ideal: 'environment' },
+            width: { ideal: 1280 },
+            height: { ideal: 720 },
           },
         }
         try {
           stream = await navigator.mediaDevices.getUserMedia(constraints)
         } catch {
-          stream = await navigator.mediaDevices.getUserMedia({ audio: false, video: true })
+          stream = await navigator.mediaDevices.getUserMedia({
+            audio: false,
+            video: { facingMode: { ideal: 'environment' } },
+          })
         }
         streamRef.current = stream
         lockVideoBox()
@@ -324,45 +347,86 @@ function BarcodeScanner({ onDetect, onCancel }) {
         await video.play()
         lockVideoBox()
         setLive(true)
-        setMessage('Mantené el código quieto dentro del recuadro')
-        const track = stream.getVideoTracks()[0]
-        if (track?.getCapabilities?.().torch) setHasTorch(true)
+        setMessage('Pasá el código por el recuadro')
 
+        const track = stream.getVideoTracks()[0]
+        const caps = track?.getCapabilities?.() || {}
+        if (caps.torch) setHasTorch(true)
+        try {
+          const advanced = []
+          if (caps.focusMode?.includes?.('continuous')) advanced.push({ focusMode: 'continuous' })
+          if (caps.zoom) {
+            const min = caps.zoom.min || 1
+            const max = caps.zoom.max || 1
+            advanced.push({ zoom: Math.min(max, Math.max(min, 1.6)) })
+          }
+          if (advanced.length) await track.applyConstraints({ advanced })
+        } catch {
+          /* iOS often ignores extra constraints */
+        }
+
+        const preferred = ['ean_13', 'ean_8', 'upc_a', 'upc_e', 'code_128', 'code_39', 'itf', 'codabar']
+        let detector = null
         const Detector = window.BarcodeDetector
         if (typeof Detector === 'function') {
-          const preferred = ['ean_13', 'ean_8', 'upc_a', 'upc_e', 'code_128', 'code_39', 'itf']
           let formats = preferred
           if (typeof Detector.getSupportedFormats === 'function') {
             const supported = await Detector.getSupportedFormats()
             formats = preferred.filter((format) => supported.includes(format))
           }
-          const detector = new Detector({ formats: formats.length ? formats : preferred })
-          const tick = async () => {
-            if (stopped) return
-            try {
-              if (video.readyState >= 2) {
-                const codes = await detector.detect(video)
-                const raw = codes[0]?.rawValue
-                if (raw) {
-                  finish(raw)
-                  return
-                }
-              }
-            } catch {
-              /* skip unreadable frame */
-            }
-            raf = requestAnimationFrame(tick)
-          }
-          tick()
-          return
+          detector = new Detector({ formats: formats.length ? formats : preferred })
         }
 
         const { BrowserMultiFormatReader } = await import('@zxing/browser')
-        const reader = new BrowserMultiFormatReader()
-        zxingControls = await reader.decodeFromStream(stream, video, (result) => {
-          if (result) finish(result.getText())
-        })
-        lockVideoBox()
+        const { BarcodeFormat, DecodeHintType } = await import('@zxing/library')
+        const hints = new Map()
+        hints.set(DecodeHintType.POSSIBLE_FORMATS, [
+          BarcodeFormat.EAN_13,
+          BarcodeFormat.EAN_8,
+          BarcodeFormat.UPC_A,
+          BarcodeFormat.UPC_E,
+          BarcodeFormat.CODE_128,
+          BarcodeFormat.CODE_39,
+          BarcodeFormat.ITF,
+          BarcodeFormat.CODABAR,
+        ])
+        hints.set(DecodeHintType.TRY_HARDER, true)
+        const reader = new BrowserMultiFormatReader(hints, { delayBetweenScanAttempts: 40 })
+
+        let pass = 0
+        const tick = async () => {
+          if (stopped) return
+          try {
+            if (video.readyState >= 2) {
+              const frame = grabFrame(pass % 3 === 2)
+              if (frame) {
+                if (detector) {
+                  const codes = await detector.detect(frame)
+                  const raw = codes[0]?.rawValue
+                  if (raw) {
+                    finish(raw)
+                    return
+                  }
+                }
+                try {
+                  const result = reader.decodeFromCanvas(frame)
+                  const text = result?.getText?.()
+                  if (text) {
+                    finish(text)
+                    return
+                  }
+                } catch {
+                  /* frame without a readable code */
+                }
+              }
+            }
+          } catch {
+            /* skip unreadable frame */
+          }
+          pass += 1
+          timer = window.setTimeout(tick, 45)
+        }
+        tick()
       } catch (err) {
         if (stopped) return
         setLive(false)
@@ -379,8 +443,7 @@ function BarcodeScanner({ onDetect, onCancel }) {
     start()
     return () => {
       stopped = true
-      cancelAnimationFrame(raf)
-      zxingControls?.stop?.()
+      window.clearTimeout(timer)
       stream?.getTracks().forEach((track) => track.stop())
       streamRef.current = null
       video.srcObject = null
@@ -517,59 +580,21 @@ function PricePicker({ item, open, onToggle, onPick }) {
   )
 }
 
-function ItemActions({ item, qtyOpen, qtyDraft, setQtyDraft, onAddQty, onEdit, onRemove, setOpenMenu }) {
+function ItemActions({ item, onEdit, onRemove }) {
   return (
     <div className="row-actions">
-      <div className="qty-popover" data-menu={`qty:${item.id}`}>
-        <button
-          className="icon-btn"
-          type="button"
-          title="Agregar cantidad"
-          aria-label={`Ajustar cantidad de ${item.name}`}
-          onClick={() => setOpenMenu(qtyOpen ? null : `qty:${item.id}`)}
-        >
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <path d="M12 5v14M5 12h14" />
-                </svg>
-        </button>
-        {qtyOpen && (
-          <div className="qty-menu">
-            <p>Sumar o restar unidades</p>
-            <div className="row">
-              <input
-                type="number"
-                value={qtyDraft[item.id] ?? ''}
-                onChange={(event) =>
-                  setQtyDraft((prev) => ({
-                    ...prev,
-                    [item.id]: event.target.value,
-                  }))
-                }
-                onKeyDown={(event) => {
-                  if (event.key === 'Enter') onAddQty(item.id, qtyDraft[item.id])
-                }}
-                placeholder="Ej. 10 o -3"
-              />
-              <button className="btn btn-primary" type="button" onClick={() => onAddQty(item.id, qtyDraft[item.id])}>
-                OK
-              </button>
-            </div>
-          </div>
-        )}
-      </div>
       <button className="icon-btn" type="button" title="Editar" aria-label={`Editar ${item.name}`} onClick={onEdit}>
         <IconEdit />
       </button>
-      <button className="icon-btn" type="button" title="Eliminar" aria-label={`Eliminar ${item.name}`} onClick={onRemove}>
-        ×
+      <button className="icon-btn danger" type="button" title="Eliminar" aria-label={`Eliminar ${item.name}`} onClick={onRemove}>
+        <IconTrash />
       </button>
     </div>
   )
 }
 
-function SuperPrices({ item, onRefresh, refreshing }) {
+function SuperPrices({ item }) {
   const cheaper = cheaperOf(item.priceCoto, item.priceCarrefour)
-  const hasPrices = Number(item.priceCoto) > 0 || Number(item.priceCarrefour) > 0
   return (
     <div className="store-prices">
       {Number(item.priceCoto) > 0 ? (
@@ -596,16 +621,6 @@ function SuperPrices({ item, onRefresh, refreshing }) {
       ) : (
         <span className="store-pill muted">Carrefour —</span>
       )}
-      <button
-        className="icon-btn refresh-btn"
-        type="button"
-        title={hasPrices ? 'Actualizar precios' : 'Buscar en Coto y Carrefour'}
-        aria-label={`Actualizar precios de ${item.name}`}
-        disabled={refreshing}
-        onClick={onRefresh}
-      >
-        <IconRefresh />
-      </button>
     </div>
   )
 }
@@ -622,7 +637,6 @@ function App() {
   const [form, setForm] = useState(emptyForm)
   const [error, setError] = useState('')
   const [toast, setToast] = useState('')
-  const [qtyDraft, setQtyDraft] = useState({})
   const [openMenu, setOpenMenu] = useState(null)
   const [passwordModal, setPasswordModal] = useState(false)
   const [passwordForm, setPasswordForm] = useState({ currentPassword: '', newPassword: '', confirmPassword: '' })
@@ -630,13 +644,15 @@ function App() {
   const [passwordBusy, setPasswordBusy] = useState(false)
   const [storeQuery, setStoreQuery] = useState('')
   const [storeResults, setStoreResults] = useState({ coto: [], carrefour: [], errors: {} })
+  const [storeTab, setStoreTab] = useState('coto')
   const [storeLoading, setStoreLoading] = useState(false)
   const [storeError, setStoreError] = useState('')
-  const [refreshingId, setRefreshingId] = useState(null)
   const [scanning, setScanning] = useState(false)
   const [hydrated, setHydrated] = useState(false)
   const itemsRef = useRef(items)
   const qtySyncRef = useRef({})
+  const lastAutoRefreshRef = useRef(0)
+  const refreshStorePricesRef = useRef(async () => {})
   itemsRef.current = items
 
   useEffect(() => {
@@ -663,6 +679,7 @@ function App() {
     if (!user) {
       setItems([])
       setHydrated(false)
+      lastAutoRefreshRef.current = 0
       return undefined
     }
     let cancelled = false
@@ -687,6 +704,32 @@ function App() {
       cancelled = true
     }
   }, [user])
+
+  useEffect(() => {
+    if (!hydrated || !user?.id) return undefined
+    let cancelled = false
+
+    async function refreshAll() {
+      const now = Date.now()
+      if (lastAutoRefreshRef.current && now - lastAutoRefreshRef.current < 10 * 60 * 1000) return
+      lastAutoRefreshRef.current = now
+      const list = itemsRef.current
+      for (const item of list) {
+        if (cancelled) return
+        await refreshStorePricesRef.current(item, { silent: true })
+      }
+    }
+
+    refreshAll()
+    function onVisible() {
+      if (document.visibilityState === 'visible') refreshAll()
+    }
+    document.addEventListener('visibilitychange', onVisible)
+    return () => {
+      cancelled = true
+      document.removeEventListener('visibilitychange', onVisible)
+    }
+  }, [hydrated, user?.id])
 
   useEffect(() => {
     if (!toast) return undefined
@@ -799,17 +842,6 @@ function App() {
     }, 450)
   }
 
-  function addQty(id, amount) {
-    const parsed = Number(amount)
-    if (!Number.isFinite(parsed) || parsed === 0) return
-    const item = items.find((entry) => entry.id === id)
-    if (!item) return
-    updateQty(id, item.quantity + parsed)
-    setQtyDraft((prev) => ({ ...prev, [id]: '' }))
-    setOpenMenu(null)
-    showToast(`${parsed > 0 ? 'Se sumaron' : 'Se restaron'} ${Math.abs(parsed)} a ${item.name}`)
-  }
-
   function applyItemStorePrice(id, store) {
     const item = items.find((entry) => entry.id === id)
     const value = store === 'coto' ? Number(item?.priceCoto) : Number(item?.priceCarrefour)
@@ -878,6 +910,7 @@ function App() {
     setError('')
     setStoreQuery('')
     setStoreResults({ coto: [], carrefour: [], errors: {} })
+    setStoreTab('coto')
     setStoreError('')
     setOpenMenu(null)
     setScanning(false)
@@ -905,6 +938,7 @@ function App() {
     setError('')
     setStoreQuery('')
     setStoreResults({ coto: [], carrefour: [], errors: {} })
+    setStoreTab('coto')
     setStoreError('')
     setOpenMenu(null)
     setScanning(false)
@@ -975,6 +1009,7 @@ function App() {
     try {
       const data = await searchSupermarkets(q)
       setStoreResults(data)
+      setStoreTab(data.coto.length ? 'coto' : data.carrefour.length ? 'carrefour' : 'coto')
       if (!data.coto.length && !data.carrefour.length) {
         setStoreError(
           data.errors?.coto ||
@@ -989,8 +1024,7 @@ function App() {
     }
   }
 
-  async function refreshStorePrices(item) {
-    setRefreshingId(item.id)
+  async function refreshStorePrices(item, { silent = false } = {}) {
     const code = barcodeOf(item)
     try {
       const data = await searchSupermarkets(code || item.name)
@@ -998,7 +1032,7 @@ function App() {
       const coto = pick(data.coto)
       const carrefour = pick(data.carrefour)
       if (!coto && !carrefour) {
-        showToast('No se encontraron precios en Coto ni Carrefour')
+        if (!silent) showToast('No se encontraron precios en Coto ni Carrefour')
         return
       }
       const detected = coto?.ean || carrefour?.ean || ''
@@ -1036,13 +1070,12 @@ function App() {
         if (saved) persistItem(saved)
         return next
       })
-      showToast(`Precios de ${item.name} actualizados`)
+      if (!silent) showToast(`Precios de ${item.name} actualizados`)
     } catch {
-      showToast('No se pudieron consultar los supermercados')
-    } finally {
-      setRefreshingId(null)
+      if (!silent) showToast('No se pudieron consultar los supermercados')
     }
   }
+  refreshStorePricesRef.current = refreshStorePrices
 
   function saveItem(event) {
     event.preventDefault()
@@ -1139,13 +1172,7 @@ function App() {
     <div className={`app ${modal || scanning || passwordModal ? 'is-overlay' : ''}`}>
       <header className="topbar">
         <div className="brand">
-          <div className="logo">
-            <IconMark />
-          </div>
-          <div>
-            <h1>Stockea</h1>
-            <p>Control de inventario en tiempo real</p>
-          </div>
+          <h1>Stockea</h1>
         </div>
         <div className="top-actions">
           <div className="user-chip" data-menu="user">
@@ -1287,7 +1314,7 @@ function App() {
                   <th>Producto</th>
                   <th>Cantidad</th>
                   <th>Precio individual</th>
-                  <th>Coto / Carrefour</th>
+                  <th>Supermercado</th>
                   <th>Estado</th>
                   <th></th>
                 </tr>
@@ -1326,11 +1353,7 @@ function App() {
                         />
                       </td>
                       <td>
-                        <SuperPrices
-                          item={item}
-                          refreshing={refreshingId === item.id}
-                          onRefresh={() => refreshStorePrices(item)}
-                        />
+                        <SuperPrices item={item} />
                       </td>
                       <td>
                         <span className={`badge ${currentStatus}`}>{statusLabel(currentStatus)}</span>
@@ -1338,13 +1361,8 @@ function App() {
                       <td>
                         <ItemActions
                           item={item}
-                          qtyOpen={openMenu === `qty:${item.id}`}
-                          qtyDraft={qtyDraft}
-                          setQtyDraft={setQtyDraft}
-                          onAddQty={addQty}
                           onEdit={() => openEditItem(item)}
                           onRemove={() => removeItem(item.id)}
-                          setOpenMenu={setOpenMenu}
                         />
                       </td>
                     </tr>
@@ -1383,20 +1401,11 @@ function App() {
                       onPick={(store) => applyItemStorePrice(item.id, store)}
                     />
                   </div>
-                  <SuperPrices
-                    item={item}
-                    refreshing={refreshingId === item.id}
-                    onRefresh={() => refreshStorePrices(item)}
-                  />
+                  <SuperPrices item={item} />
                   <ItemActions
                     item={item}
-                    qtyOpen={openMenu === `qty:${item.id}`}
-                    qtyDraft={qtyDraft}
-                    setQtyDraft={setQtyDraft}
-                    onAddQty={addQty}
                     onEdit={() => openEditItem(item)}
                     onRemove={() => removeItem(item.id)}
-                    setOpenMenu={setOpenMenu}
                   />
                 </article>
               )
@@ -1499,26 +1508,48 @@ function App() {
                 {storeLoading && <p className="hint">Buscando…</p>}
                 {storeError && <p className="hint">{storeError}</p>}
                 {(storeResults.coto.length > 0 || storeResults.carrefour.length > 0) && (
-                  <div className="store-cols">
-                    <div>
-                      <p className="store-col-title coto">Coto Digital</p>
-                      {storeResults.coto.length === 0 ? (
-                        <p className="hint">{storeResults.errors?.coto || 'Sin coincidencias'}</p>
-                      ) : (
-                        storeResults.coto.map((product) => (
-                          <StoreResult key={product.ean || product.url} product={product} onPick={applyStoreProduct} />
-                        ))
-                      )}
+                  <div className="store-results">
+                    <div className="store-result-tabs" role="tablist" aria-label="Supermercados">
+                      <button
+                        className={`store-result-tab coto ${storeTab === 'coto' ? 'active' : ''}`}
+                        type="button"
+                        role="tab"
+                        aria-selected={storeTab === 'coto'}
+                        onClick={() => setStoreTab('coto')}
+                      >
+                        Coto <small>{storeResults.coto.length}</small>
+                      </button>
+                      <button
+                        className={`store-result-tab carrefour ${storeTab === 'carrefour' ? 'active' : ''}`}
+                        type="button"
+                        role="tab"
+                        aria-selected={storeTab === 'carrefour'}
+                        onClick={() => setStoreTab('carrefour')}
+                      >
+                        Carrefour <small>{storeResults.carrefour.length}</small>
+                      </button>
                     </div>
-                    <div>
-                      <p className="store-col-title carrefour">Carrefour</p>
-                      {storeResults.carrefour.length === 0 ? (
-                        <p className="hint">Sin coincidencias</p>
-                      ) : (
-                        storeResults.carrefour.map((product) => (
-                          <StoreResult key={product.ean || product.url} product={product} onPick={applyStoreProduct} />
-                        ))
-                      )}
+                    <div className="store-cols">
+                      <div className={`store-col ${storeTab === 'coto' ? 'is-open' : ''}`}>
+                        <p className="store-col-title coto">Coto Digital</p>
+                        {storeResults.coto.length === 0 ? (
+                          <p className="hint">{storeResults.errors?.coto || 'Sin coincidencias'}</p>
+                        ) : (
+                          storeResults.coto.map((product) => (
+                            <StoreResult key={product.ean || product.url} product={product} onPick={applyStoreProduct} />
+                          ))
+                        )}
+                      </div>
+                      <div className={`store-col ${storeTab === 'carrefour' ? 'is-open' : ''}`}>
+                        <p className="store-col-title carrefour">Carrefour</p>
+                        {storeResults.carrefour.length === 0 ? (
+                          <p className="hint">{storeResults.errors?.carrefour || 'Sin coincidencias'}</p>
+                        ) : (
+                          storeResults.carrefour.map((product) => (
+                            <StoreResult key={product.ean || product.url} product={product} onPick={applyStoreProduct} />
+                          ))
+                        )}
+                      </div>
                     </div>
                   </div>
                 )}
