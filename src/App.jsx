@@ -1238,21 +1238,37 @@ function App() {
 
   function renderPromoOption(promo) {
     const active = cartPromoId === promo.id
+    if (promo.id === 'none') {
+      return (
+        <button
+          key={promo.id}
+          type="button"
+          role="radio"
+          aria-checked={active}
+          className={`cart-lista ${active ? 'active' : ''}`}
+          onClick={() => setCartPromoId(promo.id)}
+        >
+          <span className="cart-lista-copy">
+            <strong>Precio lista</strong>
+            <span>Sin descuento de medio de pago</span>
+          </span>
+          <span className="cart-deal-check" aria-hidden="true" />
+        </button>
+      )
+    }
     return (
       <button
         key={promo.id}
         type="button"
         role="radio"
         aria-checked={active}
-        className={`cart-deal ${active ? 'active' : ''} ${promo.store ? `store-${promo.store}` : 'store-none'}`}
+        className={`cart-deal ${active ? 'active' : ''} store-${promo.store}`}
         onClick={() => setCartPromoId(promo.id)}
       >
-        <span className="cart-deal-pct" aria-hidden={promo.percent <= 0}>
-          {promo.percent > 0 ? `-${promo.percent}%` : '—'}
-        </span>
+        <span className="cart-deal-pct">-{promo.percent}%</span>
         <span className="cart-deal-copy">
           <strong>{promo.short}</strong>
-          <span>{promo.payment || 'Sin medio de pago especial'}</span>
+          <span>{promo.payment || 'Medio de pago'}</span>
         </span>
         <span className="cart-deal-check" aria-hidden="true" />
       </button>
@@ -2554,15 +2570,6 @@ function App() {
                         </div>
                       </div>
                     ) : null}
-                  </div>
-
-                  <div className="cart-promo-note" key={`note-${cartPromoId}`}>
-                    <strong>
-                      {cartQuote.promo.percent > 0
-                        ? `${cartQuote.promo.short} · -${cartQuote.promo.percent}%`
-                        : 'Precio lista'}
-                    </strong>
-                    <p>{cartQuote.promo.note}</p>
                   </div>
                 </section>
 
