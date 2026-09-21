@@ -139,11 +139,47 @@
 }
 
 .cart-sheet .sheet-header,
+.cart-sheet .cart-days,
+.cart-sheet .cart-day-label,
 .cart-sheet .cart-promos,
 .cart-sheet .cart-promo-note,
 .cart-sheet .cart-empty,
 .cart-sheet .cart-split {
   flex-shrink: 0;
+}
+
+.cart-days {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.cart-day-chip {
+  min-height: 34px;
+  padding: 6px 0;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: var(--bg-elev);
+  color: var(--muted);
+  font-size: 0.75rem;
+  font-weight: 750;
+}
+
+.cart-day-chip.is-today {
+  border-color: color-mix(in srgb, var(--accent-text) 40%, var(--line));
+}
+
+.cart-day-chip.active {
+  border-color: color-mix(in srgb, var(--accent-text) 55%, var(--line));
+  background: color-mix(in srgb, var(--accent-text) 16%, transparent);
+  color: var(--accent-text);
+}
+
+.cart-day-label {
+  margin: 0;
+  color: var(--text);
+  font-size: 0.86rem;
+  font-weight: 700;
 }
 
 .cart-list {
@@ -175,16 +211,24 @@
 
 .cart-promo-chip {
   display: inline-flex;
-  align-items: center;
-  gap: 6px;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
   min-height: 34px;
-  padding: 6px 12px;
-  border-radius: 999px;
+  padding: 7px 12px;
+  border-radius: 14px;
   border: 1px solid var(--line);
   background: var(--bg-elev);
   color: var(--text);
   font-size: 0.82rem;
   font-weight: 700;
+  text-align: left;
+}
+
+.cart-promo-chip-main {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .cart-promo-chip small {
@@ -192,10 +236,21 @@
   font-weight: 800;
 }
 
+.cart-promo-chip-pay {
+  color: var(--muted);
+  font-size: 0.68rem;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
 .cart-promo-chip.active {
   border-color: color-mix(in srgb, var(--accent-text) 55%, var(--line));
   background: color-mix(in srgb, var(--accent-text) 14%, transparent);
   color: var(--accent-text);
+}
+
+.cart-promo-chip.active .cart-promo-chip-pay {
+  color: color-mix(in srgb, var(--accent-text) 75%, var(--muted));
 }
 
 .cart-promo-note {
