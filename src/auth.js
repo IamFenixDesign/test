@@ -67,3 +67,13 @@ export async function changePassword({ currentPassword, newPassword }) {
     newPassword,
   })
 }
+
+export async function updateProfile({ firstName, lastName, email }) {
+  const data = await authRequest({
+    provider: 'profile',
+    firstName,
+    lastName,
+    email,
+  })
+  return data.user
+}

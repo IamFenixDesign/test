@@ -8,6 +8,7 @@ import {
   rowToUser,
   saveEmailCode,
   updatePassword,
+  updateProfile,
 } from '../src/db.js'
 import { createEmailCode, hashEmailCode, hashPassword, verifyEmailCode, verifyPassword } from '../src/passwords.js'
 import { sendCodeEmail, sendVerificationEmail } from '../src/mail.js'
@@ -156,6 +157,19 @@ async function handleChangePassword(req, res, body) {
   return { user: await updatePassword(row.id, await hashPassword(newPassword)) }
 }
 
+async function handleProfile(req, res, body) {
+  const sessionUser = await requireUser(req, res)
+  if (!sessionUser) return null
+  const firstName = String(body.firstName || body.nombre || '').trim()
+  const lastName = String(body.lastName || body.apellido || '').trim()
+  const email = normalizeEmail(body.email || body.correo || '')
+  if (!firstName) throw Object.assign(new Error('Falta el nombre'), { status: 400 })
+  if (!lastName) throw Object.assign(new Error('Falta el apellido'), { status: 400 })
+  if (!EMAIL_RE.test(email)) throw Object.assign(new Error('El correo no es válido'), { status: 400 })
+  const user = await updateProfile(sessionUser.id, { firstName, lastName, email })
+  return { user: await startSession(res, user) }
+}
+
 export default async function handler(req, res) {
   try {
     if (req.method === 'GET') {
@@ -217,6 +231,13 @@ export default async function handler(req, res) {
 
     if (body.provider === 'change-password') {
       const result = await handleChangePassword(req, res, body)
+      if (!result) return
+      send(res, 200, { user: publicUser(result.user), ok: true })
+      return
+    }
+
+    if (body.provider === 'profile') {
+      const result = await handleProfile(req, res, body)
       if (!result) return
       send(res, 200, { user: publicUser(result.user), ok: true })
       return

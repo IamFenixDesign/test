@@ -2,13 +2,14 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import './App.css'
 import { barcodeDigits, cheaperOf, guessCategory, isBarcode, matchByEan, searchSupermarkets } from './supermarkets'
 import { deleteRemoteItem, fetchRemoteItems, upsertRemoteItem } from './itemsApi'
-import { changePassword, fetchMe, logout as logoutRequest } from './auth'
+import { changePassword, fetchMe, logout as logoutRequest, updateProfile as saveProfile } from './auth'
 import { getCameraStream } from './camera'
 import Login from './Login.jsx'
 
 const STORAGE_KEY = 'stockly-items-v2'
 const THEME_KEY = 'stockly-theme'
 const CATEGORIES = ['Alimentos', 'Bebidas', 'Limpieza', 'Papelería', 'Insumos']
+const FILTER_CATEGORIES = ['Todo', ...CATEGORIES]
 
 const emptyForm = {
   name: '',
@@ -528,9 +529,9 @@ function PricePicker({ item, open, onToggle, onPick }) {
         <strong>{money(item.price)}</strong>
         <span>
           {item.priceSource === 'coto'
-            ? 'precio Coto'
+            ? 'precio en Coto'
             : item.priceSource === 'carrefour'
-              ? 'precio Carrefour'
+              ? 'precio en Carrefour'
               : 'sin supermercado'}
         </span>
       </button>
@@ -618,14 +619,19 @@ function App() {
   const [items, setItems] = useState([])
   const [query, setQuery] = useState('')
   const [searchOpen, setSearchOpen] = useState(false)
-  const [category, setCategory] = useState('Alimentos')
+  const [category, setCategory] = useState('Todo')
   const [modal, setModal] = useState(null)
   const [editingId, setEditingId] = useState(null)
   const [form, setForm] = useState(emptyForm)
   const [error, setError] = useState('')
   const [toast, setToast] = useState('')
   const [openMenu, setOpenMenu] = useState(null)
+  const [collapsed, setCollapsed] = useState({})
   const [passwordModal, setPasswordModal] = useState(false)
+  const [profileModal, setProfileModal] = useState(false)
+  const [profileForm, setProfileForm] = useState({ firstName: '', lastName: '', email: '' })
+  const [profileError, setProfileError] = useState('')
+  const [profileBusy, setProfileBusy] = useState(false)
   const [passwordForm, setPasswordForm] = useState({ currentPassword: '', newPassword: '', confirmPassword: '' })
   const [passwordError, setPasswordError] = useState('')
   const [passwordBusy, setPasswordBusy] = useState(false)
@@ -755,9 +761,21 @@ function App() {
         !q ||
         item.name.toLowerCase().includes(q) ||
         barcodeOf(item).toLowerCase().includes(q)
-      return matchesQuery && item.category === category
+      return matchesQuery && (category === 'Todo' || item.category === category)
     })
   }, [items, query, category])
+
+  const groupedItems = useMemo(() => {
+    const buckets = Object.fromEntries(CATEGORIES.map((entry) => [entry, []]))
+    for (const item of filtered) {
+      const key = CATEGORIES.includes(item.category) ? item.category : 'Alimentos'
+      buckets[key].push(item)
+    }
+    const order = category === 'Todo' ? CATEGORIES : [category]
+    return order
+      .map((entry) => ({ category: entry, items: buckets[entry] || [] }))
+      .filter((group) => group.items.length > 0)
+  }, [filtered, category])
 
   const stats = useMemo(() => {
     const units = items.reduce((sum, item) => sum + item.quantity, 0)
@@ -812,6 +830,37 @@ function App() {
     setPasswordError('')
     setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' })
     setPasswordModal(true)
+  }
+
+  function openProfileModal() {
+    setOpenMenu(null)
+    setProfileError('')
+    setProfileForm({
+      firstName: user.firstName || user.name?.split(' ')[0] || '',
+      lastName: user.lastName || user.name?.split(' ').slice(1).join(' ') || '',
+      email: user.email || '',
+    })
+    setProfileModal(true)
+  }
+
+  function toggleGroup(name) {
+    setCollapsed((prev) => ({ ...prev, [name]: !prev[name] }))
+  }
+
+  async function handleSaveProfile(event) {
+    event.preventDefault()
+    setProfileBusy(true)
+    setProfileError('')
+    try {
+      const next = await saveProfile(profileForm)
+      setUser(next)
+      setProfileModal(false)
+      showToast('Perfil actualizado')
+    } catch (err) {
+      setProfileError(err?.message || 'No se pudo guardar el perfil')
+    } finally {
+      setProfileBusy(false)
+    }
   }
 
   async function handleChangePassword(event) {
@@ -1170,7 +1219,7 @@ function App() {
   }
 
   return (
-    <div className={`app ${modal || scanning || passwordModal ? 'is-overlay' : ''}`}>
+    <div className={`app ${modal || scanning || passwordModal || profileModal ? 'is-overlay' : ''}`}>
       <header className="topbar">
         <div className="brand">
           <h1>Stockea</h1>
@@ -1195,6 +1244,9 @@ function App() {
                   <strong>{user.name || 'Cuenta'}</strong>
                   {user.email ? <span>{user.email}</span> : null}
                 </div>
+                <button className="user-action" type="button" onClick={openProfileModal}>
+                  Editar perfil
+                </button>
                 <button className="user-action" type="button" onClick={openPasswordModal}>
                   Cambiar contraseña
                 </button>
@@ -1226,12 +1278,12 @@ function App() {
       </header>
 
       <section className="kpis">
-        <article className="kpi">
+        <article className="kpi kpi-extra">
           <span>Productos</span>
           <strong>{items.length}</strong>
           <small>ítems activos</small>
         </article>
-        <article className="kpi">
+        <article className="kpi kpi-extra">
           <span>Unidades</span>
           <strong>{stats.units}</strong>
           <small>en inventario</small>
@@ -1285,7 +1337,7 @@ function App() {
           <MenuSelect
             id="filter-category"
             value={category}
-            options={CATEGORIES.map((entry) => ({
+            options={FILTER_CATEGORIES.map((entry) => ({
               value: entry,
               label: entry,
             }))}
@@ -1295,7 +1347,7 @@ function App() {
             full
           />
           <div className="category-tabs" role="tablist" aria-label="Categorías">
-            {CATEGORIES.map((entry) => {
+            {FILTER_CATEGORIES.map((entry) => {
               const active = category === entry
               return (
                 <button
@@ -1329,7 +1381,9 @@ function App() {
                 <p>
                   {query.trim()
                     ? 'Probá con otro filtro o búsqueda.'
-                    : `Esta categoría está vacía. Cambiá de categoría o agregá un ítem en ${category}.`}
+                    : category === 'Todo'
+                      ? 'No hay ítems para mostrar.'
+                      : `Esta categoría está vacía. Cambiá de categoría o agregá un ítem en ${category}.`}
                 </p>
               </>
             )}
@@ -1343,100 +1397,134 @@ function App() {
                   <th>Producto</th>
                   <th>Cantidad</th>
                   <th>Precio individual</th>
-                  <th>Supermercado</th>
+                  <th className="store-col">Supermercado</th>
                   <th>Estado</th>
                   <th></th>
                 </tr>
               </thead>
-              <tbody>
-                {filtered.map((item) => {
-                  const currentStatus = statusOf(item)
-                  return (
-                    <tr key={item.id}>
-                      <td>
-                        <div className="item-cell">
-                          <ItemThumb item={item} />
-                          <div>
-                            <span className="item-name">{item.name}</span>
-                            <span className="sku">{barcodeOf(item) || 'Sin código de barras'}</span>
-                          </div>
-                        </div>
-                      </td>
-                      <td>
-                        <div className="qty">
-                          <button type="button" onClick={() => updateQty(item.id, item.quantity - 1)} aria-label="Restar">
-                            −
-                          </button>
-                          <output>{item.quantity}</output>
-                          <button type="button" onClick={() => updateQty(item.id, item.quantity + 1)} aria-label="Sumar">
-                            +
-                          </button>
-                        </div>
-                      </td>
-                      <td>
-                        <PricePicker
-                          item={item}
-                          open={openMenu === `price:${item.id}`}
-                          onToggle={() => setOpenMenu(openMenu === `price:${item.id}` ? null : `price:${item.id}`)}
-                          onPick={(store) => applyItemStorePrice(item.id, store)}
-                        />
-                      </td>
-                      <td>
-                        <SuperPrices item={item} />
-                      </td>
-                      <td>
-                        <span className={`badge ${currentStatus}`}>{statusLabel(currentStatus)}</span>
-                      </td>
-                      <td>
-                        <ItemActions
-                          item={item}
-                          onEdit={() => openEditItem(item)}
-                          onRemove={() => removeItem(item.id)}
-                        />
+              {groupedItems.map((group) => {
+                const closed = Boolean(collapsed[group.category])
+                return (
+                  <tbody key={group.category}>
+                    <tr className="category-group-row">
+                      <td colSpan={6}>
+                        <button
+                          className={`category-group-toggle ${closed ? 'is-collapsed' : ''}`}
+                          type="button"
+                          onClick={() => toggleGroup(group.category)}
+                        >
+                          <span>{group.category}</span>
+                          <Chevron />
+                        </button>
                       </td>
                     </tr>
-                  )
-                })}
-              </tbody>
+                    {!closed &&
+                      group.items.map((item) => {
+                        const currentStatus = statusOf(item)
+                        return (
+                          <tr key={item.id}>
+                            <td>
+                              <div className="item-cell">
+                                <ItemThumb item={item} />
+                                <div>
+                                  <span className="item-name">{item.name}</span>
+                                  <span className="sku">{barcodeOf(item) || 'Sin código de barras'}</span>
+                                </div>
+                              </div>
+                            </td>
+                            <td>
+                              <div className="qty">
+                                <button type="button" onClick={() => updateQty(item.id, item.quantity - 1)} aria-label="Restar">
+                                  −
+                                </button>
+                                <output>{item.quantity}</output>
+                                <button type="button" onClick={() => updateQty(item.id, item.quantity + 1)} aria-label="Sumar">
+                                  +
+                                </button>
+                              </div>
+                            </td>
+                            <td>
+                              <PricePicker
+                                item={item}
+                                open={openMenu === `price:${item.id}`}
+                                onToggle={() => setOpenMenu(openMenu === `price:${item.id}` ? null : `price:${item.id}`)}
+                                onPick={(store) => applyItemStorePrice(item.id, store)}
+                              />
+                            </td>
+                            <td className="store-col">
+                              <SuperPrices item={item} />
+                            </td>
+                            <td>
+                              <span className={`badge ${currentStatus}`}>{statusLabel(currentStatus)}</span>
+                            </td>
+                            <td>
+                              <ItemActions
+                                item={item}
+                                onEdit={() => openEditItem(item)}
+                                onRemove={() => removeItem(item.id)}
+                              />
+                            </td>
+                          </tr>
+                        )
+                      })}
+                  </tbody>
+                )
+              })}
             </table>
           </div>
           <div className="item-cards">
-            {filtered.map((item) => {
-              const currentStatus = statusOf(item)
+            {groupedItems.map((group) => {
+              const closed = Boolean(collapsed[group.category])
               return (
-                <article className="item-card" key={item.id}>
-                  <div className="item-card-head">
-                    <ItemThumb item={item} />
-                    <div className="item-card-copy">
-                      <span className="item-name">{item.name}</span>
-                      <span className="sku">{barcodeOf(item) || 'Sin código de barras'}</span>
-                    </div>
-                    <span className={`badge ${currentStatus}`}>{statusLabel(currentStatus)}</span>
-                  </div>
-                  <div className="item-card-meta">
-                    <div className="qty">
-                      <button type="button" onClick={() => updateQty(item.id, item.quantity - 1)} aria-label="Restar">
-                        −
-                      </button>
-                      <output>{item.quantity}</output>
-                      <button type="button" onClick={() => updateQty(item.id, item.quantity + 1)} aria-label="Sumar">
-                        +
-                      </button>
-                    </div>
-                    <PricePicker
-                      item={item}
-                      open={openMenu === `price:${item.id}`}
-                      onToggle={() => setOpenMenu(openMenu === `price:${item.id}` ? null : `price:${item.id}`)}
-                      onPick={(store) => applyItemStorePrice(item.id, store)}
-                    />
-                  </div>
-                  <SuperPrices item={item} />
-                  <ItemActions
-                    item={item}
-                    onEdit={() => openEditItem(item)}
-                    onRemove={() => removeItem(item.id)}
-                  />
-                </article>
+                <section className="category-group" key={group.category}>
+                  <button
+                    className={`category-group-toggle ${closed ? 'is-collapsed' : ''}`}
+                    type="button"
+                    onClick={() => toggleGroup(group.category)}
+                  >
+                    <span>{group.category}</span>
+                    <Chevron />
+                  </button>
+                  {!closed &&
+                    group.items.map((item) => {
+                      const currentStatus = statusOf(item)
+                      return (
+                        <article className="item-card" key={item.id}>
+                          <div className="item-card-head">
+                            <ItemThumb item={item} />
+                            <div className="item-card-copy">
+                              <span className="item-name">{item.name}</span>
+                              <span className="sku">{barcodeOf(item) || 'Sin código de barras'}</span>
+                            </div>
+                            <span className={`badge ${currentStatus}`}>{statusLabel(currentStatus)}</span>
+                          </div>
+                          <div className="item-card-meta">
+                            <div className="qty">
+                              <button type="button" onClick={() => updateQty(item.id, item.quantity - 1)} aria-label="Restar">
+                                −
+                              </button>
+                              <output>{item.quantity}</output>
+                              <button type="button" onClick={() => updateQty(item.id, item.quantity + 1)} aria-label="Sumar">
+                                +
+                              </button>
+                            </div>
+                            <PricePicker
+                              item={item}
+                              open={openMenu === `price:${item.id}`}
+                              onToggle={() => setOpenMenu(openMenu === `price:${item.id}` ? null : `price:${item.id}`)}
+                              onPick={(store) => applyItemStorePrice(item.id, store)}
+                            />
+                          </div>
+                          <SuperPrices item={item} />
+                          <ItemActions
+                            item={item}
+                            onEdit={() => openEditItem(item)}
+                            onRemove={() => removeItem(item.id)}
+                          />
+                        </article>
+                      )
+                    })}
+                </section>
               )
             })}
           </div>
@@ -1712,6 +1800,52 @@ function App() {
                 Cancelar
               </button>
               <button className="btn btn-primary" type="submit" disabled={passwordBusy}>
+                Guardar
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {profileModal && (
+        <div className="overlay">
+          <form className="modal password-modal" onSubmit={handleSaveProfile}>
+            <h2>Editar perfil</h2>
+            <p className="lead">Actualizá tu nombre, apellido y correo.</p>
+            <label className="field full">
+              <span>Nombre</span>
+              <input
+                value={profileForm.firstName}
+                onChange={(event) => setProfileForm((prev) => ({ ...prev, firstName: event.target.value }))}
+                autoComplete="given-name"
+                required
+              />
+            </label>
+            <label className="field full">
+              <span>Apellido</span>
+              <input
+                value={profileForm.lastName}
+                onChange={(event) => setProfileForm((prev) => ({ ...prev, lastName: event.target.value }))}
+                autoComplete="family-name"
+                required
+              />
+            </label>
+            <label className="field full">
+              <span>Correo</span>
+              <input
+                type="email"
+                value={profileForm.email}
+                onChange={(event) => setProfileForm((prev) => ({ ...prev, email: event.target.value }))}
+                autoComplete="email"
+                required
+              />
+            </label>
+            {profileError ? <p className="error">{profileError}</p> : null}
+            <div className="modal-actions">
+              <button className="btn btn-ghost" type="button" onClick={() => setProfileModal(false)} disabled={profileBusy}>
+                Cancelar
+              </button>
+              <button className="btn btn-primary" type="submit" disabled={profileBusy}>
                 Guardar
               </button>
             </div>
