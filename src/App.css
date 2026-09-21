@@ -359,7 +359,8 @@
   min-height: 36px;
 }
 
-.password-modal {
+.password-modal,
+.delete-modal {
   width: min(420px, 100%);
   display: grid;
   gap: 12px;
@@ -1273,6 +1274,17 @@ button.store-pill {
   min-width: 0;
 }
 
+.store-lookup input[type="search"] {
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.store-search-btn {
+  flex-shrink: 0;
+  min-height: 44px;
+  padding: 10px 14px;
+}
+
 .scan-btn {
   width: 44px;
   min-width: 44px;
@@ -1993,8 +2005,7 @@ html[data-theme="light"] .store-col-title.carrefour {
   }
 
   .item-card .store-prices,
-  .store-prices,
-  .store-col {
+  .item-card .store-col {
     display: none !important;
   }
 
@@ -2035,7 +2046,15 @@ html[data-theme="light"] .store-col-title.carrefour {
     place-items: end center;
   }
 
-  .modal,
+  .overlay-dialog {
+    padding:
+      max(12px, env(safe-area-inset-top, 0px))
+      max(12px, env(safe-area-inset-right, 0px))
+      max(12px, env(safe-area-inset-bottom, 0px))
+      max(12px, env(safe-area-inset-left, 0px));
+    place-items: end center;
+  }
+
   .modal.wide,
   .item-sheet {
     width: 100%;
@@ -2045,6 +2064,18 @@ html[data-theme="light"] .store-col-title.carrefour {
     overflow: hidden;
     display: flex;
     flex-direction: column;
+  }
+
+  .password-modal,
+  .delete-modal {
+    width: 100%;
+    max-height: min(78dvh, calc(100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 24px));
+    margin: 0;
+    padding: 18px 18px 16px;
+    border-radius: 22px;
+    overflow: auto;
+    display: grid;
+    gap: 12px;
   }
 
   .sheet-handle {
@@ -2093,12 +2124,45 @@ html[data-theme="light"] .store-col-title.carrefour {
     border-radius: 16px;
   }
 
+  .item-sheet .store-lookup {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 48px;
+    grid-template-areas:
+      "input scan"
+      "search search";
+    gap: 8px;
+  }
+
+  .item-sheet .store-lookup input {
+    grid-area: input;
+  }
+
+  .item-sheet .scan-btn {
+    grid-area: scan;
+  }
+
+  .item-sheet .store-search-btn {
+    grid-area: search;
+    width: 100%;
+    min-height: 48px;
+    justify-content: center;
+  }
+
   .item-sheet .hint {
     font-size: 0.78rem;
   }
 
-  .item-sheet .field.full .hint {
+  .item-sheet .field.full > small.hint {
     display: none;
+  }
+
+  .item-sheet .store-search > .hint {
+    display: block;
+    margin: 8px 0 0;
+  }
+
+  .item-sheet .store-results {
+    display: block;
   }
 
   .item-sheet .store-cols {
@@ -2116,7 +2180,46 @@ html[data-theme="light"] .store-col-title.carrefour {
   }
 
   .item-sheet .store-col.is-open {
+    display: block !important;
+  }
+
+  .delete-modal {
+    width: 100%;
+    max-height: none;
+    padding: 0 20px calc(18px + env(safe-area-inset-bottom, 0px));
+    overflow: visible;
+  }
+
+  .delete-modal .sheet-handle {
     display: block;
+    margin: 10px auto 18px;
+  }
+
+  .delete-modal h2 {
+    margin: 0 0 8px;
+    font-size: 1.26rem;
+    text-align: center;
+    line-height: 1.25;
+  }
+
+  .delete-modal .lead {
+    display: block;
+    margin: 0 0 20px;
+    text-align: center;
+    font-size: 0.94rem;
+  }
+
+  .delete-modal .modal-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin: 0;
+  }
+
+  .delete-modal .modal-actions .btn {
+    width: 100%;
+    min-height: 48px;
+    justify-content: center;
   }
 
   .store-result-tabs {
@@ -2267,9 +2370,13 @@ html[data-theme="light"] .store-col-title.carrefour {
     grid-template-columns: 1fr;
   }
 
-  .store-prices,
-  .store-col {
+  .item-card .store-prices,
+  .item-card .store-col {
     display: none !important;
+  }
+
+  .item-sheet .store-col.is-open {
+    display: block !important;
   }
 }
 
@@ -2289,9 +2396,17 @@ html.is-pwa .kpis {
   grid-template-columns: 1fr;
 }
 
-html.is-pwa .store-prices,
-html.is-pwa .store-col {
+html.is-pwa .item-card .store-prices,
+html.is-pwa .item-card .store-col {
   display: none !important;
+}
+
+html.is-pwa .item-sheet .store-col.is-open {
+  display: block !important;
+}
+
+html.is-pwa .delete-modal {
+  padding-bottom: calc(20px + env(safe-area-inset-bottom, 0px));
 }
 
 

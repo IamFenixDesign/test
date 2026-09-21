@@ -1,10 +1,12 @@
 {
+  "id": "./",
   "name": "Stockea — Control de stock",
   "short_name": "Stockea",
   "description": "Control de inventario con precios de Coto y Carrefour",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
+  "display_override": ["standalone", "fullscreen"],
   "background_color": "#0b0d0c",
   "theme_color": "#0b0d0c",
   "lang": "es-AR",
