@@ -36,10 +36,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import app.stockea.android.ui.screens.BarcodeScannerScreen
 import app.stockea.android.ui.screens.CartScreen
 import app.stockea.android.ui.screens.CompareScreen
 import app.stockea.android.ui.screens.LoginScreen
-import app.stockea.android.ui.screens.NewItemDialog
+import app.stockea.android.ui.screens.NewItemSheet
 import app.stockea.android.ui.screens.ProfileScreen
 import app.stockea.android.ui.screens.StockScreen
 import app.stockea.android.ui.theme.StockeaTheme
@@ -197,10 +198,25 @@ private fun StockeaRoot(vm: StockeaViewModel) {
                     )
                 }
 
-                if (state.showNewItem) {
-                    NewItemDialog(
+                if (state.showNewItem && !state.showScanner) {
+                    NewItemSheet(
+                        lookupBusy = state.newItemLookupBusy,
+                        lookupHint = state.newItemLookupHint,
+                        lookupMatch = state.newItemLookupMatch,
                         onDismiss = vm::closeNewItem,
+                        onLookupBarcode = vm::lookupNewItemBarcode,
+                        onClearLookup = vm::clearNewItemLookup,
                         onCreate = vm::createItem,
+                        onOpenScanner = vm::openScanner,
+                        scannedEan = state.scannedEan,
+                        onConsumeScannedEan = vm::consumeScannedEan,
+                    )
+                }
+
+                if (state.showScanner) {
+                    BarcodeScannerScreen(
+                        onDetect = vm::onScannedEan,
+                        onCancel = vm::closeScanner,
                     )
                 }
             }
