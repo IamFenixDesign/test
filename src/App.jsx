@@ -2619,13 +2619,6 @@ function App() {
             </div>
           ) : (
             <>
-              <p className="compare-meta">
-                {compareLoading ? 'Actualizando… · ' : ''}
-                {compareRows.length} producto{compareRows.length === 1 ? '' : 's'} web
-                {comparePageCount > 1
-                  ? ` · página ${comparePageSafe + 1} de ${comparePageCount}`
-                  : ''}
-              </p>
               <ul className="compare-list">
                 {comparePageRows.map((row) => (
                   <li key={row.id} className="compare-card">
