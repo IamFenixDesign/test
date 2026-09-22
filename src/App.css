@@ -1656,6 +1656,45 @@ td:has(.item-cell) {
   font-size: 0.8rem;
   color: var(--muted);
   font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.field-unit {
+  display: inline-flex;
+  align-items: center;
+  min-height: 18px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent-text) 14%, transparent);
+  color: var(--accent-text);
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.qty-unit-toggle {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.qty-unit-toggle button {
+  min-height: 44px;
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  background: var(--bg-elev);
+  color: var(--muted);
+  font-weight: 750;
+  font-size: 0.88rem;
+}
+
+.qty-unit-toggle button.active {
+  border-color: color-mix(in srgb, var(--accent-text) 50%, transparent);
+  background: color-mix(in srgb, var(--accent-text) 12%, transparent);
+  color: var(--accent-text);
 }
 
 .qty-menu .row .money-input {
