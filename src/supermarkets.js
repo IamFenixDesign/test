@@ -238,7 +238,17 @@ export function parseCoto(data, { limit = 24 } = {}) {
       if (!key || seen.has(key)) return null
       seen.add(key)
       const offer = cotoOfferInfo(attrs)
-      const price = cotoPrice(attrs)
+      const shelf = cotoPrice(attrs)
+      const listPrice = offer.listPrice || shelf
+      // Precio vigente: usa el de la oferta (precioDesc) si es menor que la lista.
+      const deal = Number(offer.dealPrice) || 0
+      const price =
+        deal > 0 && listPrice > 0 && deal < listPrice * 0.999
+          ? deal
+          : deal > 0 && !(listPrice > 0)
+            ? deal
+            : shelf
+      if (!(price > 0)) return null
       return {
         store: 'coto',
         name: String(first(attrs['product.displayName']) || first(attrs['sku.displayName']) || '').replace(/\s+/g, ' ').trim(),
@@ -248,9 +258,9 @@ export function parseCoto(data, { limit = 24 } = {}) {
           ? attrs['allAncestors.displayName']
           : [first(attrs['product.category'])].filter(Boolean),
         price,
-        listPrice: offer.listPrice || price,
+        listPrice: listPrice || price,
         qtyUnit: cotoQtyUnit(attrs),
-        hasDiscount: offer.hasDiscount,
+        hasDiscount: offer.hasDiscount && price < (listPrice || price) * 0.999,
         discountLabel: offer.discountLabel,
         discountPercent: offer.discountPercent,
         ean,
@@ -503,7 +513,9 @@ export async function searchSupermarkets(query, { limit } = {}) {
   try {
     const params = new URLSearchParams({ q })
     if (limit) params.set('limit', String(limit))
-    const res = await fetch(`/api/supers?${params}`)
+    // Evitar respuestas cacheadas: Comparar debe verse al momento
+    params.set('_ts', String(Date.now()))
+    const res = await fetch(`/api/supers?${params}`, { cache: 'no-store' })
     if (res.ok) return res.json()
   } catch {
     /* GitHub Pages has no API; fall back to the browser */
