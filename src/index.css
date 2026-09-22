@@ -79,21 +79,21 @@ html.is-ios-pwa {
   --faint: #6f8290;
   --menu-bg: rgba(200, 230, 245, 0.14);
   --overlay: rgba(4, 10, 16, 0.42);
-  --glow-1: rgba(212, 245, 98, 0.28);
-  --glow-2: rgba(80, 200, 255, 0.22);
-  --glow-3: rgba(100, 230, 190, 0.18);
+  --glow-1: rgba(212, 245, 98, 0.38);
+  --glow-2: rgba(70, 195, 255, 0.3);
+  --glow-3: rgba(90, 230, 190, 0.24);
   --kpi-sheen: rgba(220, 245, 255, 0.16);
   --row-hover: rgba(200, 230, 245, 0.07);
   --shadow: 0 20px 52px rgba(0, 0, 0, 0.38);
 
-  --glass-bg: rgba(210, 235, 250, 0.08);
-  --glass-bg-strong: rgba(220, 240, 255, 0.14);
-  --glass-bg-soft: rgba(200, 230, 245, 0.06);
+  --glass-bg: rgba(210, 235, 250, 0.06);
+  --glass-bg-strong: rgba(220, 240, 255, 0.12);
+  --glass-bg-soft: rgba(200, 230, 245, 0.045);
   --glass-fill: linear-gradient(
     145deg,
-    rgba(255, 255, 255, 0.34) 0%,
-    rgba(180, 220, 240, 0.1) 32%,
-    rgba(120, 180, 210, 0.04) 100%
+    rgba(255, 255, 255, 0.28) 0%,
+    rgba(180, 220, 240, 0.08) 32%,
+    rgba(120, 180, 210, 0.03) 100%
   );
   --glass-stroke: rgba(230, 245, 255, 0.32);
   --glass-stroke-soft: rgba(200, 230, 245, 0.16);
