@@ -2967,7 +2967,7 @@ function App() {
             <>
               <section
                 className={`cart-deals-panel ${cartDealsOpen ? 'is-open' : 'is-collapsed'}`}
-                aria-label="Descuentos por día"
+                aria-label="Descuentos de sucursal por día"
               >
                 <button
                   type="button"
@@ -2976,7 +2976,7 @@ function App() {
                   onClick={() => setCartDealsOpen((open) => !open)}
                 >
                   <div className="cart-deals-toggle-copy">
-                    <p className="cart-deals-kicker">Descuentos</p>
+                    <p className="cart-deals-kicker">Sucursal</p>
                     <h3 className="cart-deals-title">
                       {weekdayLabel(cartDay)}
                       {cartQuote.promo.percent > 0 ? ` · ${cartQuote.promo.short}` : ' · Sin dto'}
@@ -3089,10 +3089,6 @@ function App() {
                         <em>Total</em>
                         <strong>{line.unitPrice ? money(line.lineTotal) : '—'}</strong>
                       </div>
-                      <div className={`cart-stat ${line.webDiscount ? 'is-web' : ''}`}>
-                        <em>Web</em>
-                        <strong>{line.webDiscount || 'Sin dto'}</strong>
-                      </div>
                       <div
                         className={`cart-stat ${
                           line.eligible && cartQuote.promo.percent > 0 ? 'is-best' : ''
@@ -3115,29 +3111,14 @@ function App() {
                 ))}
               </ul>
 
-              {(cartQuote.eligible.length > 0 || cartQuote.excluded.length > 0) &&
-              cartQuote.promo.percent > 0 ? (
+              {cartQuote.promo.percent > 0 &&
+              (cartQuote.eligible.length > 0 || cartQuote.excluded.length > 0) ? (
                 <div className="cart-split">
                   <span>
-                    <strong>{cartQuote.eligible.length}</strong> con dto
+                    <strong>{cartQuote.eligible.length}</strong> con dto sucursal
                   </span>
                   <span>
                     <strong>{cartQuote.excluded.length}</strong> sin dto
-                  </span>
-                  <span>
-                    <strong>{cartQuote.withWebOffer || 0}</strong> oferta web
-                  </span>
-                </div>
-              ) : cartLines.length > 0 ? (
-                <div className="cart-split">
-                  <span>
-                    <strong>{cartQuote.withWebOffer || 0}</strong> oferta web
-                  </span>
-                  <span>
-                    <strong>
-                      {Math.max(0, cartLines.length - (cartQuote.withWebOffer || 0))}
-                    </strong>{' '}
-                    sin oferta web
                   </span>
                 </div>
               ) : null}
