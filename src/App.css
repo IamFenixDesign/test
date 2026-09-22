@@ -153,6 +153,7 @@
 
 .modal.cart-sheet {
   width: min(980px, calc(100% - 40px));
+  border-radius: 28px;
   overflow: hidden;
 }
 
