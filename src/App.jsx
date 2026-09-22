@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import './App.css'
-import { barcodeDigits, extractEan13, guessCategory, matchByEan, qtyUnitOfProduct, searchSupermarkets, cheaperOf } from './supermarkets'
+import { barcodeDigits, extractEan13, guessCategory, matchByEan, qtyUnitOfProduct, searchSupermarkets, cheaperOf, findCompareMatchIndex } from './supermarkets'
 import {
   PAYMENT_PROMOS,
   WEEKDAYS,
@@ -534,7 +534,7 @@ function storePriceOf(item, store) {
   return 0
 }
 
-/** Precio de lista (sin promo) — p.ej. góndola / sucursal. */
+/** Precio de lista — referencia / tachado (si hay promo). */
 function listPriceOfProduct(product) {
   const list = Number(product?.listPrice)
   if (list > 0) return list
@@ -542,15 +542,21 @@ function listPriceOfProduct(product) {
   return price > 0 ? price : 0
 }
 
-/** Precio vigente a mostrar en Comparar (oferta/actual, no lista). */
-function comparePriceOfProduct(product) {
+/**
+ * Precio a mostrar en Comparar: el de la ficha web (no el tachado/inflado).
+ * - Coto: activePrice / precioLista (ya sin "Precio Contado" viejo)
+ * - Carrefour / Día: Price de VTEX (ListPrice más alto es el tachado)
+ */
+function compareShelfPrice(product) {
   if (!product) return 0
-  const price = Number(product.price)
-  if (price > 0) return price
+  if (product.store === 'carrefour' || product.store === 'dia') {
+    const price = Number(product.price)
+    if (price > 0) return price
+  }
   return listPriceOfProduct(product)
 }
 
-/** Une resultados web de Coto / Carrefour / Día por EAN para Comparar. */
+/** Une resultados web de Coto / Carrefour / Día por EAN o nombre equivalente. */
 function buildWebCompareRows({ coto = [], carrefour = [], dia = [] }) {
   const used = {
     coto: new Set(),
@@ -558,9 +564,8 @@ function buildWebCompareRows({ coto = [], carrefour = [], dia = [] }) {
     dia: new Set(),
   }
 
-  function findByEan(list, store, ean) {
-    if (!ean) return -1
-    return list.findIndex((product, index) => !used[store].has(index) && product.ean && product.ean === ean)
+  function findPartner(seed, list, store) {
+    return findCompareMatchIndex(seed, list, used[store])
   }
 
   const rows = []
@@ -570,10 +575,10 @@ function buildWebCompareRows({ coto = [], carrefour = [], dia = [] }) {
     const seed = list[index]
     used[store].add(index)
 
-    const cotoIdx = store === 'coto' ? index : findByEan(coto, 'coto', seed.ean)
+    const cotoIdx = store === 'coto' ? index : findPartner(seed, coto, 'coto')
     const carrefourIdx =
-      store === 'carrefour' ? index : findByEan(carrefour, 'carrefour', seed.ean)
-    const diaIdx = store === 'dia' ? index : findByEan(dia, 'dia', seed.ean)
+      store === 'carrefour' ? index : findPartner(seed, carrefour, 'carrefour')
+    const diaIdx = store === 'dia' ? index : findPartner(seed, dia, 'dia')
 
     if (cotoIdx >= 0) used.coto.add(cotoIdx)
     if (carrefourIdx >= 0) used.carrefour.add(carrefourIdx)
@@ -585,9 +590,10 @@ function buildWebCompareRows({ coto = [], carrefour = [], dia = [] }) {
     const primary = cotoProduct || carrefourProduct || diaProduct
     if (!primary) return
 
-    const cotoPrice = comparePriceOfProduct(cotoProduct)
-    const carrefourPrice = comparePriceOfProduct(carrefourProduct)
-    const diaPrice = comparePriceOfProduct(diaProduct)
+    // Comparar: precio de la ficha web (Coto lista/activo; Carrefour/Día Price).
+    const cotoPrice = compareShelfPrice(cotoProduct)
+    const carrefourPrice = compareShelfPrice(carrefourProduct)
+    const diaPrice = compareShelfPrice(diaProduct)
     const cheapest = cheaperOf(cotoPrice, carrefourPrice, diaPrice)
     const prices = [cotoPrice, carrefourPrice, diaPrice].filter((value) => value > 0)
     const highest = prices.length ? Math.max(...prices) : 0
@@ -604,6 +610,11 @@ function buildWebCompareRows({ coto = [], carrefour = [], dia = [] }) {
         barcode: ean,
         image: primary.image || cotoProduct?.image || carrefourProduct?.image || diaProduct?.image || '',
         priceSource: primary.store,
+      },
+      names: {
+        coto: cotoProduct?.name || '',
+        carrefour: carrefourProduct?.name || '',
+        dia: diaProduct?.name || '',
       },
       coto: cotoPrice,
       carrefour: carrefourPrice,
@@ -1592,13 +1603,18 @@ function App() {
     }
 
     let cancelled = false
-    let timer
+    let debounceTimer
+    let pollTimer
+    let inFlight = false
 
-    const runSearch = () => {
-      clearTimeout(timer)
-      timer = setTimeout(async () => {
+    const runSearch = ({ showSpinner = false } = {}) => {
+      if (inFlight) return
+      inFlight = true
+      if (showSpinner) {
         setCompareLoading(true)
         setCompareError('')
+      }
+      ;(async () => {
         try {
           const data = await searchSupermarkets(q, { limit: 48 })
           if (cancelled) return
@@ -1621,29 +1637,36 @@ function App() {
                 ? 'No se pudieron consultar Coto, Carrefour y Día.'
                 : 'No hay productos web para esa búsqueda.',
             )
+          } else {
+            setCompareError('')
           }
         } catch {
           if (!cancelled) {
-            setCompareRows([])
             setCompareError('No se pudieron consultar Coto, Carrefour y Día.')
           }
         } finally {
+          inFlight = false
           if (!cancelled) setCompareLoading(false)
         }
-      }, 350)
+      })()
     }
 
-    runSearch()
+    // Debounce al tipear; después refrescar precios cada 1s.
+    debounceTimer = setTimeout(() => {
+      runSearch({ showSpinner: true })
+      pollTimer = setInterval(() => runSearch({ showSpinner: false }), 1000)
+    }, 350)
 
     const onVisible = () => {
-      if (document.visibilityState === 'visible') runSearch()
+      if (document.visibilityState === 'visible') runSearch({ showSpinner: false })
     }
     document.addEventListener('visibilitychange', onVisible)
     window.addEventListener('focus', onVisible)
 
     return () => {
       cancelled = true
-      clearTimeout(timer)
+      clearTimeout(debounceTimer)
+      clearInterval(pollTimer)
       document.removeEventListener('visibilitychange', onVisible)
       window.removeEventListener('focus', onVisible)
     }
@@ -2848,10 +2871,10 @@ function App() {
                     </div>
                     <div className="compare-prices">
                       {[
-                        ['coto', row.coto, row.discountCoto],
-                        ['carrefour', row.carrefour, row.discountCarrefour],
-                        ['dia', row.dia, row.discountDia],
-                      ].map(([store, price, discount]) => (
+                        ['coto', row.coto, row.discountCoto, row.names?.coto],
+                        ['carrefour', row.carrefour, row.discountCarrefour, row.names?.carrefour],
+                        ['dia', row.dia, row.discountDia, row.names?.dia],
+                      ].map(([store, price, discount, storeName]) => (
                         <div
                           key={store}
                           className={`compare-price store-${store} ${
@@ -2861,6 +2884,11 @@ function App() {
                           <em>{storeLabel(store)}</em>
                           <strong>{price > 0 ? money(price) : '—'}</strong>
                           {discount ? <span className="compare-discount">{discount}</span> : null}
+                          {storeName && storeName !== row.item.name ? (
+                            <span className="compare-store-name" title={storeName}>
+                              {storeName}
+                            </span>
+                          ) : null}
                         </div>
                       ))}
                     </div>
