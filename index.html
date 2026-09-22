@@ -32,7 +32,13 @@
         var androidDesktop = /Android/i.test(ua) && !/Mobile/i.test(ua)
         var desktopSite = iosDesktop || androidDesktop
 
+        var isCapacitor =
+          !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform())
+        var isAndroidWebView = /Android/i.test(ua) && /; wv\)/i.test(ua)
+        var isAndroidApp = isCapacitor || isAndroidWebView
+
         var standalone =
+          isAndroidApp ||
           window.navigator.standalone === true ||
           window.matchMedia('(display-mode: standalone)').matches ||
           window.matchMedia('(display-mode: fullscreen)').matches
@@ -42,7 +48,10 @@
         var mobileViewport = 'width=device-width, initial-scale=1.0, viewport-fit=cover'
         var desktopViewport = 'width=1280, initial-scale=1, viewport-fit=cover'
 
-        if (desktopSite) {
+        if (isAndroidApp) root.classList.add('is-android-app')
+        else root.classList.remove('is-android-app')
+
+        if (desktopSite && !isAndroidApp) {
           root.classList.add('is-desktop-site')
           root.classList.remove('is-pwa')
           if (meta) meta.setAttribute('content', desktopViewport)
@@ -56,6 +65,8 @@
 
       syncSiteMode()
       window.addEventListener('pageshow', syncSiteMode)
+      document.addEventListener('DOMContentLoaded', syncSiteMode)
+      window.addEventListener('capacitorReady', syncSiteMode)
     </script>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />

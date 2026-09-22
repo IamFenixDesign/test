@@ -8,7 +8,9 @@
     "build": "vite build",
     "icons": "node scripts/build-icons.mjs",
     "lint": "oxlint",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "android:apk": "cd android && ./gradlew assembleDebug",
+    "android:open": "cd android && echo Open android/ in Android Studio"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.1.0",
