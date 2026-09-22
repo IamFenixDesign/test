@@ -15,6 +15,7 @@ import { sendCodeEmail, sendVerificationEmail } from '../src/mail.js'
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 const CODE_TTL_MS = 15 * 60 * 1000
+const ALLOWED_REGISTER_EMAILS = new Set(['julian.javier95@hotmail.com'])
 
 function publicUser(user) {
   if (!user) return null
@@ -52,6 +53,9 @@ async function handleRegister(body) {
   if (!firstName) throw Object.assign(new Error('Falta el nombre'), { status: 400 })
   if (!lastName) throw Object.assign(new Error('Falta el apellido'), { status: 400 })
   if (!EMAIL_RE.test(email)) throw Object.assign(new Error('El correo no es válido'), { status: 400 })
+  if (!ALLOWED_REGISTER_EMAILS.has(email)) {
+    throw Object.assign(new Error('El registro no está disponible para este correo'), { status: 403 })
+  }
   if (password.length < 8) throw Object.assign(new Error('La contraseña debe tener al menos 8 caracteres'), { status: 400 })
 
   const code = createEmailCode()
