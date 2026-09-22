@@ -8,9 +8,18 @@
     "build": "vite build",
     "icons": "node scripts/build-icons.mjs",
     "lint": "oxlint",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "android:sync": "npm run build && npx cap sync android",
+    "android:open": "npx cap open android",
+    "android:apk": "npm run android:sync && cd android && ./gradlew assembleDebug"
   },
   "dependencies": {
+    "@capacitor/android": "^7.6.9",
+    "@capacitor/app": "^7.1.2",
+    "@capacitor/core": "^7.6.9",
+    "@capacitor/keyboard": "^7.0.6",
+    "@capacitor/splash-screen": "^7.0.5",
+    "@capacitor/status-bar": "^7.0.6",
     "@neondatabase/serverless": "^1.1.0",
     "@zxing/browser": "^0.2.1",
     "@zxing/library": "^0.23.0",
@@ -22,6 +31,7 @@
     "resend": "^6.28.1"
   },
   "devDependencies": {
+    "@capacitor/cli": "^7.6.9",
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.7",
     "@vitejs/plugin-react": "^6.1.1",
