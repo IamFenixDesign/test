@@ -92,7 +92,12 @@ export default function Login({ theme, setTheme, onLoggedIn }) {
     try {
       const data = await registerWithEmail(form)
       setPendingEmail(data.email || form.email)
-      setInfo('Te mandamos un código al correo')
+      if (data.code) {
+        setCode(String(data.code))
+        setInfo(`Tu código es ${data.code} (el correo de prueba de Resend no llega a otros destinatarios)`)
+      } else {
+        setInfo('Te mandamos un código al correo')
+      }
       setMode('verify')
     } catch (err) {
       setError(err?.message || 'No se pudo crear la cuenta')
@@ -119,9 +124,16 @@ export default function Login({ theme, setTheme, onLoggedIn }) {
     setBusy(true)
     setError('')
     try {
-      if (mode === 'reset') await requestPasswordReset(pendingEmail || form.email)
-      else await resendCode(pendingEmail || form.email)
-      setInfo('Te mandamos un código nuevo')
+      const data =
+        mode === 'reset'
+          ? await requestPasswordReset(pendingEmail || form.email)
+          : await resendCode(pendingEmail || form.email)
+      if (data?.code) {
+        setCode(String(data.code))
+        setInfo(`Tu código es ${data.code} (sandbox Resend)`)
+      } else {
+        setInfo('Te mandamos un código nuevo')
+      }
     } catch (err) {
       setError(err?.message || 'No se pudo reenviar el código')
     } finally {
@@ -137,9 +149,14 @@ export default function Login({ theme, setTheme, onLoggedIn }) {
       const data = await requestPasswordReset(form.email)
       setPendingEmail(data.email || form.email)
       setForm((prev) => ({ ...prev, password: '', confirmPassword: '' }))
-      setInfo('Te mandamos un código al correo')
+      if (data.code) {
+        setCode(String(data.code))
+        setInfo(`Tu código es ${data.code} (sandbox Resend)`)
+      } else {
+        setInfo('Te mandamos un código al correo')
+        setCode('')
+      }
       setMode('reset')
-      setCode('')
     } catch (err) {
       setError(err?.message || 'No se pudo enviar el código')
     } finally {

@@ -386,13 +386,18 @@ class StockeaViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             _state.update { it.copy(busy = true, error = "", info = "") }
             try {
-                val pending = withContext(Dispatchers.IO) {
+                val (pending, sandboxCode) = withContext(Dispatchers.IO) {
                     api.register(firstName, lastName, email, password)
+                }
+                val info = if (!sandboxCode.isNullOrBlank()) {
+                    "Tu código es $sandboxCode (Resend sandbox no envía a otros correos)"
+                } else {
+                    "Te enviamos un código a $pending"
                 }
                 _state.update {
                     it.copy(
                         busy = false,
-                        info = "Te enviamos un código a $pending",
+                        info = info,
                         error = "needs_verify:$pending",
                     )
                 }
