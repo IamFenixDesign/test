@@ -1164,6 +1164,39 @@ function App() {
   }, [cartOpen])
 
   useEffect(() => {
+    if (!cartOpen) return undefined
+    const html = document.documentElement
+    const { body } = document
+    const prevHtmlOverflow = html.style.overflow
+    const prevBodyOverflow = body.style.overflow
+    const prevBodyPosition = body.style.position
+    const prevBodyTop = body.style.top
+    const prevBodyLeft = body.style.left
+    const prevBodyRight = body.style.right
+    const prevBodyWidth = body.style.width
+    const scrollY = window.scrollY || html.scrollTop || 0
+    html.classList.add('cart-open')
+    html.style.overflow = 'hidden'
+    body.style.overflow = 'hidden'
+    body.style.position = 'fixed'
+    body.style.top = `-${scrollY}px`
+    body.style.left = '0'
+    body.style.right = '0'
+    body.style.width = '100%'
+    return () => {
+      html.classList.remove('cart-open')
+      html.style.overflow = prevHtmlOverflow
+      body.style.overflow = prevBodyOverflow
+      body.style.position = prevBodyPosition
+      body.style.top = prevBodyTop
+      body.style.left = prevBodyLeft
+      body.style.right = prevBodyRight
+      body.style.width = prevBodyWidth
+      window.scrollTo(0, scrollY)
+    }
+  }, [cartOpen])
+
+  useEffect(() => {
     if (mainView !== 'profile' || !user) return
     setProfileError('')
     setProfileForm({
@@ -3048,56 +3081,60 @@ function App() {
                   </span>
                 </div>
               ) : null}
-
-              <div className="cart-summary">
-                <div className="cart-summary-top">
-                  <p className="cart-summary-meta">
-                    {cartTotals.count} producto{cartTotals.count === 1 ? '' : 's'} ·{' '}
-                    {cartTotals.units.toLocaleString('es-AR', { maximumFractionDigits: 1 })} a
-                    comprar
-                  </p>
-                  <div className="cart-summary-rows">
-                    <div>
-                      <span>Subtotal</span>
-                      <strong>{money(cartQuote.subtotal || cartTotals.total)}</strong>
-                    </div>
-                    <div className={cartQuote.discountTotal > 0 ? 'is-save' : ''}>
-                      <span>
-                        {cartQuote.promo.percent > 0
-                          ? `Dto ${cartQuote.promo.short}`
-                          : 'Descuento de pago'}
-                      </span>
-                      <strong>
-                        {cartQuote.discountTotal > 0
-                          ? `-${money(cartQuote.discountTotal)}`
-                          : money(0)}
-                      </strong>
-                    </div>
-                    <div className="is-pay">
-                      <span>
-                        {cartQuote.promo.percent > 0 ? 'Total con descuento' : 'Total'}
-                      </span>
-                      <strong>
-                        {money(cartQuote.payable || cartQuote.subtotal || cartTotals.total)}
-                      </strong>
-                    </div>
-                  </div>
-                </div>
-                <div className="cart-actions">
-                  <button
-                    className="btn btn-primary"
-                    type="button"
-                    disabled={!cartLines.length || cartBusy}
-                    onClick={applyCartPurchases}
-                  >
-                    {cartBusy ? 'Aplicando…' : 'Marcar comprados'}
-                  </button>
-                </div>
-              </div>
             </>
           )}
-        </section>
+              </section>
             </div>
+
+            {cartLines.length > 0 ? (
+              <div className="cart-sheet-footer">
+                <div className="cart-summary">
+                  <div className="cart-summary-top">
+                    <p className="cart-summary-meta">
+                      {cartTotals.count} producto{cartTotals.count === 1 ? '' : 's'} ·{' '}
+                      {cartTotals.units.toLocaleString('es-AR', { maximumFractionDigits: 1 })} a
+                      comprar
+                    </p>
+                    <div className="cart-summary-rows">
+                      <div>
+                        <span>Subtotal</span>
+                        <strong>{money(cartQuote.subtotal || cartTotals.total)}</strong>
+                      </div>
+                      <div className={cartQuote.discountTotal > 0 ? 'is-save' : ''}>
+                        <span>
+                          {cartQuote.promo.percent > 0
+                            ? `Dto ${cartQuote.promo.short}`
+                            : 'Descuento de pago'}
+                        </span>
+                        <strong>
+                          {cartQuote.discountTotal > 0
+                            ? `-${money(cartQuote.discountTotal)}`
+                            : money(0)}
+                        </strong>
+                      </div>
+                      <div className="is-pay">
+                        <span>
+                          {cartQuote.promo.percent > 0 ? 'Total con descuento' : 'Total'}
+                        </span>
+                        <strong>
+                          {money(cartQuote.payable || cartQuote.subtotal || cartTotals.total)}
+                        </strong>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="cart-actions">
+                    <button
+                      className="btn btn-primary"
+                      type="button"
+                      disabled={!cartLines.length || cartBusy}
+                      onClick={applyCartPurchases}
+                    >
+                      {cartBusy ? 'Aplicando…' : 'Marcar comprados'}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ) : null}
           </div>
         </div>
       ) : null}
