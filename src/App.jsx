@@ -1067,7 +1067,6 @@ function App() {
   const [collapsed, setCollapsed] = useState({})
   const [passwordModal, setPasswordModal] = useState(false)
   const [deleteBusy, setDeleteBusy] = useState(false)
-  const [profileModal, setProfileModal] = useState(false)
   const [profileForm, setProfileForm] = useState({ firstName: '', lastName: '', email: '' })
   const [profileError, setProfileError] = useState('')
   const [profileBusy, setProfileBusy] = useState(false)
@@ -1110,6 +1109,16 @@ function App() {
   useEffect(() => {
     if (mainView !== 'cart') setCartDealsOpen(false)
   }, [mainView])
+
+  useEffect(() => {
+    if (mainView !== 'profile' || !user) return
+    setProfileError('')
+    setProfileForm({
+      firstName: user.firstName || user.name?.split(' ')[0] || '',
+      lastName: user.lastName || user.name?.split(' ').slice(1).join(' ') || '',
+      email: user.email || '',
+    })
+  }, [mainView, user])
 
   useEffect(() => {
     lastScrollYRef.current = window.scrollY || 0
@@ -1633,17 +1642,6 @@ function App() {
     setPasswordModal(true)
   }
 
-  function openProfileModal() {
-    setOpenMenu(null)
-    setProfileError('')
-    setProfileForm({
-      firstName: user.firstName || user.name?.split(' ')[0] || '',
-      lastName: user.lastName || user.name?.split(' ').slice(1).join(' ') || '',
-      email: user.email || '',
-    })
-    setProfileModal(true)
-  }
-
   function toggleGroup(name) {
     setCollapsed((prev) => ({ ...prev, [name]: !prev[name] }))
   }
@@ -1655,7 +1653,6 @@ function App() {
     try {
       const next = await saveProfile(profileForm)
       setUser(next)
-      setProfileModal(false)
       showToast('Perfil actualizado')
     } catch (err) {
       setProfileError(err?.message || 'No se pudo guardar el perfil')
@@ -2304,7 +2301,7 @@ function App() {
 
   return (
     <div
-      className={`app ${modal || scanning || passwordModal || profileModal || pendingDelete ? 'is-overlay' : ''} ${
+      className={`app ${modal || scanning || passwordModal || pendingDelete ? 'is-overlay' : ''} ${
         chromeHidden ? 'chrome-hidden' : ''
       } view-${mainView}`}
     >
@@ -2322,7 +2319,9 @@ function App() {
               ? 'Comparar precios'
               : mainView === 'cart'
                 ? 'Carrito'
-                : 'Stockea'}
+                : mainView === 'profile'
+                  ? 'Perfil'
+                  : 'Stockea'}
           </h1>
         </button>
       </header>
@@ -2682,7 +2681,7 @@ function App() {
             </>
           )}
         </section>
-      ) : (
+      ) : mainView === 'cart' ? (
         <section className="panel cart-panel">
           {cartLines.length === 0 ? (
             <div className="empty">
@@ -2916,6 +2915,67 @@ function App() {
             </>
           )}
         </section>
+      ) : (
+        <section className="panel profile-panel">
+          <div className="profile-hero">
+            {user.picture ? (
+              <img className="profile-avatar" src={user.picture} alt="" referrerPolicy="no-referrer" />
+            ) : (
+              <span className="profile-avatar letter" aria-hidden="true">
+                {(user.name || user.email || 'S').slice(0, 1)}
+              </span>
+            )}
+            <div className="profile-hero-copy">
+              <strong>{user.name || 'Cuenta'}</strong>
+              {user.email ? <span>{user.email}</span> : null}
+            </div>
+          </div>
+
+          <form className="profile-form" onSubmit={handleSaveProfile}>
+            <label className="field full">
+              <span>Nombre</span>
+              <input
+                value={profileForm.firstName}
+                onChange={(event) => setProfileForm((prev) => ({ ...prev, firstName: event.target.value }))}
+                autoComplete="given-name"
+                required
+              />
+            </label>
+            <label className="field full">
+              <span>Apellido</span>
+              <input
+                value={profileForm.lastName}
+                onChange={(event) => setProfileForm((prev) => ({ ...prev, lastName: event.target.value }))}
+                autoComplete="family-name"
+                required
+              />
+            </label>
+            <label className="field full">
+              <span>Correo</span>
+              <input
+                type="email"
+                value={profileForm.email}
+                onChange={(event) => setProfileForm((prev) => ({ ...prev, email: event.target.value }))}
+                autoComplete="email"
+                required
+              />
+            </label>
+            {profileError ? <p className="error">{profileError}</p> : null}
+            <button className="btn btn-primary" type="submit" disabled={profileBusy}>
+              {profileBusy ? 'Guardando…' : 'Guardar cambios'}
+            </button>
+          </form>
+
+          <div className="profile-actions">
+            <button className="btn btn-ghost" type="button" onClick={openPasswordModal}>
+              Cambiar contraseña
+            </button>
+            <button className="btn btn-danger" type="button" onClick={handleLogout}>
+              <IconLogout />
+              Cerrar sesión
+            </button>
+          </div>
+        </section>
       )}
 
       <nav className="bottom-nav" aria-label="Navegación principal">
@@ -2977,41 +3037,26 @@ function App() {
           </span>
           <span>Carrito</span>
         </button>
-        <div className="bottom-nav-profile" data-menu="user">
-          <button
-            type="button"
-            className={`bottom-nav-btn ${openMenu === 'user' ? 'active' : ''}`}
-            aria-label="Cuenta"
-            onClick={() => setOpenMenu(openMenu === 'user' ? null : 'user')}
-          >
-            <span className="bottom-nav-icon" aria-hidden="true">
-              {user.picture ? (
-                <img className="bottom-nav-avatar" src={user.picture} alt="" referrerPolicy="no-referrer" />
-              ) : (
-                <span className="bottom-nav-avatar letter">{(user.name || user.email || 'S').slice(0, 1)}</span>
-              )}
-            </span>
-            <span>Perfil</span>
-          </button>
-          {openMenu === 'user' && (
-            <div className="user-menu bottom-user-menu">
-              <div className="user-menu-info">
-                <strong>{user.name || 'Cuenta'}</strong>
-                {user.email ? <span>{user.email}</span> : null}
-              </div>
-              <button className="user-action" type="button" onClick={openProfileModal}>
-                Editar perfil
-              </button>
-              <button className="user-action" type="button" onClick={openPasswordModal}>
-                Cambiar contraseña
-              </button>
-              <button className="user-logout" type="button" onClick={handleLogout}>
-                <IconLogout />
-                Cerrar sesión
-              </button>
-            </div>
-          )}
-        </div>
+        <button
+          type="button"
+          className={`bottom-nav-btn ${mainView === 'profile' ? 'active' : ''}`}
+          aria-label="Perfil"
+          aria-current={mainView === 'profile' ? 'page' : undefined}
+          onClick={() => {
+            setMainView(mainView === 'profile' ? 'stock' : 'profile')
+            setOpenMenu(null)
+            setSearchOpen(false)
+          }}
+        >
+          <span className="bottom-nav-icon" aria-hidden="true">
+            {user.picture ? (
+              <img className="bottom-nav-avatar" src={user.picture} alt="" referrerPolicy="no-referrer" />
+            ) : (
+              <span className="bottom-nav-avatar letter">{(user.name || user.email || 'S').slice(0, 1)}</span>
+            )}
+          </span>
+          <span>Perfil</span>
+        </button>
       </nav>
 
       {modal === 'item' && (
@@ -3417,52 +3462,6 @@ function App() {
                 Cancelar
               </button>
               <button className="btn btn-primary" type="submit" disabled={passwordBusy}>
-                Guardar
-              </button>
-            </div>
-          </form>
-        </div>
-      )}
-
-      {profileModal && (
-        <div className="overlay overlay-dialog">
-          <form className="modal password-modal" onSubmit={handleSaveProfile}>
-            <h2>Editar perfil</h2>
-            <p className="lead">Actualizá tu nombre, apellido y correo.</p>
-            <label className="field full">
-              <span>Nombre</span>
-              <input
-                value={profileForm.firstName}
-                onChange={(event) => setProfileForm((prev) => ({ ...prev, firstName: event.target.value }))}
-                autoComplete="given-name"
-                required
-              />
-            </label>
-            <label className="field full">
-              <span>Apellido</span>
-              <input
-                value={profileForm.lastName}
-                onChange={(event) => setProfileForm((prev) => ({ ...prev, lastName: event.target.value }))}
-                autoComplete="family-name"
-                required
-              />
-            </label>
-            <label className="field full">
-              <span>Correo</span>
-              <input
-                type="email"
-                value={profileForm.email}
-                onChange={(event) => setProfileForm((prev) => ({ ...prev, email: event.target.value }))}
-                autoComplete="email"
-                required
-              />
-            </label>
-            {profileError ? <p className="error">{profileError}</p> : null}
-            <div className="modal-actions">
-              <button className="btn btn-ghost" type="button" onClick={() => setProfileModal(false)} disabled={profileBusy}>
-                Cancelar
-              </button>
-              <button className="btn btn-primary" type="submit" disabled={profileBusy}>
                 Guardar
               </button>
             </div>
