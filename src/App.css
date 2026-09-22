@@ -2999,9 +2999,10 @@ html[data-theme="light"] .store-col-title.dia {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    gap: 8px;
+    gap: 6px;
     font-weight: 750;
-    font-size: 0.88rem;
+    font-size: 0.8rem;
+    padding: 0 6px;
   }
 
   .store-result-tab small {
