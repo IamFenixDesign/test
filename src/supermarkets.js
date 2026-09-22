@@ -1,3 +1,5 @@
+import { isDigitalOrOnlineExclusiveDiscount } from './discounts.js'
+
 function first(value) {
   if (Array.isArray(value)) return value[0]
   return value
@@ -142,11 +144,26 @@ function parseMaybeArray(value) {
 /** Oferta/descuento publicado en Coto Digital. */
 export function cotoOfferInfo(attrs = {}) {
   const deals = parseMaybeArray(attrs['product.dtoDescuentos'])
-  const deal = deals[0] || null
   const tipos = Array.isArray(attrs['product.tipoOferta'])
     ? attrs['product.tipoOferta'].map((value) => String(value || '').trim()).filter(Boolean)
     : []
   const tipo = tipos.find((value) => !/^todas las ofertas$/i.test(value)) || ''
+
+  // Preferir un deal de góndola; saltear los de Comunidad / solo digital.
+  let deal = null
+  for (const entry of deals) {
+    const bits = [
+      entry?.textoDescuento,
+      entry?.comentarios,
+      entry?.precioDescTextoAdicional,
+      entry?.textoVigencia,
+      entry?.imagenDescuento,
+      ...tipos,
+    ]
+    if (isDigitalOrOnlineExclusiveDiscount(...bits)) continue
+    deal = entry
+    break
+  }
 
   let label = ''
   let percent = 0
@@ -154,7 +171,7 @@ export function cotoOfferInfo(attrs = {}) {
     label = String(deal.textoDescuento).trim()
     const match = label.match(/(\d+)\s*%/)
     if (match) percent = Number(match[1])
-  } else if (tipo && /\d+\s*%/.test(tipo)) {
+  } else if (tipo && /\d+\s*%/.test(tipo) && !isDigitalOrOnlineExclusiveDiscount(tipo, ...tipos)) {
     // Solo tipos con % real (ej. "Hasta 30% DTO!!"); ignora "Otras Ofertas".
     label = tipo
     const match = tipo.match(/(\d+)\s*%/)
@@ -172,6 +189,38 @@ export function cotoOfferInfo(attrs = {}) {
       ? Math.max(regularField, shelf)
       : regularField || shelf
 
+  const exclusiveBits = [
+    label,
+    tipo,
+    ...tipos,
+    deal?.comentarios,
+    deal?.precioDescTextoAdicional,
+    deal?.textoVigencia,
+    deal?.imagenDescuento,
+  ]
+  if (isDigitalOrOnlineExclusiveDiscount(...exclusiveBits)) {
+    return {
+      hasDiscount: false,
+      discountLabel: '',
+      discountPercent: 0,
+      dealPrice: 0,
+      listPrice: listPrice || shelf,
+      onlineExclusive: true,
+    }
+  }
+
+  // Si todos los deals eran comunidad/digital, no inventar oferta de sucursal.
+  if (!deal && deals.length) {
+    return {
+      hasDiscount: false,
+      discountLabel: '',
+      discountPercent: 0,
+      dealPrice: 0,
+      listPrice: listPrice || shelf,
+      onlineExclusive: true,
+    }
+  }
+
   const hasDiscount =
     Boolean(label) &&
     dealPrice > 0 &&
@@ -182,30 +231,81 @@ export function cotoOfferInfo(attrs = {}) {
     hasDiscount,
     discountLabel: hasDiscount ? label : '',
     discountPercent: hasDiscount ? percent : 0,
-    dealPrice,
+    dealPrice: hasDiscount ? dealPrice : 0,
     listPrice: listPrice || shelf,
+    onlineExclusive: false,
   }
 }
 
 /** Oferta/descuento de VTEX Carrefour / Día (Price vs ListPrice). */
-export function carrefourOfferInfo(offer = {}) {
+export function carrefourOfferInfo(offer = {}, extraTexts = []) {
   const price = toPrice(offer?.Price)
   const rawList =
     toPrice(offer?.ListPrice) || toPrice(offer?.PriceWithoutDiscount) || 0
   if (!(price > 0)) {
-    return { price: 0, listPrice: 0, hasDiscount: false, discountLabel: '', discountPercent: 0 }
+    return {
+      price: 0,
+      listPrice: 0,
+      hasDiscount: false,
+      discountLabel: '',
+      discountPercent: 0,
+      onlineExclusive: false,
+    }
   }
   // Siempre preferir el mayor como precio de lista (sin promo).
   const listPrice = Math.max(rawList, price)
   const hasDiscount = listPrice > price * 1.005
   const discountPercent = hasDiscount ? Math.max(1, Math.round((1 - price / listPrice) * 100)) : 0
+  const discountLabel = hasDiscount ? `${discountPercent}% OFF` : ''
+
+  const teaserNames = []
+  for (const list of [offer?.Teasers, offer?.PromotionTeasers, offer?.DiscountHighLight]) {
+    if (!Array.isArray(list)) continue
+    for (const entry of list) {
+      const name =
+        entry?.Name ||
+        entry?.name ||
+        entry?.['<Name>k__BackingField'] ||
+        ''
+      if (name) teaserNames.push(String(name))
+    }
+  }
+
+  const onlineExclusive = isDigitalOrOnlineExclusiveDiscount(
+    discountLabel,
+    ...teaserNames,
+    ...extraTexts,
+  )
+  if (onlineExclusive) {
+    return {
+      price: listPrice,
+      listPrice,
+      hasDiscount: false,
+      discountLabel: '',
+      discountPercent: 0,
+      onlineExclusive: true,
+    }
+  }
+
   return {
     price,
     listPrice,
     hasDiscount,
-    discountLabel: hasDiscount ? `${discountPercent}% OFF` : '',
+    discountLabel,
     discountPercent,
+    onlineExclusive: false,
   }
+}
+
+function vtexClusterTexts(product = {}) {
+  const texts = []
+  for (const value of Object.values(product.productClusters || {})) {
+    if (value) texts.push(String(value))
+  }
+  for (const value of Object.values(product.clusterHighlights || {})) {
+    if (value) texts.push(String(value))
+  }
+  return texts
 }
 
 function findCotoResultsList(node) {
@@ -295,7 +395,7 @@ function parseVtexProducts(products, { store, origin, limit = 8 }) {
       const seller =
         item?.sellers?.find((entry) => entry.sellerDefault) || item?.sellers?.[0]
       const offer = seller?.commertialOffer
-      const pricing = carrefourOfferInfo(offer || {})
+      const pricing = carrefourOfferInfo(offer || {}, vtexClusterTexts(product))
       const ean = String(item?.ean || product.EAN?.[0] || '')
       const link = String(product.link || '')
       return {
