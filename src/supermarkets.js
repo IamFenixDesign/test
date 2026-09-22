@@ -135,11 +135,16 @@ export function cotoOfferInfo(attrs = {}) {
   }
 
   const dealPrice = toPrice(deal?.precioDesc)
+  const regular =
+    toPrice(deal?.precioRegular) || toPrice(deal?.textoPrecioRegular) || 0
+  const shelf = cotoPrice(attrs)
+  const listPrice = regular > shelf ? regular : regular || shelf
   return {
     hasDiscount: Boolean(label),
     discountLabel: label,
     discountPercent: percent,
     dealPrice,
+    listPrice: listPrice || shelf,
   }
 }
 
@@ -207,6 +212,7 @@ export function parseCoto(data) {
       if (!key || seen.has(key)) return null
       seen.add(key)
       const offer = cotoOfferInfo(attrs)
+      const price = cotoPrice(attrs)
       return {
         store: 'coto',
         name: String(first(attrs['product.displayName']) || first(attrs['sku.displayName']) || '').replace(/\s+/g, ' ').trim(),
@@ -215,7 +221,8 @@ export function parseCoto(data) {
         categories: Array.isArray(attrs['allAncestors.displayName'])
           ? attrs['allAncestors.displayName']
           : [first(attrs['product.category'])].filter(Boolean),
-        price: cotoPrice(attrs),
+        price,
+        listPrice: offer.listPrice || price,
         hasDiscount: offer.hasDiscount,
         discountLabel: offer.discountLabel,
         discountPercent: offer.discountPercent,
