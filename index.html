@@ -45,11 +45,19 @@
         if (desktopSite) {
           root.classList.add('is-desktop-site')
           root.classList.remove('is-pwa')
+          root.classList.remove('is-ios-pwa')
           if (meta) meta.setAttribute('content', desktopViewport)
         } else {
           root.classList.remove('is-desktop-site')
           if (standalone) root.classList.add('is-pwa')
           else root.classList.remove('is-pwa')
+
+          var isIOS =
+            /iPad|iPhone|iPod/i.test(ua) ||
+            (/Macintosh/i.test(ua) && touch && navigator.maxTouchPoints > 1)
+          if (standalone && isIOS) root.classList.add('is-ios-pwa')
+          else root.classList.remove('is-ios-pwa')
+
           if (meta) meta.setAttribute('content', mobileViewport)
         }
       }
