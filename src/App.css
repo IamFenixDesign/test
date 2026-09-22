@@ -2520,6 +2520,30 @@ html[data-theme="light"] .store-col-title.dia {
     display: none;
   }
 
+  .app.chrome-hidden .btn-new-item,
+  .app.chrome-hidden .site-footer {
+    opacity: 0;
+    pointer-events: none;
+    transform: translateX(-50%) translateY(18px);
+  }
+
+  .app.chrome-hidden .site-footer {
+    transform: translateY(18px);
+  }
+
+  .btn-new-item,
+  .site-footer {
+    transition:
+      opacity 180ms ease,
+      transform 180ms ease,
+      visibility 180ms ease;
+  }
+
+  .app.chrome-hidden .btn-new-item,
+  .app.chrome-hidden .site-footer {
+    visibility: hidden;
+  }
+
   .topbar {
     align-items: center;
     gap: 10px;
@@ -3447,6 +3471,29 @@ html.is-pwa .cart-deal-check {
   width: 12px;
   height: 12px;
   justify-self: auto;
+}
+
+html.is-pwa .btn-new-item,
+html.is-pwa .site-footer {
+  transition:
+    opacity 180ms ease,
+    transform 180ms ease,
+    visibility 180ms ease;
+}
+
+html.is-pwa .app.chrome-hidden .btn-new-item,
+html.is-pwa .app.chrome-hidden .site-footer {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+html.is-pwa .app.chrome-hidden .btn-new-item {
+  transform: translateX(-50%) translateY(18px);
+}
+
+html.is-pwa .app.chrome-hidden .site-footer {
+  transform: translateY(18px);
 }
 
 .item-row,
