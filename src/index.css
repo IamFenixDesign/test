@@ -105,6 +105,10 @@ html.is-ios-pwa {
   --glass-blur: blur(36px) saturate(200%);
   --glass-radius: 26px;
   --glass-radius-sm: 20px;
+  --glass-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --glass-spring: cubic-bezier(0.34, 1.4, 0.64, 1);
+  --glass-duration: 0.48s;
+  --glass-duration-fast: 0.28s;
 }
 
 html.is-ios-pwa[data-theme="light"] {
