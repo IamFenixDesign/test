@@ -71,7 +71,16 @@ export default defineConfig(({ mode }) => {
   if (env.DATABASE_URL) process.env.DATABASE_URL = env.DATABASE_URL
   if (env.POSTGRES_URL) process.env.POSTGRES_URL = env.POSTGRES_URL
   if (env.AUTH_SECRET) process.env.AUTH_SECRET = env.AUTH_SECRET
-  for (const key of ['RESEND_API_KEY', 'MAIL_FROM', 'SMTP_HOST', 'SMTP_PORT', 'SMTP_USER', 'SMTP_PASS', 'SMTP_SECURE']) {
+  for (const key of [
+    'RESEND_API_KEY',
+    'RESEND_ACCOUNT_EMAIL',
+    'MAIL_FROM',
+    'SMTP_HOST',
+    'SMTP_PORT',
+    'SMTP_USER',
+    'SMTP_PASS',
+    'SMTP_SECURE',
+  ]) {
     if (env[key]) process.env[key] = env[key]
   }
 
