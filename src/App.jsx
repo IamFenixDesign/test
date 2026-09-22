@@ -1015,7 +1015,6 @@ function App() {
   const [scanning, setScanning] = useState(false)
   const [cameraStream, setCameraStream] = useState(null)
   const [hydrated, setHydrated] = useState(false)
-  const [cartOpen, setCartOpen] = useState(false)
   const [cartBusy, setCartBusy] = useState(false)
   const [cartRemoved, setCartRemoved] = useState(() => new Set())
   const [cartDay, setCartDay] = useState(() => todayWeekday())
@@ -1270,30 +1269,6 @@ function App() {
     searchInputRef.current?.focus()
   }, [searchOpen])
 
-  useEffect(() => {
-    if (!cartOpen) return undefined
-    const html = document.documentElement
-    const { body } = document
-    const prevHtmlOverflow = html.style.overflow
-    const prevBodyOverflow = body.style.overflow
-    const prevBodyPosition = body.style.position
-    const prevBodyTop = body.style.top
-    const prevBodyWidth = body.style.width
-    const scrollY = window.scrollY || html.scrollTop || 0
-    html.style.overflow = 'hidden'
-    body.style.overflow = 'hidden'
-    body.style.position = 'fixed'
-    body.style.top = `-${scrollY}px`
-    body.style.width = '100%'
-    return () => {
-      html.style.overflow = prevHtmlOverflow
-      body.style.overflow = prevBodyOverflow
-      body.style.position = prevBodyPosition
-      body.style.top = prevBodyTop
-      body.style.width = prevBodyWidth
-      window.scrollTo(0, scrollY)
-    }
-  }, [cartOpen])
 
   useEffect(() => {
     if (!toast) return undefined
@@ -1545,7 +1520,7 @@ function App() {
     setPendingDelete(null)
     setPasswordModal(false)
     closeScanner()
-    setCartOpen(false)
+    setMainView('stock')
     setCartRemoved(new Set())
     setHydrated(false)
     deletedIdsRef.current = new Set()
@@ -1657,7 +1632,7 @@ function App() {
       }, 450)
     }
     setCartRemoved(new Set())
-    setCartOpen(false)
+    setMainView('stock')
     setCartBusy(false)
     showToast(
       cartLines.length === 1
@@ -2232,7 +2207,7 @@ function App() {
 
   return (
     <div
-      className={`app ${modal || scanning || passwordModal || profileModal || pendingDelete || cartOpen ? 'is-overlay' : ''} ${
+      className={`app ${modal || scanning || passwordModal || profileModal || pendingDelete ? 'is-overlay' : ''} ${
         chromeHidden ? 'chrome-hidden' : ''
       } view-${mainView}`}
     >
@@ -2245,7 +2220,13 @@ function App() {
             setOpenMenu(null)
           }}
         >
-          <h1>{mainView === 'compare' ? 'Comparar precios' : 'Stockea'}</h1>
+          <h1>
+            {mainView === 'compare'
+              ? 'Comparar precios'
+              : mainView === 'cart'
+                ? 'Carrito'
+                : 'Stockea'}
+          </h1>
         </button>
       </header>
 
@@ -2507,7 +2488,7 @@ function App() {
         )}
       </section>
         </>
-      ) : (
+      ) : mainView === 'compare' ? (
         <section className="panel compare-panel">
           <div className="compare-toolbar">
             <label className="search compare-search">
@@ -2570,6 +2551,225 @@ function App() {
             </ul>
           )}
         </section>
+      ) : (
+        <section className="panel cart-panel">
+          <div className="cart-toolbar">
+            <p className="cart-lead">
+              Solo lo faltante al mínimo. Descuentos de sucursal según el día.
+            </p>
+          </div>
+
+          {cartLines.length === 0 ? (
+            <div className="empty">
+              <h3>Carrito vacío</h3>
+              <p>No hay productos en stock bajo o sin stock para comprar.</p>
+            </div>
+          ) : (
+            <>
+              <section className="cart-deals-panel" aria-label="Descuentos por día">
+                <div className="cart-deals-head">
+                  <div>
+                    <p className="cart-deals-kicker">Sucursales</p>
+                    <h3 className="cart-deals-title">{weekdayLabel(cartDay)}</h3>
+                  </div>
+                  <p className="cart-deals-hint">Elegí día y medio de pago</p>
+                </div>
+
+                <div className="cart-days" role="tablist" aria-label="Día de la promo">
+                  {WEEKDAYS.map((day) => (
+                    <button
+                      key={day.id}
+                      type="button"
+                      role="tab"
+                      aria-selected={cartDay === day.id}
+                      className={`cart-day-chip ${cartDay === day.id ? 'active' : ''} ${
+                        day.id === todayWeekday() ? 'is-today' : ''
+                      }`}
+                      onClick={() => selectCartDay(day.id)}
+                    >
+                      {day.short}
+                    </button>
+                  ))}
+                </div>
+
+                <div
+                  key={cartDay}
+                  className="cart-deals-body"
+                  role="group"
+                  aria-label="Descuentos de pago en sucursal"
+                >
+                  {cartPromoGroups.coto.length > 0 ? (
+                    <div className="cart-deals-group">
+                      <p className="cart-deals-group-title store-coto">Coto</p>
+                      <div className="cart-deals-list">{cartPromoGroups.coto.map(renderPromoOption)}</div>
+                    </div>
+                  ) : null}
+
+                  {cartPromoGroups.carrefour.length > 0 ? (
+                    <div className="cart-deals-group">
+                      <p className="cart-deals-group-title store-carrefour">Carrefour</p>
+                      <div className="cart-deals-list">
+                        {cartPromoGroups.carrefour.map(renderPromoOption)}
+                      </div>
+                    </div>
+                  ) : null}
+
+                  {cartPromoGroups.dia.length > 0 ? (
+                    <div className="cart-deals-group">
+                      <p className="cart-deals-group-title store-dia">Día</p>
+                      <div className="cart-deals-list">{cartPromoGroups.dia.map(renderPromoOption)}</div>
+                    </div>
+                  ) : null}
+                </div>
+              </section>
+
+              <ul className="cart-list">
+                {cartDisplayLines.map((line) => (
+                  <li
+                    key={line.id}
+                    className={`cart-line ${line.eligible ? 'is-eligible' : 'is-excluded'}`}
+                  >
+                    <div className="cart-line-head">
+                      <ItemThumb item={line.item} />
+                      <div className="cart-line-copy">
+                        <strong>{line.item.name}</strong>
+                        <span>
+                          Tenés {formatQty(line.have, qtyUnitOf(line.item))} · mínimo{' '}
+                          {formatQty(line.min, qtyUnitOf(line.item))}
+                        </span>
+                      </div>
+                      <div className="cart-line-side">
+                        <output
+                          className="cart-qty"
+                          aria-label={`Comprar ${formatQty(line.need, qtyUnitOf(line.item))}`}
+                        >
+                          ×{formatQty(line.need, qtyUnitOf(line.item))}
+                        </output>
+                        <button
+                          className="icon-btn danger"
+                          type="button"
+                          title="Quitar del carrito"
+                          aria-label={`Quitar ${line.item.name} del carrito`}
+                          onClick={() => removeFromCart(line.id)}
+                        >
+                          <IconTrash />
+                        </button>
+                      </div>
+                    </div>
+                    <div className="cart-line-stats">
+                      <div className="cart-stat">
+                        <em>Precio</em>
+                        <strong>
+                          {line.unitPrice
+                            ? `${money(line.unitPrice)}${qtyUnitOf(line.item) === 'kg' ? '/kg' : '/u'}`
+                            : '—'}
+                        </strong>
+                      </div>
+                      <div className="cart-stat">
+                        <em>Total</em>
+                        <strong>{line.unitPrice ? money(line.lineTotal) : '—'}</strong>
+                      </div>
+                      <div className={`cart-stat ${line.webDiscount ? 'is-web' : ''}`}>
+                        <em>Web</em>
+                        <strong>{line.webDiscount || 'Sin dto'}</strong>
+                      </div>
+                      <div
+                        className={`cart-stat ${
+                          line.eligible && cartQuote.promo.percent > 0 ? 'is-best' : ''
+                        }`}
+                      >
+                        <em>Pago</em>
+                        <strong>
+                          {line.eligible
+                            ? cartQuote.promo.percent > 0
+                              ? cartQuote.promo.short
+                              : 'Sin dto'
+                            : line.reason || 'No aplica'}
+                        </strong>
+                      </div>
+                    </div>
+                    {line.eligible && line.discount > 0 ? (
+                      <p className="cart-line-save">Ahorro {money(line.discount)}</p>
+                    ) : null}
+                  </li>
+                ))}
+              </ul>
+
+              {(cartQuote.eligible.length > 0 || cartQuote.excluded.length > 0) &&
+              cartQuote.promo.percent > 0 ? (
+                <div className="cart-split">
+                  <span>
+                    <strong>{cartQuote.eligible.length}</strong> con dto
+                  </span>
+                  <span>
+                    <strong>{cartQuote.excluded.length}</strong> sin dto
+                  </span>
+                  <span>
+                    <strong>{cartQuote.withWebOffer || 0}</strong> oferta web
+                  </span>
+                </div>
+              ) : cartLines.length > 0 ? (
+                <div className="cart-split">
+                  <span>
+                    <strong>{cartQuote.withWebOffer || 0}</strong> oferta web
+                  </span>
+                  <span>
+                    <strong>
+                      {Math.max(0, cartLines.length - (cartQuote.withWebOffer || 0))}
+                    </strong>{' '}
+                    sin oferta web
+                  </span>
+                </div>
+              ) : null}
+
+              <div className="cart-summary">
+                <div className="cart-summary-top">
+                  <p className="cart-summary-meta">
+                    {cartTotals.count} producto{cartTotals.count === 1 ? '' : 's'} ·{' '}
+                    {cartTotals.units.toLocaleString('es-AR', { maximumFractionDigits: 1 })} a
+                    comprar
+                  </p>
+                  <div className="cart-summary-rows">
+                    <div>
+                      <span>Subtotal</span>
+                      <strong>{money(cartQuote.subtotal || cartTotals.total)}</strong>
+                    </div>
+                    <div className={cartQuote.discountTotal > 0 ? 'is-save' : ''}>
+                      <span>
+                        {cartQuote.promo.percent > 0
+                          ? `Dto ${cartQuote.promo.short}`
+                          : 'Descuento de pago'}
+                      </span>
+                      <strong>
+                        {cartQuote.discountTotal > 0
+                          ? `-${money(cartQuote.discountTotal)}`
+                          : money(0)}
+                      </strong>
+                    </div>
+                    <div className="is-pay">
+                      <span>
+                        {cartQuote.promo.percent > 0 ? 'Total con descuento' : 'Total'}
+                      </span>
+                      <strong>
+                        {money(cartQuote.payable || cartQuote.subtotal || cartTotals.total)}
+                      </strong>
+                    </div>
+                  </div>
+                </div>
+                <div className="cart-actions">
+                  <button
+                    className="btn btn-primary"
+                    type="button"
+                    disabled={!cartLines.length || cartBusy}
+                    onClick={applyCartPurchases}
+                  >
+                    {cartBusy ? 'Aplicando…' : 'Marcar comprados'}
+                  </button>
+                </div>
+              </div>
+            </>
+          )}
+        </section>
       )}
 
       <nav className="bottom-nav" aria-label="Navegación principal">
@@ -2610,16 +2810,20 @@ function App() {
         </button>
         <button
           type="button"
-          className={`bottom-nav-btn ${cartTotals.count ? 'has-items' : ''}`}
+          className={`bottom-nav-btn ${mainView === 'cart' ? 'active' : ''} ${
+            cartTotals.count ? 'has-items' : ''
+          }`}
           onClick={() => {
-            setCartOpen(true)
+            setMainView(mainView === 'cart' ? 'stock' : 'cart')
             setOpenMenu(null)
+            setSearchOpen(false)
           }}
           aria-label={
             cartTotals.count
               ? `Carrito de compras, ${cartTotals.count} productos`
               : 'Carrito de compras'
           }
+          aria-current={mainView === 'cart' ? 'page' : undefined}
         >
           <span className="bottom-nav-icon" aria-hidden="true">
             <IconCart />
@@ -3019,243 +3223,6 @@ function App() {
               <button className="btn btn-danger" type="button" onClick={confirmRemoveItem} disabled={deleteBusy}>
                 {deleteBusy ? 'Eliminando…' : 'Eliminar'}
               </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {cartOpen && (
-        <div
-          className="overlay overlay-dialog"
-          role="presentation"
-          onClick={(event) => {
-            if (event.target === event.currentTarget) setCartOpen(false)
-          }}
-        >
-          <div className="modal cart-sheet" role="dialog" aria-modal="true" aria-labelledby="cart-title">
-            <div className="sheet-handle" aria-hidden="true" />
-            <div className="sheet-header cart-sheet-header">
-              <div>
-                <p className="cart-kicker">Carrito</p>
-                <h2 id="cart-title">Compras pendientes</h2>
-                <p className="lead">
-                  Solo lo faltante al mínimo. Descuentos de sucursal según el día.
-                </p>
-              </div>
-              <button
-                className="icon-btn sheet-close"
-                type="button"
-                onClick={() => setCartOpen(false)}
-                aria-label="Cerrar carrito"
-              >
-                <IconClose />
-              </button>
-            </div>
-
-            {cartLines.length === 0 ? (
-              <p className="cart-empty">No hay productos en stock bajo o sin stock para comprar.</p>
-            ) : (
-              <>
-                <section className="cart-deals-panel cart-scroll-hidden" aria-label="Descuentos por día">
-                  <div className="cart-deals-head">
-                    <div>
-                      <p className="cart-deals-kicker">Sucursales</p>
-                      <h3 className="cart-deals-title">{weekdayLabel(cartDay)}</h3>
-                    </div>
-                    <p className="cart-deals-hint">Elegí día y medio de pago</p>
-                  </div>
-
-                  <div className="cart-days" role="tablist" aria-label="Día de la promo">
-                    {WEEKDAYS.map((day) => (
-                      <button
-                        key={day.id}
-                        type="button"
-                        role="tab"
-                        aria-selected={cartDay === day.id}
-                        className={`cart-day-chip ${cartDay === day.id ? 'active' : ''} ${
-                          day.id === todayWeekday() ? 'is-today' : ''
-                        }`}
-                        onClick={() => selectCartDay(day.id)}
-                      >
-                        {day.short}
-                      </button>
-                    ))}
-                  </div>
-
-                  <div
-                    key={cartDay}
-                    className="cart-deals-body"
-                    role="group"
-                    aria-label="Descuentos de pago en sucursal"
-                  >
-                    {cartPromoGroups.coto.length > 0 ? (
-                      <div className="cart-deals-group">
-                        <p className="cart-deals-group-title store-coto">Coto</p>
-                        <div className="cart-deals-list">{cartPromoGroups.coto.map(renderPromoOption)}</div>
-                      </div>
-                    ) : null}
-
-                    {cartPromoGroups.carrefour.length > 0 ? (
-                      <div className="cart-deals-group">
-                        <p className="cart-deals-group-title store-carrefour">Carrefour</p>
-                        <div className="cart-deals-list">
-                          {cartPromoGroups.carrefour.map(renderPromoOption)}
-                        </div>
-                      </div>
-                    ) : null}
-
-                    {cartPromoGroups.dia.length > 0 ? (
-                      <div className="cart-deals-group">
-                        <p className="cart-deals-group-title store-dia">Día</p>
-                        <div className="cart-deals-list">{cartPromoGroups.dia.map(renderPromoOption)}</div>
-                      </div>
-                    ) : null}
-                  </div>
-                </section>
-
-                <ul className="cart-list cart-scroll-hidden">
-                  {cartDisplayLines.map((line) => (
-                    <li
-                      key={line.id}
-                      className={`cart-line ${line.eligible ? 'is-eligible' : 'is-excluded'}`}
-                    >
-                      <div className="cart-line-head">
-                        <ItemThumb item={line.item} />
-                        <div className="cart-line-copy">
-                          <strong>{line.item.name}</strong>
-                          <span>
-                            Tenés {formatQty(line.have, qtyUnitOf(line.item))} · mínimo{' '}
-                            {formatQty(line.min, qtyUnitOf(line.item))}
-                          </span>
-                        </div>
-                        <div className="cart-line-side">
-                          <output
-                            className="cart-qty"
-                            aria-label={`Comprar ${formatQty(line.need, qtyUnitOf(line.item))}`}
-                          >
-                            ×{formatQty(line.need, qtyUnitOf(line.item))}
-                          </output>
-                          <button
-                            className="icon-btn danger"
-                            type="button"
-                            title="Quitar del carrito"
-                            aria-label={`Quitar ${line.item.name} del carrito`}
-                            onClick={() => removeFromCart(line.id)}
-                          >
-                            <IconTrash />
-                          </button>
-                        </div>
-                      </div>
-                      <div className="cart-line-stats">
-                        <div className="cart-stat">
-                          <em>Precio</em>
-                          <strong>
-                            {line.unitPrice
-                              ? `${money(line.unitPrice)}${qtyUnitOf(line.item) === 'kg' ? '/kg' : '/u'}`
-                              : '—'}
-                          </strong>
-                        </div>
-                        <div className="cart-stat">
-                          <em>Total</em>
-                          <strong>{line.unitPrice ? money(line.lineTotal) : '—'}</strong>
-                        </div>
-                        <div className={`cart-stat ${line.webDiscount ? 'is-web' : ''}`}>
-                          <em>Web</em>
-                          <strong>{line.webDiscount || 'Sin dto'}</strong>
-                        </div>
-                        <div
-                          className={`cart-stat ${
-                            line.eligible && cartQuote.promo.percent > 0 ? 'is-best' : ''
-                          }`}
-                        >
-                          <em>Pago</em>
-                          <strong>
-                            {line.eligible
-                              ? cartQuote.promo.percent > 0
-                                ? cartQuote.promo.short
-                                : 'Sin dto'
-                              : line.reason || 'No aplica'}
-                          </strong>
-                        </div>
-                      </div>
-                      {line.eligible && line.discount > 0 ? (
-                        <p className="cart-line-save">Ahorro {money(line.discount)}</p>
-                      ) : null}
-                    </li>
-                  ))}
-                </ul>
-
-                {(cartQuote.eligible.length > 0 || cartQuote.excluded.length > 0) &&
-                cartQuote.promo.percent > 0 ? (
-                  <div className="cart-split">
-                    <span>
-                      <strong>{cartQuote.eligible.length}</strong> con dto
-                    </span>
-                    <span>
-                      <strong>{cartQuote.excluded.length}</strong> sin dto
-                    </span>
-                    <span>
-                      <strong>{cartQuote.withWebOffer || 0}</strong> oferta web
-                    </span>
-                  </div>
-                ) : cartLines.length > 0 ? (
-                  <div className="cart-split">
-                    <span>
-                      <strong>{cartQuote.withWebOffer || 0}</strong> oferta web
-                    </span>
-                    <span>
-                      <strong>
-                        {Math.max(0, cartLines.length - (cartQuote.withWebOffer || 0))}
-                      </strong>{' '}
-                      sin oferta web
-                    </span>
-                  </div>
-                ) : null}
-              </>
-            )}
-
-            <div className="cart-summary">
-              <div className="cart-summary-top">
-                <p className="cart-summary-meta">
-                  {cartTotals.count} producto{cartTotals.count === 1 ? '' : 's'} ·{' '}
-                  {cartTotals.units.toLocaleString('es-AR', { maximumFractionDigits: 1 })} a comprar
-                </p>
-                <div className="cart-summary-rows">
-                  <div>
-                    <span>Subtotal</span>
-                    <strong>{money(cartQuote.subtotal || cartTotals.total)}</strong>
-                  </div>
-                  <div className={cartQuote.discountTotal > 0 ? 'is-save' : ''}>
-                    <span>
-                      {cartQuote.promo.percent > 0
-                        ? `Dto ${cartQuote.promo.short}`
-                        : 'Descuento de pago'}
-                    </span>
-                    <strong>
-                      {cartQuote.discountTotal > 0 ? `-${money(cartQuote.discountTotal)}` : money(0)}
-                    </strong>
-                  </div>
-                  <div className="is-pay">
-                    <span>
-                      {cartQuote.promo.percent > 0 ? 'Total con descuento' : 'Total'}
-                    </span>
-                    <strong>{money(cartQuote.payable || cartQuote.subtotal || cartTotals.total)}</strong>
-                  </div>
-                </div>
-              </div>
-              <div className="modal-actions">
-                <button className="btn btn-ghost" type="button" onClick={() => setCartOpen(false)}>
-                  Cerrar
-                </button>
-                <button
-                  className="btn btn-primary"
-                  type="button"
-                  disabled={!cartLines.length || cartBusy}
-                  onClick={applyCartPurchases}
-                >
-                  {cartBusy ? 'Aplicando…' : 'Marcar comprados'}
-                </button>
-              </div>
             </div>
           </div>
         </div>
