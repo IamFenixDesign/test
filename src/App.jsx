@@ -917,6 +917,7 @@ function App() {
   const [cartDay, setCartDay] = useState(() => todayWeekday())
   const [cartPromoId, setCartPromoId] = useState('none')
   const [allowCustomPrice, setAllowCustomPrice] = useState(false)
+  const [chromeHidden, setChromeHidden] = useState(false)
   const itemsRef = useRef(items)
   const searchInputRef = useRef(null)
   const storeResultsRef = useRef(null)
@@ -926,12 +927,47 @@ function App() {
   const dirtyIdsRef = useRef(new Map())
   const lastAutoRefreshRef = useRef(0)
   const refreshStorePricesRef = useRef(async () => {})
+  const lastScrollYRef = useRef(0)
   itemsRef.current = items
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme
     localStorage.setItem(THEME_KEY, theme)
   }, [theme])
+
+  useEffect(() => {
+    lastScrollYRef.current = window.scrollY || 0
+
+    function isCompactChrome() {
+      return (
+        window.matchMedia('(max-width: 760px)').matches ||
+        document.documentElement.classList.contains('is-pwa') ||
+        window.matchMedia('(display-mode: standalone)').matches ||
+        window.matchMedia('(display-mode: fullscreen)').matches
+      )
+    }
+
+    function onScroll() {
+      if (!isCompactChrome()) {
+        setChromeHidden(false)
+        lastScrollYRef.current = window.scrollY || 0
+        return
+      }
+      const y = window.scrollY || 0
+      const prev = lastScrollYRef.current
+      lastScrollYRef.current = y
+      if (y <= 8) {
+        setChromeHidden(false)
+        return
+      }
+      if (y > prev + 2) setChromeHidden(true)
+      else if (y < prev - 2) setChromeHidden(false)
+    }
+
+    window.addEventListener('scroll', onScroll, { passive: true })
+    onScroll()
+    return () => window.removeEventListener('scroll', onScroll)
+  }, [])
 
   useEffect(() => {
     if (!hydrated || !user?.id) return
@@ -1938,8 +1974,11 @@ function App() {
   }
 
   return (
-    <div className={`app ${modal || scanning || passwordModal || profileModal || pendingDelete || cartOpen ? 'is-overlay' : ''}`}>
-      <header className="topbar">
+    <div
+      className={`app ${modal || scanning || passwordModal || profileModal || pendingDelete || cartOpen ? 'is-overlay' : ''} ${
+        chromeHidden ? 'chrome-hidden' : ''
+      }`}
+    >      <header className="topbar">
         <div className="brand">
           <h1>Stockea</h1>
         </div>
