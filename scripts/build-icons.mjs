@@ -6,7 +6,7 @@ import sharp from 'sharp'
 const outDir = join(dirname(fileURLToPath(import.meta.url)), '..', 'public')
 
 /** Scale so the cube (~20u of 32) fills most of the canvas. */
-const LOGO_BOOST = 1.55
+const LOGO_BOOST = 1.16
 
 function iconSvg({ size, pad = 0.04 }) {
   const fillScale = ((size * (1 - pad * 2)) / 32) * LOGO_BOOST
