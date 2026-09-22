@@ -15,6 +15,7 @@ import app.stockea.android.data.extractEan13
 import app.stockea.android.data.kgFromGrams
 import app.stockea.android.data.listPriceOfProduct
 import app.stockea.android.data.normalizeQty
+import app.stockea.android.data.productDiscountLabel
 import app.stockea.android.data.qtyUnitOfProduct
 import app.stockea.android.ui.screens.NewItemDraft
 import kotlinx.coroutines.Dispatchers
@@ -552,21 +553,10 @@ class StockeaViewModel(app: Application) : AndroidViewModel(app) {
                 urlDia = dia?.url?.ifBlank { null } ?: current.urlDia,
                 barcode = current.barcode.ifBlank { detected },
                 image = nextImage,
-                discountCoto = when {
-                    coto == null -> current.discountCoto
-                    coto.hasDiscount -> coto.discountLabel.ifBlank { "Oferta" }
-                    else -> ""
-                },
-                discountCarrefour = when {
-                    carrefour == null -> current.discountCarrefour
-                    carrefour.hasDiscount -> carrefour.discountLabel.ifBlank { "Oferta" }
-                    else -> ""
-                },
-                discountDia = when {
-                    dia == null -> current.discountDia
-                    dia.hasDiscount -> dia.discountLabel.ifBlank { "Oferta" }
-                    else -> ""
-                },
+                discountCoto = if (coto == null) current.discountCoto else productDiscountLabel(coto),
+                discountCarrefour =
+                    if (carrefour == null) current.discountCarrefour else productDiscountLabel(carrefour),
+                discountDia = if (dia == null) current.discountDia else productDiscountLabel(dia),
             )
             replaceItem(updated, persist = true)
             priceRefreshAt[item.id] = System.currentTimeMillis()

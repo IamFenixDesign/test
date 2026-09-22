@@ -1,3 +1,5 @@
+import { isDigitalOrOnlineExclusiveDiscount } from './discounts.js'
+
 function first(value) {
   if (Array.isArray(value)) return value[0]
   return value
@@ -163,34 +165,138 @@ export function cotoOfferInfo(attrs = {}) {
     toPrice(deal?.precioRegular) || toPrice(deal?.textoPrecioRegular) || 0
   const shelf = cotoPrice(attrs)
   const listPrice = regular > shelf ? regular : regular || shelf
+
+  const exclusiveBits = [
+    label,
+    tipo,
+    ...tipos,
+    deal?.comentarios,
+    deal?.precioDescTextoAdicional,
+    deal?.textoVigencia,
+  ]
+  if (isDigitalOrOnlineExclusiveDiscount(...exclusiveBits)) {
+    return {
+      hasDiscount: false,
+      discountLabel: '',
+      discountPercent: 0,
+      dealPrice: 0,
+      listPrice: listPrice || shelf,
+      onlineExclusive: true,
+    }
+  }
+
   return {
     hasDiscount: Boolean(label),
     discountLabel: label,
     discountPercent: percent,
     dealPrice,
     listPrice: listPrice || shelf,
+    onlineExclusive: false,
   }
 }
 
 /** Oferta/descuento de VTEX Carrefour / Día (Price vs ListPrice). */
-export function carrefourOfferInfo(offer = {}) {
+export function carrefourOfferInfo(offer = {}, extraTexts = []) {
   const price = toPrice(offer?.Price)
   const rawList =
     toPrice(offer?.ListPrice) || toPrice(offer?.PriceWithoutDiscount) || 0
   if (!(price > 0)) {
-    return { price: 0, listPrice: 0, hasDiscount: false, discountLabel: '', discountPercent: 0 }
+    return {
+      price: 0,
+      listPrice: 0,
+      hasDiscount: false,
+      discountLabel: '',
+      discountPercent: 0,
+      onlineExclusive: false,
+    }
   }
   // Siempre preferir el mayor como precio de lista (sin promo).
   const listPrice = Math.max(rawList, price)
   const hasDiscount = listPrice > price * 1.005
   const discountPercent = hasDiscount ? Math.max(1, Math.round((1 - price / listPrice) * 100)) : 0
+  const discountLabel = hasDiscount ? `${discountPercent}% OFF` : ''
+
+  const teaserNames = []
+  for (const list of [offer?.Teasers, offer?.PromotionTeasers, offer?.DiscountHighLight]) {
+    if (!Array.isArray(list)) continue
+    for (const entry of list) {
+      const name =
+        entry?.Name ||
+        entry?.name ||
+        entry?.['<Name>k__BackingField'] ||
+        ''
+      if (name) teaserNames.push(String(name))
+    }
+  }
+
+  const onlineExclusive = isDigitalOrOnlineExclusiveDiscount(
+    discountLabel,
+    ...teaserNames,
+    ...extraTexts,
+  )
+  if (onlineExclusive) {
+    return {
+      price: listPrice,
+      listPrice,
+      hasDiscount: false,
+      discountLabel: '',
+      discountPercent: 0,
+      onlineExclusive: true,
+    }
+  }
+
   return {
     price,
     listPrice,
     hasDiscount,
-    discountLabel: hasDiscount ? `${discountPercent}% OFF` : '',
+    discountLabel,
     discountPercent,
+    onlineExclusive: false,
   }
+}
+
+function vtexClusterTexts(product = {}) {
+  const texts = []
+  for (const value of Object.values(product.productClusters || {})) {
+    if (value) texts.push(String(value))
+  }
+  for (const value of Object.values(product.clusterHighlights || {})) {
+    if (value) texts.push(String(value))
+  }
+  return texts
+}
+
+function parseVtexProducts(products, { store, origin, limit = 8 }) {
+  if (!Array.isArray(products)) return []
+  return products
+    .map((product) => {
+      const item = product.items?.[0]
+      const seller =
+        item?.sellers?.find((entry) => entry.sellerDefault) || item?.sellers?.[0]
+      const offer = seller?.commertialOffer
+      const pricing = carrefourOfferInfo(offer || {}, vtexClusterTexts(product))
+      const ean = String(item?.ean || product.EAN?.[0] || '')
+      const link = String(product.link || '')
+      return {
+        store,
+        name: String(product.productName || ''),
+        brand: String(product.brand || ''),
+        department: String(product.categories?.[0] || ''),
+        categories: Array.isArray(product.categories) ? product.categories : [],
+        price: pricing.price,
+        listPrice: pricing.listPrice,
+        qtyUnit: vtexQtyUnit(item),
+        hasDiscount: pricing.hasDiscount,
+        discountLabel: pricing.discountLabel,
+        discountPercent: pricing.discountPercent,
+        onlineExclusive: pricing.onlineExclusive,
+        ean,
+        image: String(item?.images?.[0]?.imageUrl || ''),
+        url: link.startsWith('http') ? link : `${origin}${link}`,
+      }
+    })
+    .filter((item) => item.name && item.price > 0)
+    .slice(0, limit)
 }
 
 function findCotoResultsList(node) {
@@ -253,44 +359,13 @@ export function parseCoto(data, { limit = 24 } = {}) {
         hasDiscount: offer.hasDiscount,
         discountLabel: offer.discountLabel,
         discountPercent: offer.discountPercent,
+        onlineExclusive: Boolean(offer.onlineExclusive),
         ean,
         image: String(first(attrs['product.mediumImage.url']) || ''),
         url: cotoUrl(record, sku),
       }
     })
     .filter((item) => item && item.name && item.price > 0)
-    .slice(0, limit)
-}
-
-function parseVtexProducts(products, { store, origin, limit = 8 }) {
-  if (!Array.isArray(products)) return []
-  return products
-    .map((product) => {
-      const item = product.items?.[0]
-      const seller =
-        item?.sellers?.find((entry) => entry.sellerDefault) || item?.sellers?.[0]
-      const offer = seller?.commertialOffer
-      const pricing = carrefourOfferInfo(offer || {})
-      const ean = String(item?.ean || product.EAN?.[0] || '')
-      const link = String(product.link || '')
-      return {
-        store,
-        name: String(product.productName || ''),
-        brand: String(product.brand || ''),
-        department: String(product.categories?.[0] || ''),
-        categories: Array.isArray(product.categories) ? product.categories : [],
-        price: pricing.price,
-        listPrice: pricing.listPrice,
-        qtyUnit: vtexQtyUnit(item),
-        hasDiscount: pricing.hasDiscount,
-        discountLabel: pricing.discountLabel,
-        discountPercent: pricing.discountPercent,
-        ean,
-        image: String(item?.images?.[0]?.imageUrl || ''),
-        url: link.startsWith('http') ? link : `${origin}${link}`,
-      }
-    })
-    .filter((item) => item.name && item.price > 0)
     .slice(0, limit)
 }
 

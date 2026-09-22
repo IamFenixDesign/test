@@ -79,6 +79,7 @@ data class StoreProduct(
     val categories: List<String> = emptyList(),
     val hasDiscount: Boolean = false,
     val discountLabel: String = "",
+    val onlineExclusive: Boolean = false,
 ) {
     val displayPrice: Double
         get() = if (listPrice > 0) listPrice else price
@@ -126,6 +127,27 @@ fun foldText(text: String?): String =
         .replace("ú", "u")
         .replace("ü", "u")
         .replace("ñ", "n")
+
+/** Descuentos solo digital/online: no aplicar en la experiencia de sucursal. */
+fun isDigitalOrOnlineExclusiveDiscount(vararg parts: String?): Boolean {
+    val hay = foldText(parts.filterNotNull().joinToString(" | "))
+    if (hay.isBlank()) return false
+    return Regex("""exclusiv\w*\s+(digital|online|web)""").containsMatchIn(hay) ||
+        Regex("""exclusivas?\s+online""").containsMatchIn(hay) ||
+        Regex("""solo\s+(digital|online|web)""").containsMatchIn(hay) ||
+        Regex("""especial\s+online""").containsMatchIn(hay) ||
+        Regex("""valido\s+solo\s+(en\s+)?(digital|online|web)""").containsMatchIn(hay) ||
+        Regex("""no\s+valido\s+en\s+(sucursal|local|tienda)""").containsMatchIn(hay) ||
+        Regex("""exclusivo\s+online""").containsMatchIn(hay)
+}
+
+fun productDiscountLabel(product: StoreProduct?): String {
+    if (product == null || !product.hasDiscount || product.onlineExclusive) return ""
+    val label = product.discountLabel.ifBlank { "Oferta" }.trim()
+    if (label.isBlank()) return ""
+    if (isDigitalOrOnlineExclusiveDiscount(label)) return ""
+    return label
+}
 
 fun guessCategory(product: StoreProduct): String {
     val parts = buildList {
@@ -245,24 +267,28 @@ fun JSONObject.toStoreProduct(): StoreProduct {
     val department = optString("department")
     val list = optDoubleOrZero("listPrice")
     val price = optDoubleOrZero("price")
-    val hasDiscount = when {
+    val onlineExclusive = optBoolean("onlineExclusive", false)
+    val rawHasDiscount = when {
         has("hasDiscount") -> optBoolean("hasDiscount", false)
         list > 0 && price > 0 -> list > price * 1.005
         else -> false
     }
-    val discountLabel = optString("discountLabel").ifBlank {
-        if (hasDiscount && list > 0 && price > 0) {
+    val rawLabel = optString("discountLabel").ifBlank {
+        if (rawHasDiscount && list > 0 && price > 0) {
             val pct = max(1, round((1 - price / list) * 100).toInt())
             "$pct% OFF"
         } else {
             ""
         }
     }
+    val exclusive = onlineExclusive || isDigitalOrOnlineExclusiveDiscount(rawLabel)
+    val hasDiscount = rawHasDiscount && !exclusive
+    val discountLabel = if (hasDiscount) rawLabel else ""
     return StoreProduct(
         store = optString("store"),
         name = optString("name"),
         ean = optString("ean").ifBlank { optString("barcode") },
-        price = price,
+        price = if (exclusive && list > 0) list else price,
         listPrice = list,
         qtyUnit = if (optString("qtyUnit", "unit") == "kg") "kg" else "unit",
         image = optString("image"),
@@ -272,6 +298,7 @@ fun JSONObject.toStoreProduct(): StoreProduct {
         categories = categories,
         hasDiscount = hasDiscount,
         discountLabel = discountLabel,
+        onlineExclusive = exclusive,
     )
 }
 
