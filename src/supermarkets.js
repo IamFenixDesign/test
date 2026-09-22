@@ -159,27 +159,34 @@ export function cotoOfferInfo(attrs = {}) {
   }
 
   const dealPrice = toPrice(deal?.precioDesc)
+  const regular =
+    toPrice(deal?.precioRegular) || toPrice(deal?.textoPrecioRegular) || 0
+  const shelf = cotoPrice(attrs)
+  const listPrice = regular > shelf ? regular : regular || shelf
   return {
     hasDiscount: Boolean(label),
     discountLabel: label,
     discountPercent: percent,
     dealPrice,
+    listPrice: listPrice || shelf,
   }
 }
 
-/** Oferta/descuento de VTEX Carrefour (Price vs ListPrice). */
+/** Oferta/descuento de VTEX Carrefour / Día (Price vs ListPrice). */
 export function carrefourOfferInfo(offer = {}) {
   const price = toPrice(offer?.Price)
-  const listPrice =
-    toPrice(offer?.ListPrice) || toPrice(offer?.PriceWithoutDiscount) || price
+  const rawList =
+    toPrice(offer?.ListPrice) || toPrice(offer?.PriceWithoutDiscount) || 0
   if (!(price > 0)) {
     return { price: 0, listPrice: 0, hasDiscount: false, discountLabel: '', discountPercent: 0 }
   }
+  // Siempre preferir el mayor como precio de lista (sin promo).
+  const listPrice = Math.max(rawList, price)
   const hasDiscount = listPrice > price * 1.005
   const discountPercent = hasDiscount ? Math.max(1, Math.round((1 - price / listPrice) * 100)) : 0
   return {
     price,
-    listPrice: hasDiscount ? listPrice : price,
+    listPrice,
     hasDiscount,
     discountLabel: hasDiscount ? `${discountPercent}% OFF` : '',
     discountPercent,
@@ -231,6 +238,7 @@ export function parseCoto(data) {
       if (!key || seen.has(key)) return null
       seen.add(key)
       const offer = cotoOfferInfo(attrs)
+      const price = cotoPrice(attrs)
       return {
         store: 'coto',
         name: String(first(attrs['product.displayName']) || first(attrs['sku.displayName']) || '').replace(/\s+/g, ' ').trim(),
@@ -239,7 +247,8 @@ export function parseCoto(data) {
         categories: Array.isArray(attrs['allAncestors.displayName'])
           ? attrs['allAncestors.displayName']
           : [first(attrs['product.category'])].filter(Boolean),
-        price: cotoPrice(attrs),
+        price,
+        listPrice: offer.listPrice || price,
         qtyUnit: cotoQtyUnit(attrs),
         hasDiscount: offer.hasDiscount,
         discountLabel: offer.discountLabel,
