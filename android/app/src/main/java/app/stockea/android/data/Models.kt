@@ -153,6 +153,17 @@ fun listPriceOfProduct(product: StoreProduct): Double {
     return if (product.price > 0) product.price else 0.0
 }
 
+/**
+ * Precio a mostrar en Comparar: el de la ficha web (no el tachado/inflado).
+ * Coto → lista/activo; Carrefour/Día → Price de VTEX.
+ */
+fun compareShelfPrice(product: StoreProduct): Double {
+    if (product.store == "carrefour" || product.store == "dia") {
+        if (product.price > 0) return product.price
+    }
+    return listPriceOfProduct(product)
+}
+
 fun qtyUnitOfProduct(product: StoreProduct): String =
     if (product.qtyUnit == "kg") "kg" else "unit"
 
@@ -354,10 +365,10 @@ fun buildWebCompareRows(
         val diaProduct = diaIdx.takeIf { it >= 0 }?.let { dia[it] }
         val primary = cotoProduct ?: carrefourProduct ?: diaProduct ?: return
 
-        // Comparar: precio de lista (como en la web), no el de oferta.
-        val cotoPrice = cotoProduct?.let { listPriceOfProduct(it) } ?: 0.0
-        val carrefourPrice = carrefourProduct?.let { listPriceOfProduct(it) } ?: 0.0
-        val diaPrice = diaProduct?.let { listPriceOfProduct(it) } ?: 0.0
+        // Comparar: precio de la ficha web (Coto lista; Carrefour/Día Price).
+        val cotoPrice = cotoProduct?.let { compareShelfPrice(it) } ?: 0.0
+        val carrefourPrice = carrefourProduct?.let { compareShelfPrice(it) } ?: 0.0
+        val diaPrice = diaProduct?.let { compareShelfPrice(it) } ?: 0.0
         val ean = primary.ean
         val id = ean.ifBlank { "$store:$index:${primary.name}" }
 
