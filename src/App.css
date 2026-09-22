@@ -2477,7 +2477,7 @@ html[data-theme="light"] .store-col-title.dia {
     padding:
       calc(env(safe-area-inset-top, 0px) + 14px)
       max(16px, env(safe-area-inset-right, 0px))
-      max(118px, calc(36px + env(safe-area-inset-bottom, 0px) + 82px))
+      max(16px, env(safe-area-inset-bottom, 0px))
       max(16px, env(safe-area-inset-left, 0px));
     overflow-x: hidden;
   }
@@ -2515,33 +2515,26 @@ html[data-theme="light"] .store-col-title.dia {
     font-weight: 500;
   }
 
-  .app.is-overlay .btn-new-item,
+  .app.is-overlay .btn-new-item {
+    display: none;
+  }
+
   .app.is-overlay .site-footer {
     display: none;
   }
 
-  .app.chrome-hidden .btn-new-item,
-  .app.chrome-hidden .site-footer {
+  .app.chrome-hidden .btn-new-item {
     opacity: 0;
+    visibility: hidden;
     pointer-events: none;
     transform: translateX(-50%) translateY(18px);
   }
 
-  .app.chrome-hidden .site-footer {
-    transform: translateY(18px);
-  }
-
-  .btn-new-item,
-  .site-footer {
+  .btn-new-item {
     transition:
       opacity 180ms ease,
       transform 180ms ease,
       visibility 180ms ease;
-  }
-
-  .app.chrome-hidden .btn-new-item,
-  .app.chrome-hidden .site-footer {
-    visibility: hidden;
   }
 
   .topbar {
@@ -3185,13 +3178,13 @@ html[data-theme="light"] .store-col-title.dia {
   }
 
   .site-footer {
-    position: fixed;
-    left: 0;
-    right: 0;
-    bottom: max(8px, env(safe-area-inset-bottom));
-    z-index: 39;
-    padding: 0 12px;
-    pointer-events: none;
+    position: static;
+    margin-top: auto;
+    padding:
+      28px 12px
+      max(92px, calc(24px + env(safe-area-inset-bottom, 0px) + 56px));
+    text-align: center;
+    pointer-events: auto;
   }
 
   .site-footer p {
@@ -3473,27 +3466,18 @@ html.is-pwa .cart-deal-check {
   justify-self: auto;
 }
 
-html.is-pwa .btn-new-item,
-html.is-pwa .site-footer {
+html.is-pwa .btn-new-item {
   transition:
     opacity 180ms ease,
     transform 180ms ease,
     visibility 180ms ease;
 }
 
-html.is-pwa .app.chrome-hidden .btn-new-item,
-html.is-pwa .app.chrome-hidden .site-footer {
+html.is-pwa .app.chrome-hidden .btn-new-item {
   opacity: 0;
   visibility: hidden;
   pointer-events: none;
-}
-
-html.is-pwa .app.chrome-hidden .btn-new-item {
   transform: translateX(-50%) translateY(18px);
-}
-
-html.is-pwa .app.chrome-hidden .site-footer {
-  transform: translateY(18px);
 }
 
 .item-row,
