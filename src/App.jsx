@@ -1042,36 +1042,34 @@ function App() {
   useEffect(() => {
     lastScrollYRef.current = window.scrollY || 0
 
-    function isCompactChrome() {
-      return (
-        window.matchMedia('(max-width: 760px)').matches ||
-        document.documentElement.classList.contains('is-pwa') ||
-        window.matchMedia('(display-mode: standalone)').matches ||
-        window.matchMedia('(display-mode: fullscreen)').matches
-      )
-    }
-
     function onScroll() {
-      if (!isCompactChrome()) {
-        setChromeHidden(false)
-        lastScrollYRef.current = window.scrollY || 0
-        return
-      }
       const y = window.scrollY || 0
       const prev = lastScrollYRef.current
       lastScrollYRef.current = y
-      if (y <= 8) {
+
+      if (y <= 12) {
         setChromeHidden(false)
         return
       }
-      if (y > prev + 2) setChromeHidden(true)
-      else if (y < prev - 2) setChromeHidden(false)
+
+      const delta = y - prev
+      if (delta > 6) setChromeHidden(true)
+      else if (delta < -6) setChromeHidden(false)
     }
 
     window.addEventListener('scroll', onScroll, { passive: true })
     onScroll()
     return () => window.removeEventListener('scroll', onScroll)
   }, [])
+
+  useEffect(() => {
+    setChromeHidden(false)
+    lastScrollYRef.current = window.scrollY || 0
+  }, [mainView])
+
+  useEffect(() => {
+    if (openMenu) setChromeHidden(false)
+  }, [openMenu])
 
   useEffect(() => {
     if (!hydrated || !user?.id) return
