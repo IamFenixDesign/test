@@ -71,10 +71,113 @@ data class StoreProduct(
     val qtyUnit: String = "unit",
     val image: String = "",
     val url: String = "",
-    val category: String = "",
+    val brand: String = "",
+    val department: String = "",
+    val categories: List<String> = emptyList(),
+    val hasDiscount: Boolean = false,
+    val discountLabel: String = "",
 ) {
     val displayPrice: Double
         get() = if (listPrice > 0) listPrice else price
+
+    val categoryHint: String
+        get() = categories.firstOrNull().orEmpty().ifBlank { department }
+}
+
+data class StoreSearchResults(
+    val coto: List<StoreProduct> = emptyList(),
+    val carrefour: List<StoreProduct> = emptyList(),
+    val dia: List<StoreProduct> = emptyList(),
+    val errors: Map<String, String> = emptyMap(),
+) {
+    val isEmpty: Boolean
+        get() = coto.isEmpty() && carrefour.isEmpty() && dia.isEmpty()
+
+    fun preferTab(): String = when {
+        coto.isNotEmpty() -> "coto"
+        carrefour.isNotEmpty() -> "carrefour"
+        dia.isNotEmpty() -> "dia"
+        else -> "coto"
+    }
+}
+
+val STOCK_CATEGORIES = listOf("Alimentos", "Bebidas", "Limpieza", "Papelería", "Insumos")
+
+private val CATEGORY_HINTS = listOf(
+    "Bebidas" to listOf("bebida", "gaseosa", "cerveza", "vino", "jugo", "soda", "aguas", "sin alcohol"),
+    "Limpieza" to listOf("limpieza", "lavandina", "detergente", "limpiador", "suavizante", "dph"),
+    "Papelería" to listOf("libreria", "papeler", "escritura", "boligrafo", "cuaderno", "resma"),
+    "Insumos" to listOf("insumo", "descartable", "packaging"),
+    "Alimentos" to listOf(
+        "almacen", "lacteo", "fresco", "alimento", "carnicer", "panader", "fiambr", "verduler",
+    ),
+)
+
+fun foldText(text: String?): String =
+    (text ?: "")
+        .lowercase()
+        .replace("á", "a")
+        .replace("é", "e")
+        .replace("í", "i")
+        .replace("ó", "o")
+        .replace("ú", "u")
+        .replace("ü", "u")
+        .replace("ñ", "n")
+
+fun guessCategory(product: StoreProduct): String {
+    val parts = buildList {
+        add(product.department)
+        add(product.name)
+        addAll(product.categories)
+    }
+        .filter { it.isNotBlank() }
+        .flatMap { it.split('/') }
+        .map { foldText(it.trim()) }
+        .filter { it.isNotBlank() }
+    val haystack = parts.joinToString(" | ")
+    for ((category, keys) in CATEGORY_HINTS) {
+        if (keys.any { key -> haystack.contains(key) }) return category
+    }
+    return "Alimentos"
+}
+
+fun listPriceOfProduct(product: StoreProduct): Double {
+    if (product.listPrice > 0) return product.listPrice
+    return if (product.price > 0) product.price else 0.0
+}
+
+fun qtyUnitOfProduct(product: StoreProduct): String =
+    if (product.qtyUnit == "kg") "kg" else "unit"
+
+fun matchByEan(product: StoreProduct, otherList: List<StoreProduct>): StoreProduct? {
+    if (product.ean.isBlank()) return null
+    return otherList.firstOrNull { it.ean.isNotBlank() && it.ean == product.ean }
+}
+
+/** Pasa gramos del formulario a kilos guardados (precisión 0,1 g). */
+fun kgFromGrams(grams: Double): Double {
+    if (!grams.isFinite() || grams < 0) return 0.0
+    return round(grams * 10.0) / 10000.0
+}
+
+/** Pasa kilos guardados a gramos para los inputs del form. */
+fun gramsFromKg(kg: Double): Double {
+    if (!kg.isFinite() || kg < 0) return 0.0
+    return round(kg * 10000.0) / 10.0
+}
+
+/** En el form, por kilo cantidad/mínimo van en gramos; por unidad son enteros. */
+fun formWeightForUnit(value: Double, fromUnit: String, toUnit: String): Double {
+    val from = if (fromUnit == "kg") "kg" else "unit"
+    val to = if (toUnit == "kg") "kg" else "unit"
+    if (from == to) {
+        return if (to == "kg") value else normalizeQty(value, "unit")
+    }
+    return if (from == "kg" && to == "unit") {
+        normalizeQty(kgFromGrams(value), "unit")
+    } else {
+        gramsFromKg(normalizeQty(value, "kg"))
+    }
 }
 
 fun normalizeQty(value: Double, unit: String = "unit"): Double {
@@ -123,18 +226,48 @@ fun JSONObject.toStockItem(): StockItem = StockItem(
     urlDia = optString("urlDia"),
 )
 
-fun JSONObject.toStoreProduct(): StoreProduct = StoreProduct(
-    store = optString("store"),
-    name = optString("name"),
-    ean = optString("ean").ifBlank { optString("barcode") },
-    price = optDoubleOrZero("price"),
-    listPrice = optDoubleOrZero("listPrice"),
-    qtyUnit = optString("qtyUnit", "unit"),
-    image = optString("image"),
-    url = optString("url"),
-    category = optJSONArray("categories")?.optString(0).orEmpty()
-        .ifBlank { optString("department") },
-)
+fun JSONObject.toStoreProduct(): StoreProduct {
+    val categories = buildList {
+        val arr = optJSONArray("categories")
+        if (arr != null) {
+            for (i in 0 until arr.length()) {
+                val value = arr.optString(i).trim()
+                if (value.isNotBlank()) add(value)
+            }
+        }
+    }
+    val department = optString("department")
+    val list = optDoubleOrZero("listPrice")
+    val price = optDoubleOrZero("price")
+    val hasDiscount = when {
+        has("hasDiscount") -> optBoolean("hasDiscount", false)
+        list > 0 && price > 0 -> list > price * 1.005
+        else -> false
+    }
+    val discountLabel = optString("discountLabel").ifBlank {
+        if (hasDiscount && list > 0 && price > 0) {
+            val pct = max(1, round((1 - price / list) * 100).toInt())
+            "$pct% OFF"
+        } else {
+            ""
+        }
+    }
+    return StoreProduct(
+        store = optString("store"),
+        name = optString("name"),
+        ean = optString("ean").ifBlank { optString("barcode") },
+        price = price,
+        listPrice = list,
+        qtyUnit = if (optString("qtyUnit", "unit") == "kg") "kg" else "unit",
+        image = optString("image"),
+        url = optString("url"),
+        brand = optString("brand"),
+        department = department,
+        categories = categories,
+        hasDiscount = hasDiscount,
+        discountLabel = discountLabel,
+    )
+}
 
 fun StockItem.toJson(): JSONObject = JSONObject()
     .put("id", id)
@@ -219,7 +352,7 @@ fun buildWebCompareRows(
                 id = id,
                 name = primary.name,
                 barcode = ean,
-                category = primary.category.ifBlank { "Alimentos" },
+                category = primary.categoryHint.ifBlank { "Alimentos" },
                 priceCoto = cotoPrice,
                 priceCarrefour = carrefourPrice,
                 priceDia = diaPrice,
