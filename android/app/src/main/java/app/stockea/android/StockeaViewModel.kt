@@ -444,7 +444,7 @@ class StockeaViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    /** Al volver a primer plano: refrescar precios/descuentos vencidos. */
+    /** Al volver a primer plano: refrescar precios/descuentos al instante. */
     fun onAppResumed() {
         if (_state.value.user == null || _state.value.booting) return
         viewModelScope.launch { refreshStaleStorePrices() }
@@ -453,7 +453,7 @@ class StockeaViewModel(app: Application) : AndroidViewModel(app) {
     private fun startPriceRefreshLoop() {
         priceRefreshJob?.cancel()
         priceRefreshJob = viewModelScope.launch {
-            delay(1_200)
+            delay(200)
             while (true) {
                 if (_state.value.user != null) {
                     refreshStaleStorePrices()
@@ -758,8 +758,9 @@ class StockeaViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     companion object {
-        private const val PRICE_REFRESH_MS = 15 * 60 * 1000L
-        private const val PRICE_REFRESH_TICK_MS = 60 * 1000L
+        /** Solo coalescer focus/resume duplicados; el refresh es inmediato al usar la app. */
+        private const val PRICE_REFRESH_MS = 2_000L
+        private const val PRICE_REFRESH_TICK_MS = 60_000L
 
         fun tracksStorePrices(item: StockItem): Boolean {
             val source = item.priceSource
