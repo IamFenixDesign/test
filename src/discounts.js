@@ -367,9 +367,12 @@ export function weekdayLabel(day) {
 }
 
 export function promosForDay(day) {
-  return PAYMENT_PROMOS.filter(
-    (promo) => promo.id === 'none' || !promo.days || promo.days.includes(day),
-  )
+  return PAYMENT_PROMOS.filter((promo) => {
+    if (promo.id !== 'none' && promo.channel && promo.channel !== 'presencial') {
+      return false
+    }
+    return promo.id === 'none' || !promo.days || promo.days.includes(day)
+  })
 }
 
 export function defaultPromoIdForDay(day) {
@@ -378,9 +381,15 @@ export function defaultPromoIdForDay(day) {
   return [...options].sort((a, b) => b.percent - a.percent)[0].id
 }
 
+/**
+ * Precio de góndola / sucursal para estimar promos presenciales.
+ * Prefiere listPrice* (lista en local) sobre el precio online/oferta web.
+ */
 export function storeUnitPrice(item, store) {
   if (!item || !store) return 0
   if (store === 'coto') {
+    const list = Number(item.listPriceCoto)
+    if (Number.isFinite(list) && list > 0) return list
     const coto = Number(item.priceCoto)
     if (Number.isFinite(coto) && coto > 0) return coto
     if (item.priceSource === 'coto') {
@@ -390,6 +399,8 @@ export function storeUnitPrice(item, store) {
     return 0
   }
   if (store === 'carrefour') {
+    const list = Number(item.listPriceCarrefour)
+    if (Number.isFinite(list) && list > 0) return list
     const carrefour = Number(item.priceCarrefour)
     if (Number.isFinite(carrefour) && carrefour > 0) return carrefour
     if (item.priceSource === 'carrefour') {
@@ -399,6 +410,8 @@ export function storeUnitPrice(item, store) {
     return 0
   }
   if (store === 'dia') {
+    const list = Number(item.listPriceDia)
+    if (Number.isFinite(list) && list > 0) return list
     const dia = Number(item.priceDia)
     if (Number.isFinite(dia) && dia > 0) return dia
     if (item.priceSource === 'dia') {
