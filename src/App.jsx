@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import './App.css'
-import { barcodeDigits, extractEan13, guessCategory, matchByEan, searchSupermarkets } from './supermarkets'
+import { barcodeDigits, extractEan13, guessCategory, matchByEan, searchSupermarkets, cheaperOf } from './supermarkets'
 import {
   PAYMENT_PROMOS,
   WEEKDAYS,
@@ -390,6 +390,44 @@ function IconCart() {
       <path d="M3 4h2l2.2 11.2a2 2 0 0 0 2 1.6h7.6a2 2 0 0 0 2-1.5L21 8H7" />
     </svg>
   )
+}
+
+function IconCompare() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <path d="M12 3v18" />
+      <path d="M5 8h4l2 3H7l-2-3Z" />
+      <path d="M19 16h-4l-2-3h4l2 3Z" />
+      <path d="M7 8v8M17 8v8" />
+    </svg>
+  )
+}
+
+function storePriceOf(item, store) {
+  if (!item) return 0
+  if (store === 'coto') {
+    const value = Number(item.priceCoto)
+    if (value > 0) return value
+    return item.priceSource === 'coto' ? Number(item.price) || 0 : 0
+  }
+  if (store === 'carrefour') {
+    const value = Number(item.priceCarrefour)
+    if (value > 0) return value
+    return item.priceSource === 'carrefour' ? Number(item.price) || 0 : 0
+  }
+  if (store === 'dia') {
+    const value = Number(item.priceDia)
+    if (value > 0) return value
+    return item.priceSource === 'dia' ? Number(item.price) || 0 : 0
+  }
+  return 0
+}
+
+function storeLabel(store) {
+  if (store === 'coto') return 'Coto'
+  if (store === 'carrefour') return 'Carrefour'
+  if (store === 'dia') return 'Día'
+  return ''
 }
 
 function ItemThumb({ item }) {
@@ -918,6 +956,7 @@ function App() {
   const [cartPromoId, setCartPromoId] = useState('none')
   const [allowCustomPrice, setAllowCustomPrice] = useState(false)
   const [chromeHidden, setChromeHidden] = useState(false)
+  const [mainView, setMainView] = useState('stock')
   const itemsRef = useRef(items)
   const searchInputRef = useRef(null)
   const storeResultsRef = useRef(null)
@@ -1206,6 +1245,35 @@ function App() {
     const out = items.filter((item) => statusOf(item) === 'out').length
     return { units, low, out }
   }, [items])
+
+  const compareRows = useMemo(() => {
+    const q = query.trim().toLowerCase()
+    return items
+      .map((item) => {
+        const coto = storePriceOf(item, 'coto')
+        const carrefour = storePriceOf(item, 'carrefour')
+        const dia = storePriceOf(item, 'dia')
+        const cheapest = cheaperOf(coto, carrefour, dia)
+        const prices = [coto, carrefour, dia].filter((value) => value > 0)
+        const highest = prices.length ? Math.max(...prices) : 0
+        const lowest = prices.length ? Math.min(...prices) : 0
+        const saving = highest > 0 && lowest > 0 ? highest - lowest : 0
+        const storeCount = prices.length
+        return { item, coto, carrefour, dia, cheapest, saving, storeCount }
+      })
+      .filter((row) => {
+        if (row.storeCount < 1) return false
+        if (!q) return true
+        return (
+          row.item.name.toLowerCase().includes(q) ||
+          barcodeOf(row.item).toLowerCase().includes(q)
+        )
+      })
+      .sort((a, b) => {
+        if (b.saving !== a.saving) return b.saving - a.saving
+        return a.item.name.localeCompare(b.item.name, 'es')
+      })
+  }, [items, query])
 
   const cartLines = useMemo(() => {
     return items
@@ -1977,77 +2045,23 @@ function App() {
     <div
       className={`app ${modal || scanning || passwordModal || profileModal || pendingDelete || cartOpen ? 'is-overlay' : ''} ${
         chromeHidden ? 'chrome-hidden' : ''
-      }`}
-    >      <header className="topbar">
-        <div className="brand">
-          <h1>Stockea</h1>
-        </div>
-        <div className="top-actions">
-          <button
-            className={`btn btn-ghost cart-toggle ${cartTotals.count ? 'has-items' : ''}`}
-            type="button"
-            onClick={() => setCartOpen(true)}
-            aria-label={
-              cartTotals.count
-                ? `Carrito de compras, ${cartTotals.count} productos`
-                : 'Carrito de compras'
-            }
-          >
-            <IconCart />
-            {cartTotals.count > 0 ? <span className="cart-badge">{cartTotals.count}</span> : null}
-          </button>
-          <div className="user-chip" data-menu="user">
+      } view-${mainView}`}
+    >
+      <header className="topbar">
         <button
-              className="user-btn"
           type="button"
-              aria-label="Cuenta"
-              onClick={() => setOpenMenu(openMenu === 'user' ? null : 'user')}
-            >
-              {user.picture ? (
-                <img src={user.picture} alt="" referrerPolicy="no-referrer" />
-              ) : (
-                <span>{(user.name || user.email || 'S').slice(0, 1)}</span>
-              )}
+          className="brand brand-btn"
+          onClick={() => {
+            setMainView('stock')
+            setOpenMenu(null)
+          }}
+        >
+          <h1>{mainView === 'compare' ? 'Comparar precios' : 'Stockea'}</h1>
         </button>
-            {openMenu === 'user' && (
-              <div className="user-menu">
-                <div className="user-menu-info">
-                  <strong>{user.name || 'Cuenta'}</strong>
-                  {user.email ? <span>{user.email}</span> : null}
-                </div>
-                <button className="user-action" type="button" onClick={openProfileModal}>
-                  Editar perfil
-                </button>
-                <button className="user-action" type="button" onClick={openPasswordModal}>
-                  Cambiar contraseña
-                </button>
-                <button className="user-logout" type="button" onClick={handleLogout}>
-                  <IconLogout />
-                  Cerrar sesión
-                </button>
-              </div>
-            )}
-          </div>
-          <button
-            className="btn btn-ghost theme-toggle"
-            type="button"
-            onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-            aria-label={theme === 'dark' ? 'Cambiar a tema claro' : 'Cambiar a tema oscuro'}
-          >
-            {theme === 'dark' ? <IconSun /> : <IconMoon />}
-          </button>
-          <button
-            className="btn btn-primary btn-new-item"
-            type="button"
-            onClick={openNewItem}
-            aria-label="Nuevo ítem"
-          >
-            <span className="new-item-plus" aria-hidden="true">+</span>
-            <span className="new-item-label">Nuevo ítem</span>
-          </button>
-        </div>
       </header>
 
+      {mainView === 'stock' ? (
+        <>
       <section className="kpis">
         <article className="kpi kpi-extra">
           <span>Productos</span>
@@ -2287,6 +2301,165 @@ function App() {
           </>
         )}
       </section>
+        </>
+      ) : (
+        <section className="panel compare-panel">
+          <div className="compare-toolbar">
+            <label className="search compare-search">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <circle cx="11" cy="11" r="7" />
+                <path d="m20 20-3.2-3.2" />
+              </svg>
+              <input
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder="Buscar producto para comparar"
+              />
+            </label>
+            <p className="compare-hint">Coto · Carrefour · Día · el más barato queda marcado</p>
+          </div>
+
+          {compareRows.length === 0 ? (
+            <div className="empty">
+              <h3>Sin precios para comparar</h3>
+              <p>
+                {items.length === 0
+                  ? 'Agregá productos con precio de súper para ver el comparador.'
+                  : 'No hay ítems con precio de Coto, Carrefour o Día que coincidan.'}
+              </p>
+            </div>
+          ) : (
+            <ul className="compare-list">
+              {compareRows.map((row) => (
+                <li key={row.item.id} className="compare-card">
+                  <div className="compare-head">
+                    <ItemThumb item={row.item} />
+                    <div className="compare-copy">
+                      <strong>{row.item.name}</strong>
+                      <span>
+                        {row.cheapest
+                          ? `Mejor: ${storeLabel(row.cheapest)}`
+                          : 'Sin precio de súper'}
+                        {row.saving > 0 ? ` · ahorro hasta ${money(row.saving)}` : ''}
+                      </span>
+                    </div>
+                    <button
+                      className="icon-btn"
+                      type="button"
+                      title="Editar"
+                      aria-label={`Editar ${row.item.name}`}
+                      onClick={() => openEditItem(row.item)}
+                    >
+                      <IconEdit />
+                    </button>
+                  </div>
+                  <div className="compare-prices">
+                    {[
+                      ['coto', row.coto],
+                      ['carrefour', row.carrefour],
+                      ['dia', row.dia],
+                    ].map(([store, price]) => (
+                      <div
+                        key={store}
+                        className={`compare-price store-${store} ${
+                          price > 0 && row.cheapest === store ? 'is-best' : ''
+                        } ${price > 0 ? '' : 'is-empty'}`}
+                      >
+                        <em>{storeLabel(store)}</em>
+                        <strong>{price > 0 ? money(price) : '—'}</strong>
+                      </div>
+                    ))}
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      )}
+
+      <nav className="bottom-nav" aria-label="Navegación principal">
+        <button
+          type="button"
+          className={`bottom-nav-btn ${mainView === 'compare' ? 'active' : ''}`}
+          onClick={() => {
+            setMainView(mainView === 'compare' ? 'stock' : 'compare')
+            setOpenMenu(null)
+            setSearchOpen(false)
+          }}
+        >
+          <IconCompare />
+          <span>Comparar</span>
+        </button>
+        <button
+          type="button"
+          className="bottom-nav-btn"
+          onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+          aria-label={theme === 'dark' ? 'Cambiar a tema claro' : 'Cambiar a tema oscuro'}
+        >
+          {theme === 'dark' ? <IconSun /> : <IconMoon />}
+          <span>Tema</span>
+        </button>
+        <button
+          type="button"
+          className="bottom-nav-fab"
+          onClick={openNewItem}
+          aria-label="Nuevo ítem"
+        >
+          <span className="new-item-plus" aria-hidden="true">
+            +
+          </span>
+        </button>
+        <button
+          type="button"
+          className={`bottom-nav-btn cart-toggle ${cartTotals.count ? 'has-items' : ''}`}
+          onClick={() => {
+            setCartOpen(true)
+            setOpenMenu(null)
+          }}
+          aria-label={
+            cartTotals.count
+              ? `Carrito de compras, ${cartTotals.count} productos`
+              : 'Carrito de compras'
+          }
+        >
+          <IconCart />
+          <span>Carrito</span>
+          {cartTotals.count > 0 ? <em className="cart-badge">{cartTotals.count}</em> : null}
+        </button>
+        <div className="bottom-nav-profile" data-menu="user">
+          <button
+            type="button"
+            className={`bottom-nav-btn ${openMenu === 'user' ? 'active' : ''}`}
+            aria-label="Cuenta"
+            onClick={() => setOpenMenu(openMenu === 'user' ? null : 'user')}
+          >
+            {user.picture ? (
+              <img className="bottom-nav-avatar" src={user.picture} alt="" referrerPolicy="no-referrer" />
+            ) : (
+              <span className="bottom-nav-avatar letter">{(user.name || user.email || 'S').slice(0, 1)}</span>
+            )}
+            <span>Perfil</span>
+          </button>
+          {openMenu === 'user' && (
+            <div className="user-menu bottom-user-menu">
+              <div className="user-menu-info">
+                <strong>{user.name || 'Cuenta'}</strong>
+                {user.email ? <span>{user.email}</span> : null}
+              </div>
+              <button className="user-action" type="button" onClick={openProfileModal}>
+                Editar perfil
+              </button>
+              <button className="user-action" type="button" onClick={openPasswordModal}>
+                Cambiar contraseña
+              </button>
+              <button className="user-logout" type="button" onClick={handleLogout}>
+                <IconLogout />
+                Cerrar sesión
+              </button>
+            </div>
+          )}
+        </div>
+      </nav>
 
       {modal === 'item' && (
         <div
