@@ -8,19 +8,27 @@ import app.stockea.android.data.AuthResult
 import app.stockea.android.data.CompareRow
 import app.stockea.android.data.StockItem
 import app.stockea.android.data.StockeaApi
+import app.stockea.android.data.StoreProduct
 import app.stockea.android.data.StoreSearchResults
 import app.stockea.android.data.User
+import app.stockea.android.data.extractEan13
 import app.stockea.android.data.kgFromGrams
+import app.stockea.android.data.listPriceOfProduct
 import app.stockea.android.data.normalizeQty
+import app.stockea.android.data.qtyUnitOfProduct
 import app.stockea.android.ui.screens.NewItemDraft
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.withContext
 import java.util.UUID
+import java.util.concurrent.ConcurrentHashMap
 
 enum class MainTab { Stock, Compare, Profile }
 
@@ -56,6 +64,10 @@ class StockeaViewModel(app: Application) : AndroidViewModel(app) {
     )
     val state: StateFlow<UiState> = _state.asStateFlow()
 
+    private val priceRefreshAt = ConcurrentHashMap<String, Long>()
+    private val priceRefreshMutex = Mutex()
+    private var priceRefreshJob: Job? = null
+
     init {
         viewModelScope.launch { boot() }
     }
@@ -74,6 +86,7 @@ class StockeaViewModel(app: Application) : AndroidViewModel(app) {
                     cartRemoved = pruneCartRemoved(it.cartRemoved, items),
                 )
             }
+            startPriceRefreshLoop()
         } else {
             _state.update { it.copy(booting = false, user = null) }
         }
@@ -285,6 +298,7 @@ class StockeaViewModel(app: Application) : AndroidViewModel(app) {
             } else {
                 normalizeQty(draft.minStock.coerceAtLeast(0.0), "unit")
             }
+        val custom = source == "custom"
         val item = StockItem(
             id = UUID.randomUUID().toString(),
             name = name,
@@ -305,8 +319,12 @@ class StockeaViewModel(app: Application) : AndroidViewModel(app) {
             urlCoto = draft.urlCoto,
             urlCarrefour = draft.urlCarrefour,
             urlDia = draft.urlDia,
+            discountCoto = if (custom) "" else draft.discountCoto,
+            discountCarrefour = if (custom) "" else draft.discountCarrefour,
+            discountDia = if (custom) "" else draft.discountDia,
         )
         replaceItem(item, persist = true, prepend = true)
+        priceRefreshAt[item.id] = System.currentTimeMillis()
         _state.update {
             it.copy(
                 showNewItem = false,
@@ -336,6 +354,7 @@ class StockeaViewModel(app: Application) : AndroidViewModel(app) {
                     }
                     is AuthResult.Ok -> {
                         val items = withContext(Dispatchers.IO) { api.fetchItems() }
+                        priceRefreshAt.clear()
                         _state.update {
                             it.copy(
                                 busy = false,
@@ -345,6 +364,7 @@ class StockeaViewModel(app: Application) : AndroidViewModel(app) {
                                 tab = MainTab.Stock,
                             )
                         }
+                        startPriceRefreshLoop()
                     }
                 }
             } catch (e: Exception) {
@@ -379,6 +399,7 @@ class StockeaViewModel(app: Application) : AndroidViewModel(app) {
             try {
                 val user = withContext(Dispatchers.IO) { api.verify(email, code) }
                 val items = withContext(Dispatchers.IO) { api.fetchItems() }
+                priceRefreshAt.clear()
                 _state.update {
                     it.copy(
                         busy = false,
@@ -388,6 +409,7 @@ class StockeaViewModel(app: Application) : AndroidViewModel(app) {
                         tab = MainTab.Stock,
                     )
                 }
+                startPriceRefreshLoop()
             } catch (e: Exception) {
                 _state.update { it.copy(busy = false, error = e.message ?: "Código inválido") }
             }
@@ -396,6 +418,9 @@ class StockeaViewModel(app: Application) : AndroidViewModel(app) {
 
     fun logout() {
         viewModelScope.launch {
+            priceRefreshJob?.cancel()
+            priceRefreshJob = null
+            priceRefreshAt.clear()
             withContext(Dispatchers.IO) { api.logout() }
             _state.update {
                 UiState(booting = false, darkTheme = it.darkTheme)
@@ -415,6 +440,142 @@ class StockeaViewModel(app: Application) : AndroidViewModel(app) {
                 }
             } catch (e: Exception) {
                 _state.update { it.copy(error = e.message ?: "No se pudo cargar el stock") }
+            }
+        }
+    }
+
+    /** Al volver a primer plano: refrescar precios/descuentos vencidos. */
+    fun onAppResumed() {
+        if (_state.value.user == null || _state.value.booting) return
+        viewModelScope.launch { refreshStaleStorePrices() }
+    }
+
+    private fun startPriceRefreshLoop() {
+        priceRefreshJob?.cancel()
+        priceRefreshJob = viewModelScope.launch {
+            delay(1_200)
+            while (true) {
+                if (_state.value.user != null) {
+                    refreshStaleStorePrices()
+                }
+                delay(PRICE_REFRESH_TICK_MS)
+            }
+        }
+    }
+
+    private suspend fun refreshStaleStorePrices() {
+        if (!priceRefreshMutex.tryLock()) return
+        try {
+            val now = System.currentTimeMillis()
+            val stale = _state.value.items.filter { item ->
+                tracksStorePrices(item) &&
+                    now - (priceRefreshAt[item.id] ?: 0L) >= PRICE_REFRESH_MS
+            }
+            for (item in stale) {
+                if (_state.value.user == null) return
+                refreshStorePrices(item, silent = true)
+                priceRefreshAt[item.id] = System.currentTimeMillis()
+            }
+        } finally {
+            priceRefreshMutex.unlock()
+        }
+    }
+
+    private suspend fun refreshStorePrices(item: StockItem, silent: Boolean = false) {
+        if (_state.value.items.none { it.id == item.id }) return
+        val code = extractEan13(item.barcode).ifBlank { item.barcode.trim() }
+        try {
+            val query = code.ifBlank { item.name }
+            if (query.isBlank()) return
+            val data = withContext(Dispatchers.IO) { api.searchSupersRaw(query, limit = 24) }
+            fun pick(list: List<StoreProduct>): StoreProduct? =
+                (if (code.isNotBlank()) list.firstOrNull { it.ean == code } else null)
+                    ?: list.firstOrNull()
+
+            val coto = pick(data.coto)
+            val carrefour = pick(data.carrefour)
+            val dia = pick(data.dia)
+            if (coto == null && carrefour == null && dia == null) {
+                if (!silent) {
+                    _state.update {
+                        it.copy(info = "No se encontraron precios en Coto, Carrefour ni Día")
+                    }
+                }
+                return
+            }
+            val current = _state.value.items.find { it.id == item.id } ?: return
+            val nextCoto = coto?.price ?: current.priceCoto
+            val nextCarrefour = carrefour?.price ?: current.priceCarrefour
+            val nextDia = dia?.price ?: current.priceDia
+            val nextListCoto = coto?.let { listPriceOfProduct(it) } ?: current.listPriceCoto
+            val nextListCarrefour =
+                carrefour?.let { listPriceOfProduct(it) } ?: current.listPriceCarrefour
+            val nextListDia = dia?.let { listPriceOfProduct(it) } ?: current.listPriceDia
+            val source = current.priceSource
+            val nextPrice = when {
+                source == "coto" && nextCoto > 0 -> nextCoto
+                source == "carrefour" && nextCarrefour > 0 -> nextCarrefour
+                source == "dia" && nextDia > 0 -> nextDia
+                else -> current.price
+            }
+            val sourceProduct = when (source) {
+                "coto" -> coto
+                "carrefour" -> carrefour
+                "dia" -> dia
+                else -> coto ?: carrefour ?: dia
+            }
+            val nextQtyUnit = sourceProduct?.let { qtyUnitOfProduct(it) } ?: current.qtyUnit
+            val detected = coto?.ean ?: carrefour?.ean ?: dia?.ean ?: ""
+            val nextImage = when (source) {
+                "coto" -> coto?.image?.ifBlank { null } ?: current.image
+                "carrefour" -> carrefour?.image?.ifBlank { null } ?: current.image
+                "dia" -> dia?.image?.ifBlank { null } ?: current.image
+                else ->
+                    coto?.image?.ifBlank { null }
+                        ?: carrefour?.image?.ifBlank { null }
+                        ?: dia?.image?.ifBlank { null }
+                        ?: current.image
+            }
+            val updated = current.copy(
+                qtyUnit = nextQtyUnit,
+                quantity = normalizeQty(current.quantity, nextQtyUnit),
+                minStock = normalizeQty(current.minStock, nextQtyUnit),
+                price = nextPrice,
+                priceCoto = nextCoto,
+                priceCarrefour = nextCarrefour,
+                priceDia = nextDia,
+                listPriceCoto = nextListCoto,
+                listPriceCarrefour = nextListCarrefour,
+                listPriceDia = nextListDia,
+                urlCoto = coto?.url?.ifBlank { null } ?: current.urlCoto,
+                urlCarrefour = carrefour?.url?.ifBlank { null } ?: current.urlCarrefour,
+                urlDia = dia?.url?.ifBlank { null } ?: current.urlDia,
+                barcode = current.barcode.ifBlank { detected },
+                image = nextImage,
+                discountCoto = when {
+                    coto == null -> current.discountCoto
+                    coto.hasDiscount -> coto.discountLabel.ifBlank { "Oferta" }
+                    else -> ""
+                },
+                discountCarrefour = when {
+                    carrefour == null -> current.discountCarrefour
+                    carrefour.hasDiscount -> carrefour.discountLabel.ifBlank { "Oferta" }
+                    else -> ""
+                },
+                discountDia = when {
+                    dia == null -> current.discountDia
+                    dia.hasDiscount -> dia.discountLabel.ifBlank { "Oferta" }
+                    else -> ""
+                },
+            )
+            replaceItem(updated, persist = true)
+            priceRefreshAt[item.id] = System.currentTimeMillis()
+            if (!silent) {
+                _state.update { it.copy(info = "Precios de ${item.name} actualizados") }
+            }
+        } catch (_: Exception) {
+            if (!silent) {
+                _state.update { it.copy(info = "No se pudieron consultar los supermercados") }
             }
         }
     }
@@ -445,6 +606,7 @@ class StockeaViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             try {
                 withContext(Dispatchers.IO) { api.deleteItem(id) }
+                priceRefreshAt.remove(id)
                 _state.update {
                     it.copy(
                         items = it.items.filterNot { item -> item.id == id },
@@ -501,6 +663,8 @@ class StockeaViewModel(app: Application) : AndroidViewModel(app) {
                 cartRemoved = it.cartRemoved - item.id,
             )
         }
+        // Traer descuentos reales en cuanto se agrega desde comparar
+        viewModelScope.launch { refreshStorePrices(item, silent = true) }
     }
 
     private fun replaceItem(item: StockItem, persist: Boolean, prepend: Boolean = false) {
@@ -594,6 +758,16 @@ class StockeaViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     companion object {
+        private const val PRICE_REFRESH_MS = 15 * 60 * 1000L
+        private const val PRICE_REFRESH_TICK_MS = 60 * 1000L
+
+        fun tracksStorePrices(item: StockItem): Boolean {
+            val source = item.priceSource
+            if (source == "coto" || source == "carrefour" || source == "dia") return true
+            if (item.barcode.isNotBlank()) return true
+            return item.priceCoto > 0 || item.priceCarrefour > 0 || item.priceDia > 0
+        }
+
         fun pruneCartRemoved(removed: Set<String>, items: List<StockItem>): Set<String> {
             if (removed.isEmpty()) return emptySet()
             val byId = items.associateBy { it.id }
