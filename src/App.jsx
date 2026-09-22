@@ -1210,6 +1210,33 @@ function App() {
   }, [hydrated, user?.id])
 
   useEffect(() => {
+    if (!hydrated || !user?.id || mainView !== 'compare') return undefined
+    let cancelled = false
+
+    function needsListPrice(item) {
+      const stores = [
+        [item.priceCoto, item.listPriceCoto],
+        [item.priceCarrefour, item.listPriceCarrefour],
+        [item.priceDia, item.listPriceDia],
+      ]
+      return stores.some(([price, list]) => Number(price) > 0 && !(Number(list) > 0))
+    }
+
+    async function backfillListPrices() {
+      const pending = itemsRef.current.filter(needsListPrice)
+      for (const item of pending) {
+        if (cancelled) return
+        await refreshStorePricesRef.current(item, { silent: true })
+      }
+    }
+
+    backfillListPrices()
+    return () => {
+      cancelled = true
+    }
+  }, [hydrated, user?.id, mainView])
+
+  useEffect(() => {
     if (!searchOpen) return
     searchInputRef.current?.focus()
   }, [searchOpen])
