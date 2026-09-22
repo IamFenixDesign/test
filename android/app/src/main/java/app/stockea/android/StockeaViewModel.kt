@@ -67,6 +67,7 @@ class StockeaViewModel(app: Application) : AndroidViewModel(app) {
     private val priceRefreshAt = ConcurrentHashMap<String, Long>()
     private val priceRefreshMutex = Mutex()
     private var priceRefreshJob: Job? = null
+    private var comparePollJob: Job? = null
 
     init {
         viewModelScope.launch { boot() }
@@ -101,6 +102,10 @@ class StockeaViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun setTab(tab: MainTab) {
+        if (tab != MainTab.Compare) {
+            comparePollJob?.cancel()
+            comparePollJob = null
+        }
         _state.update {
             it.copy(
                 tab = tab,
@@ -114,6 +119,10 @@ class StockeaViewModel(app: Application) : AndroidViewModel(app) {
         }
         if (tab == MainTab.Stock) {
             refreshItems()
+        }
+        if (tab == MainTab.Compare) {
+            val q = _state.value.compareQuery.trim()
+            if (q.length >= 2) startComparePoll(q, showSpinner = false)
         }
     }
 
@@ -698,27 +707,48 @@ class StockeaViewModel(app: Application) : AndroidViewModel(app) {
         _state.update {
             it.copy(compareQuery = q, compareBusy = true, error = "", compareResults = emptyList())
         }
+        comparePollJob?.cancel()
+        comparePollJob = null
         if (q.length < 2) {
             _state.update { it.copy(compareBusy = false) }
             return
         }
-        viewModelScope.launch {
-            try {
-                val rows = withContext(Dispatchers.IO) { api.searchSupers(q) }
-                _state.update {
-                    it.copy(
-                        compareBusy = false,
-                        compareResults = rows,
-                        error = if (rows.isEmpty()) "No hay productos web para esa búsqueda." else "",
-                    )
+        startComparePoll(q, showSpinner = true)
+    }
+
+    private fun startComparePoll(query: String, showSpinner: Boolean) {
+        comparePollJob?.cancel()
+        comparePollJob = viewModelScope.launch {
+            var first = true
+            while (true) {
+                if (first && showSpinner) {
+                    _state.update { it.copy(compareBusy = true, error = "") }
                 }
-            } catch (e: Exception) {
-                _state.update {
-                    it.copy(
-                        compareBusy = false,
-                        error = e.message ?: "No se pudieron consultar Coto, Carrefour y Día.",
-                    )
+                try {
+                    val rows = withContext(Dispatchers.IO) { api.searchSupers(query) }
+                    if (query != _state.value.compareQuery.trim()) return@launch
+                    _state.update {
+                        it.copy(
+                            compareBusy = false,
+                            compareResults = rows,
+                            error = if (rows.isEmpty()) "No hay productos web para esa búsqueda." else "",
+                        )
+                    }
+                } catch (e: Exception) {
+                    if (query != _state.value.compareQuery.trim()) return@launch
+                    _state.update {
+                        it.copy(
+                            compareBusy = false,
+                            error = if (first) {
+                                e.message ?: "No se pudieron consultar Coto, Carrefour y Día."
+                            } else {
+                                it.error
+                            },
+                        )
+                    }
                 }
+                first = false
+                delay(1000)
             }
         }
     }
