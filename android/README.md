@@ -8,7 +8,7 @@ Package: `app.stockea.android`
 
 - Login / registro / verificación
 - Stock (alertas, +/- cantidad, carrito automático por stock bajo, borrar)
-- **Nuevo** (botón + en la barra inferior)
+- **Nuevo** (bottom sheet: nombre, unidad, stock, precio, EAN + **escanear con cámara**)
 - Comparar precios (Coto / Carrefour / Día vía API, unidos por EAN)
 - Carrito sincronizado con el stock bajo de la cuenta (igual que la web)
 - Perfil (editar, **tema claro/oscuro**, cerrar sesión)

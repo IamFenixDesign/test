@@ -10,6 +10,7 @@ import app.stockea.android.data.StockItem
 import app.stockea.android.data.StockeaApi
 import app.stockea.android.data.User
 import app.stockea.android.data.normalizeQty
+import app.stockea.android.ui.screens.NewItemDraft
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -35,6 +36,11 @@ data class UiState(
     val compareResults: List<CompareRow> = emptyList(),
     val compareBusy: Boolean = false,
     val showNewItem: Boolean = false,
+    val showScanner: Boolean = false,
+    val scannedEan: String? = null,
+    val newItemLookupBusy: Boolean = false,
+    val newItemLookupHint: String = "",
+    val newItemLookupMatch: CompareRow? = null,
 )
 
 class StockeaViewModel(app: Application) : AndroidViewModel(app) {
@@ -77,7 +83,19 @@ class StockeaViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun setTab(tab: MainTab) {
-        _state.update { it.copy(tab = tab, error = "", info = "", showNewItem = false) }
+        _state.update {
+            it.copy(
+                tab = tab,
+                error = "",
+                info = "",
+                showNewItem = false,
+                showScanner = false,
+                scannedEan = null,
+                newItemLookupBusy = false,
+                newItemLookupHint = "",
+                newItemLookupMatch = null,
+            )
+        }
         if (tab == MainTab.Stock || tab == MainTab.Cart) {
             refreshItems()
         }
@@ -88,11 +106,133 @@ class StockeaViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun openNewItem() {
-        _state.update { it.copy(showNewItem = true, tab = MainTab.Stock) }
+        _state.update {
+            it.copy(
+                showNewItem = true,
+                tab = MainTab.Stock,
+                showScanner = false,
+                scannedEan = null,
+                newItemLookupBusy = false,
+                newItemLookupHint = "",
+                newItemLookupMatch = null,
+            )
+        }
     }
 
     fun closeNewItem() {
-        _state.update { it.copy(showNewItem = false) }
+        _state.update {
+            it.copy(
+                showNewItem = false,
+                showScanner = false,
+                scannedEan = null,
+                newItemLookupBusy = false,
+                newItemLookupHint = "",
+                newItemLookupMatch = null,
+            )
+        }
+    }
+
+    fun openScanner() {
+        _state.update { it.copy(showScanner = true) }
+    }
+
+    fun closeScanner() {
+        _state.update { it.copy(showScanner = false) }
+    }
+
+    fun onScannedEan(ean: String) {
+        _state.update {
+            it.copy(
+                showScanner = false,
+                scannedEan = ean,
+                showNewItem = true,
+                info = "EAN $ean cargado · buscando…",
+            )
+        }
+    }
+
+    fun consumeScannedEan() {
+        _state.update { it.copy(scannedEan = null) }
+    }
+
+    fun clearNewItemLookup() {
+        _state.update {
+            it.copy(newItemLookupMatch = null, newItemLookupHint = "", newItemLookupBusy = false)
+        }
+    }
+
+    fun lookupNewItemBarcode(query: String) {
+        val q = query.trim()
+        if (q.length < 2) return
+        viewModelScope.launch {
+            _state.update {
+                it.copy(newItemLookupBusy = true, newItemLookupHint = "", newItemLookupMatch = null)
+            }
+            try {
+                val rows = withContext(Dispatchers.IO) { api.searchSupers(q, limit = 24) }
+                val exact = rows.firstOrNull { it.barcode.isNotBlank() && it.barcode == q }
+                val match = exact ?: rows.firstOrNull()
+                _state.update {
+                    it.copy(
+                        newItemLookupBusy = false,
+                        newItemLookupMatch = match,
+                        newItemLookupHint = when {
+                            match != null && exact != null -> "Producto encontrado en supers."
+                            match != null -> "Resultado cercano · podés usarlo o editar."
+                            else -> "No está en Coto, Carrefour ni Día. Cargá nombre y precio a mano."
+                        },
+                    )
+                }
+            } catch (e: Exception) {
+                _state.update {
+                    it.copy(
+                        newItemLookupBusy = false,
+                        newItemLookupMatch = null,
+                        newItemLookupHint = e.message
+                            ?: "No se pudieron consultar los supers. Cargá a mano.",
+                    )
+                }
+            }
+        }
+    }
+
+    fun createItem(draft: NewItemDraft) {
+        val unit = if (draft.qtyUnit == "kg") "kg" else "unit"
+        val item = StockItem(
+            id = UUID.randomUUID().toString(),
+            name = draft.name.trim(),
+            barcode = draft.barcode.trim(),
+            category = draft.category.trim().ifBlank { "Alimentos" },
+            quantity = normalizeQty(draft.quantity.coerceAtLeast(0.0), unit),
+            minStock = normalizeQty(draft.minStock.coerceAtLeast(0.0), unit),
+            qtyUnit = unit,
+            price = draft.price.coerceAtLeast(0.0),
+            priceSource = draft.priceSource,
+            priceCoto = draft.priceCoto,
+            priceCarrefour = draft.priceCarrefour,
+            priceDia = draft.priceDia,
+            listPriceCoto = draft.listPriceCoto,
+            listPriceCarrefour = draft.listPriceCarrefour,
+            listPriceDia = draft.listPriceDia,
+            image = draft.image,
+        )
+        if (item.name.isBlank()) {
+            _state.update { it.copy(error = "Poné un nombre") }
+            return
+        }
+        replaceItem(item, persist = true, prepend = true)
+        _state.update {
+            it.copy(
+                showNewItem = false,
+                showScanner = false,
+                scannedEan = null,
+                newItemLookupBusy = false,
+                newItemLookupHint = "",
+                newItemLookupMatch = null,
+                info = "Producto agregado",
+                tab = MainTab.Stock,
+            )
+        }
     }
 
     fun login(email: String, password: String) {
@@ -229,40 +369,6 @@ class StockeaViewModel(app: Application) : AndroidViewModel(app) {
             } catch (e: Exception) {
                 _state.update { it.copy(error = e.message ?: "No se pudo borrar") }
             }
-        }
-    }
-
-    fun createItem(
-        name: String,
-        category: String,
-        quantity: Double,
-        minStock: Double,
-        qtyUnit: String,
-        price: Double,
-        barcode: String,
-    ) {
-        val unit = if (qtyUnit == "kg") "kg" else "unit"
-        val item = StockItem(
-            id = UUID.randomUUID().toString(),
-            name = name.trim(),
-            barcode = barcode.trim(),
-            category = category.trim().ifBlank { "Alimentos" },
-            quantity = normalizeQty(quantity.coerceAtLeast(0.0), unit),
-            minStock = normalizeQty(minStock.coerceAtLeast(0.0), unit),
-            qtyUnit = unit,
-            price = price.coerceAtLeast(0.0),
-        )
-        if (item.name.isBlank()) {
-            _state.update { it.copy(error = "Poné un nombre") }
-            return
-        }
-        replaceItem(item, persist = true, prepend = true)
-        _state.update {
-            it.copy(
-                showNewItem = false,
-                info = "Producto agregado",
-                tab = MainTab.Stock,
-            )
         }
     }
 
