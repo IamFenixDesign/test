@@ -41,13 +41,17 @@ const emptyForm = {
   priceSource: '',
   priceCoto: '',
   priceCarrefour: '',
+  priceDia: '',
   urlCoto: '',
   urlCarrefour: '',
+  urlDia: '',
   image: '',
   imageCoto: '',
   imageCarrefour: '',
+  imageDia: '',
   discountCoto: '',
   discountCarrefour: '',
+  discountDia: '',
 }
 
 function loadItems(userId) {
@@ -155,13 +159,17 @@ function mergeItemRecords(base, incoming) {
     priceSource: incoming.priceSource || base.priceSource,
     priceCoto: incoming.priceCoto || base.priceCoto,
     priceCarrefour: incoming.priceCarrefour || base.priceCarrefour,
+    priceDia: incoming.priceDia || base.priceDia,
     urlCoto: incoming.urlCoto || base.urlCoto,
     urlCarrefour: incoming.urlCarrefour || base.urlCarrefour,
+    urlDia: incoming.urlDia || base.urlDia,
     image: incoming.image || base.image,
     imageCoto: incoming.imageCoto || base.imageCoto,
     imageCarrefour: incoming.imageCarrefour || base.imageCarrefour,
+    imageDia: incoming.imageDia || base.imageDia,
     discountCoto: incoming.discountCoto || base.discountCoto || '',
     discountCarrefour: incoming.discountCarrefour || base.discountCarrefour || '',
+    discountDia: incoming.discountDia || base.discountDia || '',
   }
 }
 
@@ -187,7 +195,8 @@ function productImage(item) {
   if (!item) return ''
   if (item.priceSource === 'coto') return item.imageCoto || item.image || ''
   if (item.priceSource === 'carrefour') return item.imageCarrefour || item.image || ''
-  return item.image || item.imageCoto || item.imageCarrefour || ''
+  if (item.priceSource === 'dia') return item.imageDia || item.image || ''
+  return item.image || item.imageCoto || item.imageCarrefour || item.imageDia || ''
 }
 
 function toCount(value) {
@@ -844,7 +853,9 @@ function ItemPrice({ item }) {
       ? item.discountCoto
       : item.priceSource === 'carrefour'
         ? item.discountCarrefour
-        : item.discountCoto || item.discountCarrefour
+        : item.priceSource === 'dia'
+          ? item.discountDia
+          : item.discountCoto || item.discountCarrefour || item.discountDia
   return (
     <div className="price-cell">
       <div className="price-static">
@@ -893,7 +904,7 @@ function App() {
   const [passwordError, setPasswordError] = useState('')
   const [passwordBusy, setPasswordBusy] = useState(false)
   const [storeQuery, setStoreQuery] = useState('')
-  const [storeResults, setStoreResults] = useState({ coto: [], carrefour: [], errors: {} })
+  const [storeResults, setStoreResults] = useState({ coto: [], carrefour: [], dia: [], errors: {} })
   const [storeTab, setStoreTab] = useState('coto')
   const [storeLoading, setStoreLoading] = useState(false)
   const [storeError, setStoreError] = useState('')
@@ -1192,6 +1203,8 @@ function App() {
         if (b.store === 'coto') return 1
         if (a.store === 'carrefour') return -1
         if (b.store === 'carrefour') return 1
+        if (a.store === 'dia') return -1
+        if (b.store === 'dia') return 1
       }
       return b.percent - a.percent
     })
@@ -1200,7 +1213,8 @@ function App() {
   const cartPromoGroups = useMemo(() => {
     const coto = cartDayPromos.filter((promo) => promo.store === 'coto')
     const carrefour = cartDayPromos.filter((promo) => promo.store === 'carrefour')
-    return { coto, carrefour }
+    const dia = cartDayPromos.filter((promo) => promo.store === 'dia')
+    return { coto, carrefour, dia }
   }, [cartDayPromos])
 
   const cartQuote = useMemo(() => {
@@ -1429,13 +1443,23 @@ function App() {
   }
 
   function applyFormStorePrice(store) {
-    const value = store === 'coto' ? Number(form.priceCoto) : Number(form.priceCarrefour)
+    const value =
+      store === 'coto'
+        ? Number(form.priceCoto)
+        : store === 'carrefour'
+          ? Number(form.priceCarrefour)
+          : Number(form.priceDia)
     if (!value) return
     setForm((prev) => ({
       ...prev,
       price: String(value),
       priceSource: store,
-      image: store === 'coto' ? prev.imageCoto || prev.image : prev.imageCarrefour || prev.image,
+      image:
+        store === 'coto'
+          ? prev.imageCoto || prev.image
+          : store === 'carrefour'
+            ? prev.imageCarrefour || prev.image
+            : prev.imageDia || prev.image,
     }))
     setAllowCustomPrice(false)
     setError('')
@@ -1449,16 +1473,20 @@ function App() {
       priceSource: '',
       priceCoto: '',
       priceCarrefour: '',
+      priceDia: '',
       urlCoto: '',
       urlCarrefour: '',
+      urlDia: '',
       image: '',
       imageCoto: '',
       imageCarrefour: '',
+      imageDia: '',
       discountCoto: '',
       discountCarrefour: '',
+      discountDia: '',
     }))
     setStoreQuery(form.name)
-    setStoreResults({ coto: [], carrefour: [], errors: {} })
+    setStoreResults({ coto: [], carrefour: [], dia: [], errors: {} })
     setStoreError('')
     setAllowCustomPrice(false)
     setError('')
@@ -1470,7 +1498,7 @@ function App() {
     setForm(emptyForm)
     setError('')
     setStoreQuery('')
-    setStoreResults({ coto: [], carrefour: [], errors: {} })
+    setStoreResults({ coto: [], carrefour: [], dia: [], errors: {} })
     setStoreTab('coto')
     setStoreError('')
     setAllowCustomPrice(false)
@@ -1491,17 +1519,21 @@ function App() {
       priceSource: item.priceSource || '',
       priceCoto: item.priceCoto ? String(item.priceCoto) : '',
       priceCarrefour: item.priceCarrefour ? String(item.priceCarrefour) : '',
+      priceDia: item.priceDia ? String(item.priceDia) : '',
       urlCoto: item.urlCoto || '',
       urlCarrefour: item.urlCarrefour || '',
+      urlDia: item.urlDia || '',
       image: item.image || '',
       imageCoto: item.imageCoto || '',
       imageCarrefour: item.imageCarrefour || '',
+      imageDia: item.imageDia || '',
       discountCoto: item.discountCoto || '',
       discountCarrefour: item.discountCarrefour || '',
+      discountDia: item.discountDia || '',
     })
     setError('')
     setStoreQuery('')
-    setStoreResults({ coto: [], carrefour: [], errors: {} })
+    setStoreResults({ coto: [], carrefour: [], dia: [], errors: {} })
     setStoreTab('coto')
     setStoreError('')
     setAllowCustomPrice(item.priceSource === 'custom')
@@ -1517,10 +1549,13 @@ function App() {
   }
 
   function applyStoreProduct(product) {
-    const otherKey = product.store === 'coto' ? 'carrefour' : 'coto'
-    const match = matchByEan(product, storeResults[otherKey] || [])
-    const coto = product.store === 'coto' ? product : match
-    const carrefour = product.store === 'carrefour' ? product : match
+    const coto =
+      product.store === 'coto' ? product : matchByEan(product, storeResults.coto || [])
+    const carrefour =
+      product.store === 'carrefour' ? product : matchByEan(product, storeResults.carrefour || [])
+    const dia = product.store === 'dia' ? product : matchByEan(product, storeResults.dia || [])
+    const storeName =
+      product.store === 'coto' ? 'Coto' : product.store === 'carrefour' ? 'Carrefour' : 'Día'
     setForm((prev) => ({
       ...prev,
       name: product.name,
@@ -1530,11 +1565,14 @@ function App() {
       priceSource: product.store,
       priceCoto: coto ? String(coto.price) : prev.priceCoto,
       priceCarrefour: carrefour ? String(carrefour.price) : prev.priceCarrefour,
+      priceDia: dia ? String(dia.price) : prev.priceDia,
       urlCoto: coto?.url || prev.urlCoto,
       urlCarrefour: carrefour?.url || prev.urlCarrefour,
+      urlDia: dia?.url || prev.urlDia,
       image: product.image || prev.image,
       imageCoto: coto?.image || prev.imageCoto,
       imageCarrefour: carrefour?.image || prev.imageCarrefour,
+      imageDia: dia?.image || prev.imageDia,
       discountCoto: coto
         ? coto.hasDiscount
           ? coto.discountLabel || 'Oferta'
@@ -1545,28 +1583,33 @@ function App() {
           ? carrefour.discountLabel || 'Oferta'
           : ''
         : prev.discountCarrefour,
+      discountDia: dia
+        ? dia.hasDiscount
+          ? dia.discountLabel || 'Oferta'
+          : ''
+        : prev.discountDia,
     }))
     setStoreQuery('')
-    setStoreResults({ coto: [], carrefour: [], errors: {} })
+    setStoreResults({ coto: [], carrefour: [], dia: [], errors: {} })
     setStoreError('')
     setAllowCustomPrice(false)
     setError('')
-    showToast(
-      product.ean
-        ? `Código ${product.ean} detectado`
-        : `Precio de ${product.store === 'coto' ? 'Coto' : 'Carrefour'} aplicado`,
-    )
+    showToast(product.ean ? `Código ${product.ean} detectado` : `Precio de ${storeName} aplicado`)
   }
 
   function enableCustomPrice() {
     setAllowCustomPrice(true)
     setStoreError('')
     setError('')
-    setForm((prev) => ({
-      ...prev,
-      priceSource: prev.priceSource === 'coto' || prev.priceSource === 'carrefour' ? 'custom' : prev.priceSource || 'custom',
-      price: prev.priceSource === 'coto' || prev.priceSource === 'carrefour' ? '' : prev.price,
-    }))
+    setForm((prev) => {
+      const fromStore =
+        prev.priceSource === 'coto' || prev.priceSource === 'carrefour' || prev.priceSource === 'dia'
+      return {
+        ...prev,
+        priceSource: fromStore ? 'custom' : prev.priceSource || 'custom',
+        price: fromStore ? '' : prev.price,
+      }
+    })
     requestAnimationFrame(() => {
       customPriceRef.current?.focus?.()
       customPriceRef.current?.scrollIntoView?.({ block: 'nearest', behavior: 'smooth' })
@@ -1586,7 +1629,7 @@ function App() {
     closeScanner()
     setStoreQuery(ean)
     setForm((prev) => ({ ...prev, barcode: ean }))
-    setStoreResults({ coto: [], carrefour: [], errors: {} })
+    setStoreResults({ coto: [], carrefour: [], dia: [], errors: {} })
     setStoreError('')
     setStoreTab('coto')
     setAllowCustomPrice(false)
@@ -1605,13 +1648,25 @@ function App() {
     setStoreError('')
     try {
       const data = await searchSupermarkets(q)
-      setStoreResults(data)
+      const next = {
+        coto: data.coto || [],
+        carrefour: data.carrefour || [],
+        dia: data.dia || [],
+        errors: data.errors || {},
+      }
+      setStoreResults(next)
       const prefer =
-        data.coto.length > 0 ? 'coto' : data.carrefour.length > 0 ? 'carrefour' : 'coto'
+        next.coto.length > 0
+          ? 'coto'
+          : next.carrefour.length > 0
+            ? 'carrefour'
+            : next.dia.length > 0
+              ? 'dia'
+              : 'coto'
       setStoreTab(prefer)
-      if (!data.coto.length && !data.carrefour.length) {
+      if (!next.coto.length && !next.carrefour.length && !next.dia.length) {
         setAllowCustomPrice(true)
-        setStoreError('No está en Coto ni Carrefour. Podés cargar un precio personalizado.')
+        setStoreError('No está en Coto, Carrefour ni Día. Podés cargar un precio personalizado.')
         requestAnimationFrame(() => {
           customPriceRef.current?.focus?.()
           customPriceRef.current?.scrollIntoView?.({ block: 'nearest', behavior: 'smooth' })
@@ -1624,7 +1679,9 @@ function App() {
       })
     } catch {
       setAllowCustomPrice(true)
-      setStoreError('No se pudieron consultar Coto y Carrefour. Podés cargar un precio personalizado.')
+      setStoreError(
+        'No se pudieron consultar Coto, Carrefour y Día. Podés cargar un precio personalizado.',
+      )
     } finally {
       setStoreLoading(false)
     }
@@ -1636,13 +1693,14 @@ function App() {
     try {
       const data = await searchSupermarkets(code || item.name)
       const pick = (list) => (code && list.find((entry) => entry.ean === code)) || list[0] || null
-      const coto = pick(data.coto)
-      const carrefour = pick(data.carrefour)
-      if (!coto && !carrefour) {
-        if (!silent) showToast('No se encontraron precios en Coto ni Carrefour')
+      const coto = pick(data.coto || [])
+      const carrefour = pick(data.carrefour || [])
+      const dia = pick(data.dia || [])
+      if (!coto && !carrefour && !dia) {
+        if (!silent) showToast('No se encontraron precios en Coto, Carrefour ni Día')
         return
       }
-      const detected = coto?.ean || carrefour?.ean || ''
+      const detected = coto?.ean || carrefour?.ean || dia?.ean || ''
       setItems((prev) => {
         if (deletedIdsRef.current.has(item.id) || !prev.some((entry) => entry.id === item.id)) {
           return prev
@@ -1651,23 +1709,29 @@ function App() {
           if (entry.id !== item.id) return entry
           const nextCoto = coto?.price ?? entry.priceCoto
           const nextCarrefour = carrefour?.price ?? entry.priceCarrefour
+          const nextDia = dia?.price ?? entry.priceDia
           const source = entry.priceSource
           const nextPrice =
             source === 'coto' && nextCoto
               ? nextCoto
               : source === 'carrefour' && nextCarrefour
                 ? nextCarrefour
-                : entry.price
+                : source === 'dia' && nextDia
+                  ? nextDia
+                  : entry.price
           return {
             ...entry,
             price: nextPrice,
             priceCoto: nextCoto,
             priceCarrefour: nextCarrefour,
+            priceDia: nextDia,
             urlCoto: coto?.url ?? entry.urlCoto,
             urlCarrefour: carrefour?.url ?? entry.urlCarrefour,
+            urlDia: dia?.url ?? entry.urlDia,
             barcode: barcodeOf(entry) || detected,
             imageCoto: coto?.image || entry.imageCoto,
             imageCarrefour: carrefour?.image || entry.imageCarrefour,
+            imageDia: dia?.image || entry.imageDia,
             discountCoto: coto
               ? coto.hasDiscount
                 ? coto.discountLabel || 'Oferta'
@@ -1678,12 +1742,19 @@ function App() {
                 ? carrefour.discountLabel || 'Oferta'
                 : ''
               : entry.discountCarrefour || '',
+            discountDia: dia
+              ? dia.hasDiscount
+                ? dia.discountLabel || 'Oferta'
+                : ''
+              : entry.discountDia || '',
             image:
               source === 'coto'
                 ? coto?.image || entry.imageCoto || entry.image
                 : source === 'carrefour'
                   ? carrefour?.image || entry.imageCarrefour || entry.image
-                  : coto?.image || carrefour?.image || entry.image,
+                  : source === 'dia'
+                    ? dia?.image || entry.imageDia || entry.image
+                    : coto?.image || carrefour?.image || dia?.image || entry.image,
           }
         })
         const saved = next.find((entry) => entry.id === item.id)
@@ -1707,7 +1778,8 @@ function App() {
     const minStock = Number(form.minStock)
     const price = Number(String(form.price || '').replace(',', '.'))
     const source = form.priceSource
-    const sourceOk = source === 'coto' || source === 'carrefour' || source === 'custom'
+    const sourceOk =
+      source === 'coto' || source === 'carrefour' || source === 'dia' || source === 'custom'
     if (!Number.isFinite(quantity) || quantity < 0) {
       setError('La cantidad no es válida.')
       return
@@ -1716,13 +1788,14 @@ function App() {
       setError(
         allowCustomPrice || source === 'custom'
           ? 'Ingresá un precio personalizado válido.'
-          : 'Elegí un precio de Coto/Carrefour o cargá uno personalizado si no está.',
+          : 'Elegí un precio de Coto/Carrefour/Día o cargá uno personalizado si no está.',
       )
       return
     }
 
     const imageCoto = form.imageCoto || ''
     const imageCarrefour = form.imageCarrefour || ''
+    const imageDia = form.imageDia || ''
     const payload = {
       name: form.name.trim(),
       barcode: form.barcode.trim(),
@@ -1733,18 +1806,24 @@ function App() {
       priceSource: source,
       priceCoto: Number(form.priceCoto) || 0,
       priceCarrefour: Number(form.priceCarrefour) || 0,
+      priceDia: Number(form.priceDia) || 0,
       urlCoto: form.urlCoto,
       urlCarrefour: form.urlCarrefour,
+      urlDia: form.urlDia,
       imageCoto,
       imageCarrefour,
+      imageDia,
       discountCoto: source === 'custom' ? '' : form.discountCoto || '',
       discountCarrefour: source === 'custom' ? '' : form.discountCarrefour || '',
+      discountDia: source === 'custom' ? '' : form.discountDia || '',
       image:
         source === 'coto'
           ? imageCoto || form.image
           : source === 'carrefour'
             ? imageCarrefour || form.image
-            : form.image || imageCoto || imageCarrefour,
+            : source === 'dia'
+              ? imageDia || form.image
+              : form.image || imageCoto || imageCarrefour || imageDia,
     }
 
     if (editingId) {
@@ -2202,7 +2281,7 @@ function App() {
                 />
               </label>
               <div className="field full store-search">
-                <span>Buscar en Coto / Carrefour</span>
+                <span>Buscar en Coto / Carrefour / Día</span>
                 <div className="store-lookup">
                   <input
                     type="search"
@@ -2231,7 +2310,7 @@ function App() {
                     <IconScan />
                   </button>
                 </div>
-                {(form.priceCoto || form.priceCarrefour || form.priceSource === 'custom') && (
+                {(form.priceCoto || form.priceCarrefour || form.priceDia || form.priceSource === 'custom') && (
                   <div className="store-selected">
                     <ItemThumb item={form} />
                     <div className="store-picked">
@@ -2255,6 +2334,16 @@ function App() {
                           {form.discountCarrefour ? ` · ${form.discountCarrefour}` : ''}
                         </button>
                       ) : null}
+                      {form.priceDia ? (
+                        <button
+                          className={`store-pill dia ${form.priceSource === 'dia' ? 'selected' : ''}`}
+                          type="button"
+                          onClick={() => applyFormStorePrice('dia')}
+                        >
+                          Día {money(form.priceDia)}
+                          {form.discountDia ? ` · ${form.discountDia}` : ''}
+                        </button>
+                      ) : null}
                       {form.priceSource === 'custom' && form.price ? (
                         <span className="store-pill custom selected">Personalizado {money(form.price)}</span>
                       ) : null}
@@ -2264,7 +2353,7 @@ function App() {
                     </button>
                   </div>
                 )}
-                {storeLoading && <p className="hint">Buscando en Coto y Carrefour…</p>}
+                {storeLoading && <p className="hint">Buscando en Coto, Carrefour y Día…</p>}
                 {storeError && (
                   <div className="store-miss">
                     <p className="hint">{storeError}</p>
@@ -2275,7 +2364,9 @@ function App() {
                     ) : null}
                   </div>
                 )}
-                {(storeResults.coto.length > 0 || storeResults.carrefour.length > 0) && (
+                {(storeResults.coto.length > 0 ||
+                  storeResults.carrefour.length > 0 ||
+                  (storeResults.dia || []).length > 0) && (
                   <div className="store-results form-store-results" ref={storeResultsRef}>
                     <div className="store-result-tabs" role="tablist" aria-label="Supermercados">
                       {storeResults.coto.length > 0 ? (
@@ -2300,6 +2391,17 @@ function App() {
                           Carrefour <small>{storeResults.carrefour.length}</small>
                         </button>
                       ) : null}
+                      {(storeResults.dia || []).length > 0 ? (
+                        <button
+                          className={`store-result-tab dia ${storeTab === 'dia' ? 'active' : ''}`}
+                          type="button"
+                          role="tab"
+                          aria-selected={storeTab === 'dia'}
+                          onClick={() => setStoreTab('dia')}
+                        >
+                          Día <small>{storeResults.dia.length}</small>
+                        </button>
+                      ) : null}
                     </div>
                     <div className="store-cols">
                       {storeResults.coto.length > 0 ? (
@@ -2314,6 +2416,14 @@ function App() {
                         <div className={`store-col ${storeTab === 'carrefour' ? 'is-open' : ''}`}>
                           <p className="store-col-title carrefour">Carrefour</p>
                           {storeResults.carrefour.map((product) => (
+                            <StoreResult key={product.ean || product.url} product={product} onPick={applyStoreProduct} />
+                          ))}
+                        </div>
+                      ) : null}
+                      {(storeResults.dia || []).length > 0 ? (
+                        <div className={`store-col ${storeTab === 'dia' ? 'is-open' : ''}`}>
+                          <p className="store-col-title dia">Día</p>
+                          {storeResults.dia.map((product) => (
                             <StoreResult key={product.ean || product.url} product={product} onPick={applyStoreProduct} />
                           ))}
                         </div>
@@ -2407,8 +2517,8 @@ function App() {
                 </div>
                 <small className="hint">
                   {allowCustomPrice || form.priceSource === 'custom'
-                    ? 'Precio personalizado: el producto no está en Coto ni Carrefour, o lo cargaste a mano'
-                    : 'Se completa con Coto o Carrefour; si no aparece, vas a poder poner uno personalizado'}
+                    ? 'Precio personalizado: el producto no está en Coto, Carrefour ni Día, o lo cargaste a mano'
+                    : 'Se completa con Coto, Carrefour o Día; si no aparece, vas a poder poner uno personalizado'}
                 </small>
               </label>
               {error && <p className="error">{error}</p>}
@@ -2535,6 +2645,13 @@ function App() {
                         <div className="cart-deals-list">
                           {cartPromoGroups.carrefour.map(renderPromoOption)}
                         </div>
+                      </div>
+                    ) : null}
+
+                    {cartPromoGroups.dia.length > 0 ? (
+                      <div className="cart-deals-group">
+                        <p className="cart-deals-group-title store-dia">Día</p>
+                        <div className="cart-deals-list">{cartPromoGroups.dia.map(renderPromoOption)}</div>
                       </div>
                     ) : null}
                   </div>
