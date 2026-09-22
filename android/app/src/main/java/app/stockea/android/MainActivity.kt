@@ -187,12 +187,17 @@ private fun StockeaRoot(vm: StockeaViewModel) {
 
                 if (state.showNewItem && !state.showScanner) {
                     NewItemSheet(
-                        lookupBusy = state.newItemLookupBusy,
-                        lookupHint = state.newItemLookupHint,
-                        lookupMatch = state.newItemLookupMatch,
+                        storeBusy = state.storeLookupBusy,
+                        storeError = state.storeLookupError,
+                        storeResults = state.storeResults,
+                        storeTab = state.storeTab,
+                        allowCustomPrice = state.allowCustomPrice,
+                        formError = state.error,
                         onDismiss = vm::closeNewItem,
-                        onLookupBarcode = vm::lookupNewItemBarcode,
-                        onClearLookup = vm::clearNewItemLookup,
+                        onLookupStores = vm::lookupStores,
+                        onClearStoreResults = vm::clearStoreLookup,
+                        onStoreTab = vm::setStoreTab,
+                        onEnableCustomPrice = vm::enableCustomPrice,
                         onCreate = vm::createItem,
                         onOpenScanner = vm::openScanner,
                         scannedEan = state.scannedEan,

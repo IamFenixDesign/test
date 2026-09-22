@@ -194,13 +194,31 @@ class StockeaApi(context: Context) {
         request("DELETE", "/api/items?id=${java.net.URLEncoder.encode(id, "UTF-8")}", JSONObject().put("id", id))
     }
 
-    fun searchSupers(query: String, limit: Int = 48): List<CompareRow> {
+    fun searchSupersRaw(query: String, limit: Int = 24): StoreSearchResults {
         val q = java.net.URLEncoder.encode(query, "UTF-8")
         val data = request("GET", "/api/supers?q=$q&limit=$limit")
-        val coto = data.optJSONArray("coto")?.toStoreProducts().orEmpty()
-        val carrefour = data.optJSONArray("carrefour")?.toStoreProducts().orEmpty()
-        val dia = data.optJSONArray("dia")?.toStoreProducts().orEmpty()
-        return buildWebCompareRows(coto, carrefour, dia)
+        val errorsObj = data.optJSONObject("errors")
+        val errors = buildMap {
+            if (errorsObj != null) {
+                val keys = errorsObj.keys()
+                while (keys.hasNext()) {
+                    val key = keys.next()
+                    val msg = errorsObj.optString(key).trim()
+                    if (msg.isNotBlank()) put(key, msg)
+                }
+            }
+        }
+        return StoreSearchResults(
+            coto = data.optJSONArray("coto")?.toStoreProducts().orEmpty(),
+            carrefour = data.optJSONArray("carrefour")?.toStoreProducts().orEmpty(),
+            dia = data.optJSONArray("dia")?.toStoreProducts().orEmpty(),
+            errors = errors,
+        )
+    }
+
+    fun searchSupers(query: String, limit: Int = 48): List<CompareRow> {
+        val raw = searchSupersRaw(query, limit)
+        return buildWebCompareRows(raw.coto, raw.carrefour, raw.dia)
     }
 }
 
