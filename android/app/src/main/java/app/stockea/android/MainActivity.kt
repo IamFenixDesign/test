@@ -15,9 +15,6 @@ import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Balance
 import androidx.compose.material.icons.outlined.Inventory2
 import androidx.compose.material.icons.outlined.Person
-import androidx.compose.material.icons.outlined.ShoppingCart
-import androidx.compose.material3.Badge
-import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -34,10 +31,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import app.stockea.android.ui.screens.BarcodeScannerScreen
-import app.stockea.android.ui.screens.CartScreen
+import app.stockea.android.ui.screens.CartSheet
 import app.stockea.android.ui.screens.CompareScreen
 import app.stockea.android.ui.screens.LoginScreen
 import app.stockea.android.ui.screens.NewItemSheet
@@ -109,7 +105,7 @@ private fun StockeaRoot(vm: StockeaViewModel) {
                 bottomBar = {
                     NavigationBar {
                         NavigationBarItem(
-                            selected = state.tab == MainTab.Stock && !state.showNewItem,
+                            selected = state.tab == MainTab.Stock && !state.showNewItem && !state.showCart,
                             onClick = { vm.setTab(MainTab.Stock) },
                             icon = { Icon(Icons.Outlined.Inventory2, contentDescription = null) },
                             label = { Text("Stock") },
@@ -140,20 +136,6 @@ private fun StockeaRoot(vm: StockeaViewModel) {
                             label = { Text("Nuevo") },
                         )
                         NavigationBarItem(
-                            selected = state.tab == MainTab.Cart,
-                            onClick = { vm.setTab(MainTab.Cart) },
-                            icon = {
-                                BadgedBox(badge = {
-                                    if (cartCount > 0) {
-                                        Badge { Text("$cartCount", fontWeight = FontWeight.Bold) }
-                                    }
-                                }) {
-                                    Icon(Icons.Outlined.ShoppingCart, contentDescription = null)
-                                }
-                            },
-                            label = { Text("Carrito") },
-                        )
-                        NavigationBarItem(
                             selected = state.tab == MainTab.Profile,
                             onClick = { vm.setTab(MainTab.Profile) },
                             icon = { Icon(Icons.Outlined.Person, contentDescription = null) },
@@ -165,8 +147,10 @@ private fun StockeaRoot(vm: StockeaViewModel) {
                 when (state.tab) {
                     MainTab.Stock -> StockScreen(
                         items = state.items,
+                        cartCount = cartCount,
                         contentPadding = padding,
                         isInCart = { id -> state.isInCart(id) },
+                        onOpenCart = vm::openCart,
                         onBump = vm::bumpQty,
                         onToggleCart = vm::toggleCart,
                         onDelete = vm::deleteItem,
@@ -179,12 +163,6 @@ private fun StockeaRoot(vm: StockeaViewModel) {
                         onSearch = vm::searchCompare,
                         onAdd = vm::addFromCompare,
                     )
-                    MainTab.Cart -> CartScreen(
-                        items = state.cartItems(),
-                        contentPadding = padding,
-                        onMarkBought = vm::markCartBought,
-                        onRemove = vm::toggleCart,
-                    )
                     MainTab.Profile -> ProfileScreen(
                         user = user!!,
                         busy = state.busy,
@@ -195,6 +173,15 @@ private fun StockeaRoot(vm: StockeaViewModel) {
                         onSave = vm::saveProfile,
                         onToggleTheme = vm::toggleTheme,
                         onLogout = vm::logout,
+                    )
+                }
+
+                if (state.showCart) {
+                    CartSheet(
+                        items = state.cartItems(),
+                        onDismiss = vm::closeCart,
+                        onMarkBought = vm::markCartBought,
+                        onRemove = vm::toggleCart,
                     )
                 }
 

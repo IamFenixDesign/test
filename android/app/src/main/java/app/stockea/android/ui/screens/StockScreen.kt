@@ -18,6 +18,8 @@ import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Remove
 import androidx.compose.material.icons.outlined.ShoppingCart
 import androidx.compose.material3.AssistChip
+import androidx.compose.material3.Badge
+import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
@@ -37,8 +39,10 @@ import app.stockea.android.data.qtyLabel
 @Composable
 fun StockScreen(
     items: List<StockItem>,
+    cartCount: Int,
     contentPadding: PaddingValues,
     isInCart: (String) -> Boolean,
+    onOpenCart: () -> Unit,
     onBump: (String, Double) -> Unit,
     onToggleCart: (String) -> Unit,
     onDelete: (String) -> Unit,
@@ -59,7 +63,34 @@ fun StockScreen(
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         item {
-            Text("Stockea", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    "Stockea",
+                    style = MaterialTheme.typography.headlineMedium,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.weight(1f),
+                )
+                IconButton(onClick = onOpenCart) {
+                    BadgedBox(badge = {
+                        if (cartCount > 0) {
+                            Badge { Text("$cartCount", fontWeight = FontWeight.Bold) }
+                        }
+                    }) {
+                        Icon(
+                            Icons.Outlined.ShoppingCart,
+                            contentDescription = "Abrir carrito",
+                            tint = if (cartCount > 0) {
+                                MaterialTheme.colorScheme.primary
+                            } else {
+                                MaterialTheme.colorScheme.onSurface
+                            },
+                        )
+                    }
+                }
+            }
             Spacer(modifier = Modifier.height(8.dp))
             Card(
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
