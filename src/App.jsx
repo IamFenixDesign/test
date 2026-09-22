@@ -2547,15 +2547,6 @@ function App() {
                         {row.saving > 0 ? ` · ahorro hasta ${money(row.saving)}` : ''}
                       </span>
                     </div>
-                    <button
-                      className="icon-btn"
-                      type="button"
-                      title="Editar"
-                      aria-label={`Editar ${row.item.name}`}
-                      onClick={() => openEditItem(row.item)}
-                    >
-                      <IconEdit />
-                    </button>
                   </div>
                   <div className="compare-prices">
                     {[
