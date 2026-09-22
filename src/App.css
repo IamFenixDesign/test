@@ -137,24 +137,11 @@
   gap: 14px;
 }
 
-.cart-toolbar {
-  display: grid;
-  gap: 8px;
-}
-
-.cart-lead {
-  margin: 0;
-  color: var(--muted);
-  font-size: 0.9rem;
-  font-weight: 600;
-  line-height: 1.35;
-}
-
 .cart-deals-panel {
   display: flex;
   flex-direction: column;
   gap: 12px;
-  padding: 14px;
+  padding: 12px;
   border: 1px solid var(--line);
   border-radius: 18px;
   background:
@@ -162,11 +149,29 @@
     var(--bg-card);
 }
 
-.cart-deals-head {
+.cart-deals-panel.is-collapsed {
+  gap: 0;
+  padding: 8px 10px;
+}
+
+.cart-deals-toggle {
   display: flex;
-  align-items: end;
+  align-items: center;
   justify-content: space-between;
   gap: 12px;
+  width: 100%;
+  margin: 0;
+  padding: 6px 4px;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.cart-deals-toggle-copy {
+  min-width: 0;
 }
 
 .cart-deals-kicker {
@@ -181,20 +186,23 @@
 .cart-deals-title {
   margin: 2px 0 0;
   font-family: var(--display);
-  font-size: 1.28rem;
+  font-size: 1.15rem;
   font-weight: 700;
   letter-spacing: -0.04em;
-  line-height: 1.1;
+  line-height: 1.15;
 }
 
-.cart-deals-hint {
-  margin: 0;
+.cart-deals-chevron {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--bg-elev) 90%, transparent);
   color: var(--muted);
-  font-size: 0.74rem;
-  font-weight: 600;
-  text-align: right;
-  max-width: 9.5rem;
-  line-height: 1.25;
+  font-size: 0.85rem;
+  line-height: 1;
 }
 
 .cart-days {
@@ -1981,6 +1989,25 @@ td:has(.item-cell) {
     align-items: center;
   }
 
+  .compare-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+  }
+
+  .compare-pager {
+    margin-top: 8px;
+    padding: 4px 0 8px;
+  }
+
+  .compare-pager .btn {
+    min-width: 140px;
+    min-height: 44px;
+  }
+
+  .compare-meta {
+    font-size: 0.88rem;
+  }
+
   .bottom-nav-btn {
     min-height: 58px;
     padding: 8px 6px;
@@ -3208,10 +3235,6 @@ html[data-theme="light"] .store-col-title.dia {
 
   .cart-panel {
     gap: 12px;
-  }
-
-  .cart-lead {
-    font-size: 0.84rem;
   }
 
   .cart-deals-panel {

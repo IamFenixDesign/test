@@ -992,6 +992,7 @@ function App() {
   const [searchOpen, setSearchOpen] = useState(false)
   const [category, setCategory] = useState('Todo')
   const [comparePage, setComparePage] = useState(0)
+  const [comparePageSize, setComparePageSize] = useState(COMPARE_PAGE_SIZE)
   const [modal, setModal] = useState(null)
   const [pendingDelete, setPendingDelete] = useState(null)
   const [editingId, setEditingId] = useState(null)
@@ -1021,6 +1022,7 @@ function App() {
   const [cartRemoved, setCartRemoved] = useState(() => new Set())
   const [cartDay, setCartDay] = useState(() => todayWeekday())
   const [cartPromoId, setCartPromoId] = useState('none')
+  const [cartDealsOpen, setCartDealsOpen] = useState(false)
   const [allowCustomPrice, setAllowCustomPrice] = useState(false)
   const [chromeHidden, setChromeHidden] = useState(false)
   const [mainView, setMainView] = useState('stock')
@@ -1040,6 +1042,10 @@ function App() {
     document.documentElement.dataset.theme = theme
     localStorage.setItem(THEME_KEY, theme)
   }, [theme])
+
+  useEffect(() => {
+    if (mainView !== 'cart') setCartDealsOpen(false)
+  }, [mainView])
 
   useEffect(() => {
     lastScrollYRef.current = window.scrollY || 0
@@ -1370,12 +1376,21 @@ function App() {
       })
   }, [items, query])
 
-  const comparePageCount = Math.max(1, Math.ceil(compareRows.length / COMPARE_PAGE_SIZE) || 1)
+  const comparePageCount = Math.max(1, Math.ceil(compareRows.length / comparePageSize) || 1)
   const comparePageSafe = Math.min(comparePage, comparePageCount - 1)
   const comparePageRows = useMemo(() => {
-    const start = comparePageSafe * COMPARE_PAGE_SIZE
-    return compareRows.slice(start, start + COMPARE_PAGE_SIZE)
-  }, [compareRows, comparePageSafe])
+    const start = comparePageSafe * comparePageSize
+    return compareRows.slice(start, start + comparePageSize)
+  }, [compareRows, comparePageSafe, comparePageSize])
+
+
+  useEffect(() => {
+    const mq = window.matchMedia('(min-width: 761px)')
+    const sync = () => setComparePageSize(mq.matches ? 12 : COMPARE_PAGE_SIZE)
+    sync()
+    mq.addEventListener('change', sync)
+    return () => mq.removeEventListener('change', sync)
+  }, [])
 
   useEffect(() => {
     setComparePage(0)
@@ -2607,12 +2622,6 @@ function App() {
         </section>
       ) : (
         <section className="panel cart-panel">
-          <div className="cart-toolbar">
-            <p className="cart-lead">
-              Solo lo faltante al mínimo. Descuentos de sucursal según el día.
-            </p>
-          </div>
-
           {cartLines.length === 0 ? (
             <div className="empty">
               <h3>Carrito vacío</h3>
@@ -2620,61 +2629,82 @@ function App() {
             </div>
           ) : (
             <>
-              <section className="cart-deals-panel" aria-label="Descuentos por día">
-                <div className="cart-deals-head">
-                  <div>
-                    <p className="cart-deals-kicker">Sucursales</p>
-                    <h3 className="cart-deals-title">{weekdayLabel(cartDay)}</h3>
-                  </div>
-                  <p className="cart-deals-hint">Elegí día y medio de pago</p>
-                </div>
-
-                <div className="cart-days" role="tablist" aria-label="Día de la promo">
-                  {WEEKDAYS.map((day) => (
-                    <button
-                      key={day.id}
-                      type="button"
-                      role="tab"
-                      aria-selected={cartDay === day.id}
-                      className={`cart-day-chip ${cartDay === day.id ? 'active' : ''} ${
-                        day.id === todayWeekday() ? 'is-today' : ''
-                      }`}
-                      onClick={() => selectCartDay(day.id)}
-                    >
-                      {day.short}
-                    </button>
-                  ))}
-                </div>
-
-                <div
-                  key={cartDay}
-                  className="cart-deals-body"
-                  role="group"
-                  aria-label="Descuentos de pago en sucursal"
+              <section
+                className={`cart-deals-panel ${cartDealsOpen ? 'is-open' : 'is-collapsed'}`}
+                aria-label="Descuentos por día"
+              >
+                <button
+                  type="button"
+                  className="cart-deals-toggle"
+                  aria-expanded={cartDealsOpen}
+                  onClick={() => setCartDealsOpen((open) => !open)}
                 >
-                  {cartPromoGroups.coto.length > 0 ? (
-                    <div className="cart-deals-group">
-                      <p className="cart-deals-group-title store-coto">Coto</p>
-                      <div className="cart-deals-list">{cartPromoGroups.coto.map(renderPromoOption)}</div>
-                    </div>
-                  ) : null}
+                  <div className="cart-deals-toggle-copy">
+                    <p className="cart-deals-kicker">Descuentos</p>
+                    <h3 className="cart-deals-title">
+                      {weekdayLabel(cartDay)}
+                      {cartQuote.promo.percent > 0 ? ` · ${cartQuote.promo.short}` : ' · Sin dto'}
+                    </h3>
+                  </div>
+                  <span className="cart-deals-chevron" aria-hidden="true">
+                    {cartDealsOpen ? '▾' : '▸'}
+                  </span>
+                </button>
 
-                  {cartPromoGroups.carrefour.length > 0 ? (
-                    <div className="cart-deals-group">
-                      <p className="cart-deals-group-title store-carrefour">Carrefour</p>
-                      <div className="cart-deals-list">
-                        {cartPromoGroups.carrefour.map(renderPromoOption)}
-                      </div>
+                {cartDealsOpen ? (
+                  <>
+                    <div className="cart-days" role="tablist" aria-label="Día de la promo">
+                      {WEEKDAYS.map((day) => (
+                        <button
+                          key={day.id}
+                          type="button"
+                          role="tab"
+                          aria-selected={cartDay === day.id}
+                          className={`cart-day-chip ${cartDay === day.id ? 'active' : ''} ${
+                            day.id === todayWeekday() ? 'is-today' : ''
+                          }`}
+                          onClick={() => selectCartDay(day.id)}
+                        >
+                          {day.short}
+                        </button>
+                      ))}
                     </div>
-                  ) : null}
 
-                  {cartPromoGroups.dia.length > 0 ? (
-                    <div className="cart-deals-group">
-                      <p className="cart-deals-group-title store-dia">Día</p>
-                      <div className="cart-deals-list">{cartPromoGroups.dia.map(renderPromoOption)}</div>
+                    <div
+                      key={cartDay}
+                      className="cart-deals-body"
+                      role="group"
+                      aria-label="Descuentos de pago en sucursal"
+                    >
+                      {cartPromoGroups.coto.length > 0 ? (
+                        <div className="cart-deals-group">
+                          <p className="cart-deals-group-title store-coto">Coto</p>
+                          <div className="cart-deals-list">
+                            {cartPromoGroups.coto.map(renderPromoOption)}
+                          </div>
+                        </div>
+                      ) : null}
+
+                      {cartPromoGroups.carrefour.length > 0 ? (
+                        <div className="cart-deals-group">
+                          <p className="cart-deals-group-title store-carrefour">Carrefour</p>
+                          <div className="cart-deals-list">
+                            {cartPromoGroups.carrefour.map(renderPromoOption)}
+                          </div>
+                        </div>
+                      ) : null}
+
+                      {cartPromoGroups.dia.length > 0 ? (
+                        <div className="cart-deals-group">
+                          <p className="cart-deals-group-title store-dia">Día</p>
+                          <div className="cart-deals-list">
+                            {cartPromoGroups.dia.map(renderPromoOption)}
+                          </div>
+                        </div>
+                      ) : null}
                     </div>
-                  ) : null}
-                </div>
+                  </>
+                ) : null}
               </section>
 
               <ul className="cart-list">
