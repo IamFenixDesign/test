@@ -25,6 +25,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -55,6 +56,11 @@ fun LoginScreen(
     var confirm by remember { mutableStateOf("") }
     var code by remember { mutableStateOf("") }
     var pendingEmail by remember { mutableStateOf("") }
+
+    LaunchedEffect(info) {
+        val match = Regex("""Tu código es (\d{6})""").find(info)
+        if (match != null) code = match.groupValues[1]
+    }
 
     val verifyEmail = when {
         error.startsWith("needs_verify:") -> error.removePrefix("needs_verify:")

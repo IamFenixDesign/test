@@ -142,7 +142,7 @@ class StockeaApi(context: Context) {
         return AuthResult.Ok(user)
     }
 
-    fun register(firstName: String, lastName: String, email: String, password: String): String {
+    fun register(firstName: String, lastName: String, email: String, password: String): Pair<String, String?> {
         val data = request(
             "POST",
             "/api/auth",
@@ -153,7 +153,9 @@ class StockeaApi(context: Context) {
                 .put("email", email)
                 .put("password", password),
         )
-        return data.optString("email", email)
+        val pendingEmail = data.optString("email", email)
+        val code = data.optString("code", "").ifBlank { null }
+        return pendingEmail to code
     }
 
     fun verify(email: String, code: String): User {

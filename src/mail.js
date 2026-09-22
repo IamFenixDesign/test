@@ -8,6 +8,26 @@ function mailConfigured() {
   return Boolean(process.env.RESEND_API_KEY || process.env.SMTP_HOST)
 }
 
+function normalizeEmail(email) {
+  return String(email || '')
+    .trim()
+    .toLowerCase()
+}
+
+/** Resend's shared testing sender — only delivers to the account owner. */
+export function isResendSandboxFrom(from = mailFrom()) {
+  return /@resend\.dev\b/i.test(String(from || ''))
+}
+
+export function resendAccountEmail() {
+  return normalizeEmail(process.env.RESEND_ACCOUNT_EMAIL || 'julian.javier95@hotmail.com')
+}
+
+function isSandboxRecipientError(error) {
+  const msg = String(error?.message || error || '')
+  return /only send testing emails|verify a domain at resend\.com\/domains/i.test(msg)
+}
+
 function getResend() {
   const key = process.env.RESEND_API_KEY
   if (!key) return null
@@ -18,7 +38,7 @@ async function sendWithResend({ to, subject, html, text }) {
   const resend = getResend()
   const { error } = await resend.emails.send({
     from: mailFrom(),
-    to,
+    to: normalizeEmail(to),
     subject,
     html,
     text,
@@ -46,6 +66,9 @@ async function sendWithSmtp({ to, subject, html, text }) {
   })
 }
 
+/**
+ * @returns {Promise<{ delivered: boolean, sandbox?: boolean }>}
+ */
 export async function sendCodeEmail({ to, firstName, code, purpose = 'verify' }) {
   if (!mailConfigured()) {
     const error = new Error('Falta configurar el envío de correo')
@@ -67,12 +90,26 @@ export async function sendCodeEmail({ to, firstName, code, purpose = 'verify' })
   `
 
   if (process.env.RESEND_API_KEY) {
-    await sendWithResend({ to, subject, html, text })
-    return
+    const recipient = normalizeEmail(to)
+    // Shared resend.dev sender cannot deliver to anyone except the account email.
+    if (isResendSandboxFrom() && recipient !== resendAccountEmail()) {
+      return { delivered: false, sandbox: true }
+    }
+    try {
+      await sendWithResend({ to: recipient, subject, html, text })
+      return { delivered: true }
+    } catch (error) {
+      if (isSandboxRecipientError(error)) {
+        return { delivered: false, sandbox: true }
+      }
+      throw error
+    }
   }
+
   await sendWithSmtp({ to, subject, html, text })
+  return { delivered: true }
 }
 
 export async function sendVerificationEmail(payload) {
-  await sendCodeEmail({ ...payload, purpose: 'verify' })
+  return sendCodeEmail({ ...payload, purpose: 'verify' })
 }
