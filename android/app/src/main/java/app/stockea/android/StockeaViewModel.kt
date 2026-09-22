@@ -513,10 +513,14 @@ class StockeaViewModel(app: Application) : AndroidViewModel(app) {
             val nextListDia = dia?.let { listPriceOfProduct(it) } ?: current.listPriceDia
             val source = current.priceSource
             val nextPrice = when {
+                source == "custom" -> current.price
                 source == "coto" && nextCoto > 0 -> nextCoto
                 source == "carrefour" && nextCarrefour > 0 -> nextCarrefour
                 source == "dia" && nextDia > 0 -> nextDia
-                else -> current.price
+                else -> {
+                    val prices = listOf(nextCoto, nextCarrefour, nextDia).filter { it > 0 }
+                    if (prices.isNotEmpty()) prices.minOrNull()!! else current.price
+                }
             }
             val sourceProduct = when (source) {
                 "coto" -> coto

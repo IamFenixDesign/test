@@ -19,7 +19,8 @@ const THEME_KEY = 'stockly-theme'
 const CATEGORIES = ['Alimentos', 'Bebidas', 'Limpieza', 'Papelería', 'Insumos']
 const FILTER_CATEGORIES = ['Todo', ...CATEGORIES]
 const SYNC_MS = 2500
-const DIRTY_MS = 2500
+/** Protege ediciones locales (y refresh de precios) del pull remoto. */
+const DIRTY_MS = 12_000
 /** Evita disparos duplicados (focus + visibility); el refresh es al instante al usar la app. */
 const PRICE_REFRESH_MS = 2 * 1000
 /** Mientras la app está visible, vuelve a consultar supers cada minuto. */
@@ -540,6 +541,26 @@ function listPriceOfProduct(product) {
   if (list > 0) return list
   const price = Number(product?.price)
   return price > 0 ? price : 0
+}
+
+/**
+ * Precio que se muestra en la lista de stock tras refrescar supers.
+ * - custom: no tocar
+ * - coto/carrefour/dia: precio de esa fuente
+ * - sin fuente: el más barato disponible
+ */
+function resolvedStockPrice(source, nextCoto, nextCarrefour, nextDia, fallback) {
+  const coto = Number(nextCoto) || 0
+  const carrefour = Number(nextCarrefour) || 0
+  const dia = Number(nextDia) || 0
+  const prev = Number(fallback) || 0
+  if (source === 'custom') return prev
+  if (source === 'coto' && coto > 0) return coto
+  if (source === 'carrefour' && carrefour > 0) return carrefour
+  if (source === 'dia' && dia > 0) return dia
+  const prices = [coto, carrefour, dia].filter((value) => value > 0)
+  if (prices.length) return Math.min(...prices)
+  return prev
 }
 
 /** Une resultados web de Coto / Carrefour / Día por EAN para Comparar. */
@@ -2195,14 +2216,13 @@ function App() {
             : entry.listPriceCarrefour
           const nextListDia = dia ? listPriceOfProduct(dia) : entry.listPriceDia
           const source = entry.priceSource
-          const nextPrice =
-            source === 'coto' && nextCoto
-              ? nextCoto
-              : source === 'carrefour' && nextCarrefour
-                ? nextCarrefour
-                : source === 'dia' && nextDia
-                  ? nextDia
-                  : entry.price
+          const nextPrice = resolvedStockPrice(
+            source,
+            nextCoto,
+            nextCarrefour,
+            nextDia,
+            entry.price,
+          )
           const sourceProduct =
             source === 'coto'
               ? coto
@@ -2260,6 +2280,8 @@ function App() {
         })
         const saved = next.find((entry) => entry.id === item.id)
         if (saved) persistItem(saved)
+        // Evitar que pullRemote lea precios viejos desde itemsRef mientras setState pende.
+        itemsRef.current = next
         return next
       })
       priceRefreshAtRef.current.set(item.id, Date.now())
