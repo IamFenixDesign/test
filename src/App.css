@@ -2512,6 +2512,13 @@ html.cart-open .cart-sheet-footer {
   letter-spacing: -0.02em;
 }
 
+.compare-price .compare-discount {
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: var(--accent-text);
+  line-height: 1.2;
+}
+
 .compare-price.store-coto em {
   color: #e45a62;
 }
