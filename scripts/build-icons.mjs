@@ -5,11 +5,13 @@ import sharp from 'sharp'
 
 const outDir = join(dirname(fileURLToPath(import.meta.url)), '..', 'public')
 
-function iconSvg({ size, pad = 0.06 }) {
-  const inner = size * (1 - pad * 2)
-  const scale = (inner / 32) * 1.38
-  const logoSize = 32 * scale
-  const tx = (size - logoSize) / 2
+/** Scale so the cube (~20u of 32) fills most of the canvas. */
+const LOGO_BOOST = 1.55
+
+function iconSvg({ size, pad = 0.04 }) {
+  const fillScale = ((size * (1 - pad * 2)) / 32) * LOGO_BOOST
+  const logoBox = 32 * fillScale
+  const tx = (size - logoBox) / 2
   return `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">
   <defs>
@@ -25,7 +27,7 @@ function iconSvg({ size, pad = 0.06 }) {
   <rect width="${size}" height="${size}" fill="#0b0d0c"/>
   <rect width="${size}" height="${size}" fill="url(#glowLime)"/>
   <rect width="${size}" height="${size}" fill="url(#glowMint)"/>
-  <g transform="translate(${tx} ${tx}) scale(${scale})">
+  <g transform="translate(${tx} ${tx}) scale(${fillScale})">
     <path fill="#d4f562" d="M16 6.1 25.4 11.1 16 16.1 6.6 11.1Z"/>
     <path fill="#7a9c24" d="M6.6 11.1 16 16.1v9.8L6.6 20.9Z"/>
     <path fill="#7ee2b8" d="M25.4 11.1 16 16.1v9.8l9.4-5Z"/>
@@ -41,10 +43,10 @@ async function writePng(name, svg) {
 await mkdir(outDir, { recursive: true })
 
 await writePng('favicon-32.png', iconSvg({ size: 32, pad: 0.02 }))
-await writePng('apple-touch-icon.png', iconSvg({ size: 180, pad: 0.06 }))
-await writePng('icon-192.png', iconSvg({ size: 192, pad: 0.05 }))
-await writePng('icon-512.png', iconSvg({ size: 512, pad: 0.05 }))
-await writePng('icon-192-maskable.png', iconSvg({ size: 192, pad: 0.12 }))
-await writePng('icon-512-maskable.png', iconSvg({ size: 512, pad: 0.12 }))
+await writePng('apple-touch-icon.png', iconSvg({ size: 180, pad: 0.04 }))
+await writePng('icon-192.png', iconSvg({ size: 192, pad: 0.03 }))
+await writePng('icon-512.png', iconSvg({ size: 512, pad: 0.03 }))
+await writePng('icon-192-maskable.png', iconSvg({ size: 192, pad: 0.1 }))
+await writePng('icon-512-maskable.png', iconSvg({ size: 512, pad: 0.1 }))
 
 console.log('icons generated')
