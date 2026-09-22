@@ -466,26 +466,86 @@ function storePriceOf(item, store) {
 }
 
 /** Precio de lista (sin promo web) para el comparador. */
-function storeListPriceOf(item, store) {
-  if (!item) return 0
-  if (store === 'coto') {
-    const list = Number(item.listPriceCoto)
-    if (list > 0) return list
-  } else if (store === 'carrefour') {
-    const list = Number(item.listPriceCarrefour)
-    if (list > 0) return list
-  } else if (store === 'dia') {
-    const list = Number(item.listPriceDia)
-    if (list > 0) return list
-  }
-  return storePriceOf(item, store)
-}
-
 function listPriceOfProduct(product) {
   const list = Number(product?.listPrice)
   if (list > 0) return list
   const price = Number(product?.price)
   return price > 0 ? price : 0
+}
+
+/** Une resultados web de Coto / Carrefour / Día por EAN para Comparar. */
+function buildWebCompareRows({ coto = [], carrefour = [], dia = [] }) {
+  const used = {
+    coto: new Set(),
+    carrefour: new Set(),
+    dia: new Set(),
+  }
+
+  function findByEan(list, store, ean) {
+    if (!ean) return -1
+    return list.findIndex((product, index) => !used[store].has(index) && product.ean && product.ean === ean)
+  }
+
+  const rows = []
+
+  function pushSeed(store, index, list) {
+    if (used[store].has(index)) return
+    const seed = list[index]
+    used[store].add(index)
+
+    const cotoIdx = store === 'coto' ? index : findByEan(coto, 'coto', seed.ean)
+    const carrefourIdx =
+      store === 'carrefour' ? index : findByEan(carrefour, 'carrefour', seed.ean)
+    const diaIdx = store === 'dia' ? index : findByEan(dia, 'dia', seed.ean)
+
+    if (cotoIdx >= 0) used.coto.add(cotoIdx)
+    if (carrefourIdx >= 0) used.carrefour.add(carrefourIdx)
+    if (diaIdx >= 0) used.dia.add(diaIdx)
+
+    const cotoProduct = cotoIdx >= 0 ? coto[cotoIdx] : null
+    const carrefourProduct = carrefourIdx >= 0 ? carrefour[carrefourIdx] : null
+    const diaProduct = diaIdx >= 0 ? dia[diaIdx] : null
+    const primary = cotoProduct || carrefourProduct || diaProduct
+    if (!primary) return
+
+    const cotoPrice = listPriceOfProduct(cotoProduct)
+    const carrefourPrice = listPriceOfProduct(carrefourProduct)
+    const diaPrice = listPriceOfProduct(diaProduct)
+    const cheapest = cheaperOf(cotoPrice, carrefourPrice, diaPrice)
+    const prices = [cotoPrice, carrefourPrice, diaPrice].filter((value) => value > 0)
+    const highest = prices.length ? Math.max(...prices) : 0
+    const lowest = prices.length ? Math.min(...prices) : 0
+    const saving = highest > 0 && lowest > 0 ? highest - lowest : 0
+    const ean = primary.ean || ''
+    const id = ean || `${store}:${index}:${primary.name}`
+
+    rows.push({
+      id,
+      item: {
+        id,
+        name: primary.name,
+        barcode: ean,
+        image: primary.image || cotoProduct?.image || carrefourProduct?.image || diaProduct?.image || '',
+        priceSource: primary.store,
+      },
+      coto: cotoPrice,
+      carrefour: carrefourPrice,
+      dia: diaPrice,
+      cheapest,
+      saving,
+      storeCount: prices.length,
+    })
+  }
+
+  coto.forEach((_, index) => pushSeed('coto', index, coto))
+  carrefour.forEach((_, index) => pushSeed('carrefour', index, carrefour))
+  dia.forEach((_, index) => pushSeed('dia', index, dia))
+
+  return rows.sort((a, b) => {
+    if (b.storeCount !== a.storeCount) return b.storeCount - a.storeCount
+    if (b.saving !== a.saving) return b.saving - a.saving
+    return a.item.name.localeCompare(b.item.name, 'es')
+  })
 }
 
 function storeLabel(store) {
@@ -993,6 +1053,10 @@ function App() {
   const [category, setCategory] = useState('Todo')
   const [comparePage, setComparePage] = useState(0)
   const [comparePageSize, setComparePageSize] = useState(COMPARE_PAGE_SIZE)
+  const [compareQuery, setCompareQuery] = useState('')
+  const [compareRows, setCompareRows] = useState([])
+  const [compareLoading, setCompareLoading] = useState(false)
+  const [compareError, setCompareError] = useState('')
   const [modal, setModal] = useState(null)
   const [pendingDelete, setPendingDelete] = useState(null)
   const [editingId, setEditingId] = useState(null)
@@ -1246,33 +1310,6 @@ function App() {
   }, [hydrated, user?.id])
 
   useEffect(() => {
-    if (!hydrated || !user?.id || mainView !== 'compare') return undefined
-    let cancelled = false
-
-    function needsListPrice(item) {
-      const stores = [
-        [item.priceCoto, item.listPriceCoto],
-        [item.priceCarrefour, item.listPriceCarrefour],
-        [item.priceDia, item.listPriceDia],
-      ]
-      return stores.some(([price, list]) => Number(price) > 0 && !(Number(list) > 0))
-    }
-
-    async function backfillListPrices() {
-      const pending = itemsRef.current.filter(needsListPrice)
-      for (const item of pending) {
-        if (cancelled) return
-        await refreshStorePricesRef.current(item, { silent: true })
-      }
-    }
-
-    backfillListPrices()
-    return () => {
-      cancelled = true
-    }
-  }, [hydrated, user?.id, mainView])
-
-  useEffect(() => {
     if (!searchOpen) return
     searchInputRef.current?.focus()
   }, [searchOpen])
@@ -1347,42 +1384,12 @@ function App() {
     return { units, low, out }
   }, [items])
 
-  const compareRows = useMemo(() => {
-    const q = query.trim().toLowerCase()
-    return items
-      .map((item) => {
-        const coto = storeListPriceOf(item, 'coto')
-        const carrefour = storeListPriceOf(item, 'carrefour')
-        const dia = storeListPriceOf(item, 'dia')
-        const cheapest = cheaperOf(coto, carrefour, dia)
-        const prices = [coto, carrefour, dia].filter((value) => value > 0)
-        const highest = prices.length ? Math.max(...prices) : 0
-        const lowest = prices.length ? Math.min(...prices) : 0
-        const saving = highest > 0 && lowest > 0 ? highest - lowest : 0
-        const storeCount = prices.length
-        return { item, coto, carrefour, dia, cheapest, saving, storeCount }
-      })
-      .filter((row) => {
-        if (!q) return true
-        return (
-          row.item.name.toLowerCase().includes(q) ||
-          barcodeOf(row.item).toLowerCase().includes(q)
-        )
-      })
-      .sort((a, b) => {
-        if (b.storeCount !== a.storeCount) return b.storeCount - a.storeCount
-        if (b.saving !== a.saving) return b.saving - a.saving
-        return a.item.name.localeCompare(b.item.name, 'es')
-      })
-  }, [items, query])
-
   const comparePageCount = Math.max(1, Math.ceil(compareRows.length / comparePageSize) || 1)
   const comparePageSafe = Math.min(comparePage, comparePageCount - 1)
   const comparePageRows = useMemo(() => {
     const start = comparePageSafe * comparePageSize
     return compareRows.slice(start, start + comparePageSize)
   }, [compareRows, comparePageSafe, comparePageSize])
-
 
   useEffect(() => {
     const mq = window.matchMedia('(min-width: 761px)')
@@ -1394,7 +1401,7 @@ function App() {
 
   useEffect(() => {
     setComparePage(0)
-  }, [query])
+  }, [compareQuery])
 
   useEffect(() => {
     if (mainView === 'compare') setComparePage(0)
@@ -1403,6 +1410,60 @@ function App() {
   useEffect(() => {
     if (comparePage > comparePageCount - 1) setComparePage(Math.max(0, comparePageCount - 1))
   }, [comparePage, comparePageCount])
+
+  useEffect(() => {
+    if (mainView !== 'compare') return undefined
+
+    const q = compareQuery.trim()
+    if (!q) {
+      setCompareRows([])
+      setCompareLoading(false)
+      setCompareError('')
+      return undefined
+    }
+
+    let cancelled = false
+    const timer = setTimeout(async () => {
+      setCompareLoading(true)
+      setCompareError('')
+      try {
+        const data = await searchSupermarkets(q, { limit: 48 })
+        if (cancelled) return
+        setCompareRows(
+          buildWebCompareRows({
+            coto: data.coto || [],
+            carrefour: data.carrefour || [],
+            dia: data.dia || [],
+          }),
+        )
+        const failed = [data.errors?.coto, data.errors?.carrefour, data.errors?.dia].filter(Boolean)
+        if (
+          failed.length === 3 ||
+          (!(data.coto || []).length &&
+            !(data.carrefour || []).length &&
+            !(data.dia || []).length)
+        ) {
+          setCompareError(
+            failed.length
+              ? 'No se pudieron consultar Coto, Carrefour y Día.'
+              : 'No hay productos web para esa búsqueda.',
+          )
+        }
+      } catch {
+        if (!cancelled) {
+          setCompareRows([])
+          setCompareError('No se pudieron consultar Coto, Carrefour y Día.')
+        }
+      } finally {
+        if (!cancelled) setCompareLoading(false)
+      }
+    }, 350)
+
+    return () => {
+      cancelled = true
+      clearTimeout(timer)
+    }
+  }, [compareQuery, mainView])
 
   const cartLines = useMemo(() => {
     return items
@@ -2533,33 +2594,41 @@ function App() {
                 <path d="m20 20-3.2-3.2" />
               </svg>
               <input
-                value={query}
-                onChange={(event) => setQuery(event.target.value)}
-                placeholder="Buscar producto para comparar"
+                value={compareQuery}
+                onChange={(event) => setCompareQuery(event.target.value)}
+                placeholder="Buscar en Coto, Carrefour y Día"
+                autoComplete="off"
               />
             </label>
           </div>
 
-          {compareRows.length === 0 ? (
+          {!compareQuery.trim() ? (
             <div className="empty">
-              <h3>{items.length === 0 ? 'Sin productos' : 'Sin resultados'}</h3>
-              <p>
-                {items.length === 0
-                  ? 'Agregá productos para verlos en el comparador.'
-                  : 'No hay productos que coincidan con la búsqueda.'}
-              </p>
+              <h3>Comparar en la web</h3>
+              <p>Buscá un producto para ver precios de Coto, Carrefour y Día.</p>
+            </div>
+          ) : compareLoading && compareRows.length === 0 ? (
+            <div className="empty">
+              <h3>Buscando…</h3>
+              <p>Consultando Coto, Carrefour y Día.</p>
+            </div>
+          ) : compareRows.length === 0 ? (
+            <div className="empty">
+              <h3>Sin resultados</h3>
+              <p>{compareError || 'No hay productos web que coincidan con la búsqueda.'}</p>
             </div>
           ) : (
             <>
               <p className="compare-meta">
-                {compareRows.length} producto{compareRows.length === 1 ? '' : 's'}
+                {compareLoading ? 'Actualizando… · ' : ''}
+                {compareRows.length} producto{compareRows.length === 1 ? '' : 's'} web
                 {comparePageCount > 1
                   ? ` · página ${comparePageSafe + 1} de ${comparePageCount}`
                   : ''}
               </p>
               <ul className="compare-list">
                 {comparePageRows.map((row) => (
-                  <li key={row.item.id} className="compare-card">
+                  <li key={row.id} className="compare-card">
                     <div className="compare-head">
                       <ItemThumb item={row.item} />
                       <div className="compare-copy">
