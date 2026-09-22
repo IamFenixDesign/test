@@ -2841,13 +2841,79 @@ html[data-theme="light"] .store-col-title.dia {
   }
 
   .cart-deals-panel {
-    max-height: min(42vh, 300px);
+    max-height: min(48vh, 340px);
     gap: 8px;
     padding: 10px;
   }
 
   .cart-deals-title {
     font-size: 1.15rem;
+  }
+
+  .cart-deals-body {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+    align-items: start;
+  }
+
+  .cart-deals-group {
+    gap: 6px;
+    min-width: 0;
+  }
+
+  .cart-deals-group-title {
+    font-size: 0.64rem;
+    letter-spacing: 0.06em;
+    text-align: center;
+  }
+
+  .cart-deals-list {
+    gap: 5px;
+  }
+
+  .cart-deal {
+    grid-template-columns: 1fr;
+    gap: 4px;
+    justify-items: center;
+    align-content: start;
+    min-height: 0;
+    padding: 8px 6px 10px;
+    text-align: center;
+  }
+
+  .cart-deal-pct {
+    width: 100%;
+    min-height: 30px;
+    font-size: 0.82rem;
+    border-radius: 8px;
+  }
+
+  .cart-deal-copy {
+    width: 100%;
+    gap: 0;
+  }
+
+  .cart-deal-copy strong {
+    white-space: normal;
+    font-size: 0.68rem;
+    line-height: 1.2;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  .cart-deal-copy span {
+    display: none;
+  }
+
+  .cart-deal-check {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    width: 12px;
+    height: 12px;
+    justify-self: auto;
   }
 
   .cart-list {
