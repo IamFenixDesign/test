@@ -35,6 +35,9 @@ data class StockItem(
     val urlCoto: String = "",
     val urlCarrefour: String = "",
     val urlDia: String = "",
+    val discountCoto: String = "",
+    val discountCarrefour: String = "",
+    val discountDia: String = "",
 ) {
     /** Stock bajo solo si está por debajo del mínimo (igual a la web). */
     val isLowStock: Boolean
@@ -224,6 +227,9 @@ fun JSONObject.toStockItem(): StockItem = StockItem(
     urlCoto = optString("urlCoto"),
     urlCarrefour = optString("urlCarrefour"),
     urlDia = optString("urlDia"),
+    discountCoto = optString("discountCoto"),
+    discountCarrefour = optString("discountCarrefour"),
+    discountDia = optString("discountDia"),
 )
 
 fun JSONObject.toStoreProduct(): StoreProduct {
@@ -289,6 +295,9 @@ fun StockItem.toJson(): JSONObject = JSONObject()
     .put("urlCoto", urlCoto)
     .put("urlCarrefour", urlCarrefour)
     .put("urlDia", urlDia)
+    .put("discountCoto", discountCoto)
+    .put("discountCarrefour", discountCarrefour)
+    .put("discountDia", discountDia)
 
 fun JSONArray.toStockItems(): List<StockItem> = buildList {
     for (i in 0 until length()) add(getJSONObject(i).toStockItem())
