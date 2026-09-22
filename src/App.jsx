@@ -20,6 +20,10 @@ const CATEGORIES = ['Alimentos', 'Bebidas', 'Limpieza', 'Papelería', 'Insumos']
 const FILTER_CATEGORIES = ['Todo', ...CATEGORIES]
 const SYNC_MS = 2500
 const DIRTY_MS = 2500
+/** Cada ítem se vuelve a consultar en supers como máximo cada 15 min. */
+const PRICE_REFRESH_MS = 15 * 60 * 1000
+/** Revisa ítems vencidos cada minuto mientras la app está visible. */
+const PRICE_REFRESH_TICK_MS = 60 * 1000
 const COMPARE_PAGE_SIZE = 10
 const syncChannel = typeof BroadcastChannel === 'function' ? new BroadcastChannel('stockly-inventory') : null
 
@@ -129,6 +133,19 @@ function money(value) {
 
 function barcodeOf(item) {
   return String(item?.barcode || item?.ean || item?.sku || '').trim()
+}
+
+/** Solo ítems con vínculo a Coto/Carrefour/Día se refrescan solos. */
+function tracksStorePrices(item) {
+  if (!item) return false
+  const source = String(item.priceSource || '')
+  if (source === 'coto' || source === 'carrefour' || source === 'dia') return true
+  if (barcodeOf(item)) return true
+  return (
+    Number(item.priceCoto) > 0 ||
+    Number(item.priceCarrefour) > 0 ||
+    Number(item.priceDia) > 0
+  )
 }
 
 function normalizeProductName(name) {
@@ -1150,6 +1167,7 @@ function App() {
   const deletedIdsRef = useRef(new Set())
   const dirtyIdsRef = useRef(new Map())
   const lastAutoRefreshRef = useRef(0)
+  const priceRefreshAtRef = useRef(new Map())
   const refreshStorePricesRef = useRef(async () => {})
   const lastScrollYRef = useRef(0)
   itemsRef.current = items
@@ -1274,6 +1292,7 @@ function App() {
       setItems([])
       setHydrated(false)
       lastAutoRefreshRef.current = 0
+      priceRefreshAtRef.current = new Map()
       return undefined
     }
     let cancelled = false
@@ -1395,26 +1414,54 @@ function App() {
   useEffect(() => {
     if (!hydrated || !user?.id) return undefined
     let cancelled = false
+    let running = false
 
-    async function refreshAll() {
-      const now = Date.now()
-      if (lastAutoRefreshRef.current && now - lastAutoRefreshRef.current < 10 * 60 * 1000) return
-      lastAutoRefreshRef.current = now
-      const list = itemsRef.current
-      for (const item of list) {
-        if (cancelled) return
-        await refreshStorePricesRef.current(item, { silent: true })
+    async function refreshStale() {
+      if (cancelled || running) return
+      if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return
+      running = true
+      try {
+        const now = Date.now()
+        const stale = itemsRef.current.filter((item) => {
+          if (!item?.id) return false
+          if (!tracksStorePrices(item)) return false
+          const last = priceRefreshAtRef.current.get(item.id) || 0
+          return now - last >= PRICE_REFRESH_MS
+        })
+        for (const item of stale) {
+          if (cancelled) return
+          await refreshStorePricesRef.current(item, { silent: true })
+          priceRefreshAtRef.current.set(item.id, Date.now())
+        }
+        if (stale.length) lastAutoRefreshRef.current = Date.now()
+      } finally {
+        running = false
       }
     }
 
-    refreshAll()
+    // Tras hidratar: actualizar precios/descuentos de Coto, Carrefour y Día
+    const bootTimer = window.setTimeout(() => {
+      refreshStale()
+    }, 1200)
+    const tick = window.setInterval(() => {
+      refreshStale()
+    }, PRICE_REFRESH_TICK_MS)
+
     function onVisible() {
-      if (document.visibilityState === 'visible') refreshAll()
+      if (document.visibilityState === 'visible') refreshStale()
     }
+    function onFocus() {
+      refreshStale()
+    }
+
     document.addEventListener('visibilitychange', onVisible)
+    window.addEventListener('focus', onFocus)
     return () => {
       cancelled = true
+      window.clearTimeout(bootTimer)
+      window.clearInterval(tick)
       document.removeEventListener('visibilitychange', onVisible)
+      window.removeEventListener('focus', onFocus)
     }
   }, [hydrated, user?.id])
 
@@ -2215,6 +2262,7 @@ function App() {
         if (saved) persistItem(saved)
         return next
       })
+      priceRefreshAtRef.current.set(item.id, Date.now())
       if (!silent) showToast(`Precios de ${item.name} actualizados`)
     } catch {
       if (!silent) showToast('No se pudieron consultar los supermercados')

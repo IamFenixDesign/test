@@ -89,6 +89,9 @@ data class NewItemDraft(
     val urlCoto: String = "",
     val urlCarrefour: String = "",
     val urlDia: String = "",
+    val discountCoto: String = "",
+    val discountCarrefour: String = "",
+    val discountDia: String = "",
 )
 
 private val CotoColor = Color(0xFFFF4D66)
@@ -708,6 +711,10 @@ fun NewItemSheet(
                                     urlCoto = urlCoto,
                                     urlCarrefour = urlCarrefour,
                                     urlDia = urlDia,
+                                    discountCoto = if (priceSource == "custom") "" else discountCoto,
+                                    discountCarrefour =
+                                        if (priceSource == "custom") "" else discountCarrefour,
+                                    discountDia = if (priceSource == "custom") "" else discountDia,
                                 ),
                             )
                         },
