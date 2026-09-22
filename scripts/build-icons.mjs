@@ -5,10 +5,11 @@ import sharp from 'sharp'
 
 const outDir = join(dirname(fileURLToPath(import.meta.url)), '..', 'public')
 
-function iconSvg({ size, pad = 0.18 }) {
+function iconSvg({ size, pad = 0.06 }) {
   const inner = size * (1 - pad * 2)
-  const scale = inner / 32
-  const tx = size * pad
+  const scale = (inner / 32) * 1.38
+  const logoSize = 32 * scale
+  const tx = (size - logoSize) / 2
   return `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">
   <defs>
@@ -39,11 +40,11 @@ async function writePng(name, svg) {
 
 await mkdir(outDir, { recursive: true })
 
-await writePng('favicon-32.png', iconSvg({ size: 32, pad: 0.12 }))
-await writePng('apple-touch-icon.png', iconSvg({ size: 180, pad: 0.18 }))
-await writePng('icon-192.png', iconSvg({ size: 192, pad: 0.16 }))
-await writePng('icon-512.png', iconSvg({ size: 512, pad: 0.16 }))
-await writePng('icon-192-maskable.png', iconSvg({ size: 192, pad: 0.22 }))
-await writePng('icon-512-maskable.png', iconSvg({ size: 512, pad: 0.22 }))
+await writePng('favicon-32.png', iconSvg({ size: 32, pad: 0.02 }))
+await writePng('apple-touch-icon.png', iconSvg({ size: 180, pad: 0.06 }))
+await writePng('icon-192.png', iconSvg({ size: 192, pad: 0.05 }))
+await writePng('icon-512.png', iconSvg({ size: 512, pad: 0.05 }))
+await writePng('icon-192-maskable.png', iconSvg({ size: 192, pad: 0.12 }))
+await writePng('icon-512-maskable.png', iconSvg({ size: 512, pad: 0.12 }))
 
 console.log('icons generated')
