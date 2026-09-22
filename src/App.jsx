@@ -37,6 +37,7 @@ const emptyForm = {
   category: 'Alimentos',
   quantity: 1,
   minStock: 5,
+  qtyUnit: 'unit',
   price: '',
   priceSource: '',
   priceCoto: '',
@@ -82,10 +83,12 @@ function loadLegacyItems() {
 
 function normalizeItemCounts(item) {
   if (!item || typeof item !== 'object') return item
+  const qtyUnit = item.qtyUnit === 'kg' ? 'kg' : 'unit'
   return {
     ...item,
-    quantity: toCount(item.quantity),
-    minStock: toCount(item.minStock),
+    qtyUnit,
+    quantity: normalizeQty(item.quantity, qtyUnit),
+    minStock: normalizeQty(item.minStock, qtyUnit),
   }
 }
 
@@ -155,6 +158,7 @@ function mergeItemRecords(base, incoming) {
     category: incoming.category || base.category,
     quantity: Number(base.quantity || 0) + (Number.isFinite(extraQty) ? extraQty : 0),
     minStock: Math.max(Number(base.minStock || 0), Number(incoming.minStock || 0)),
+    qtyUnit: incoming.qtyUnit === 'kg' || base.qtyUnit === 'kg' ? 'kg' : 'unit',
     price: incoming.price || base.price,
     priceSource: incoming.priceSource || base.priceSource,
     priceCoto: incoming.priceCoto || base.priceCoto,
@@ -204,6 +208,33 @@ function toCount(value) {
   return Number.isFinite(n) ? n : 0
 }
 
+function qtyUnitOf(item) {
+  return item?.qtyUnit === 'kg' ? 'kg' : 'unit'
+}
+
+function qtyStep(unit) {
+  return unit === 'kg' ? 0.1 : 1
+}
+
+function normalizeQty(value, unit = 'unit') {
+  const n = Number(value)
+  if (!Number.isFinite(n) || n < 0) return 0
+  if (unit === 'kg') return Math.round(n * 10) / 10
+  return Math.round(n)
+}
+
+function formatQty(value, unit = 'unit') {
+  const n = normalizeQty(value, unit)
+  if (unit === 'kg') {
+    return `${n.toLocaleString('es-AR', { minimumFractionDigits: 0, maximumFractionDigits: 1 })} kg`
+  }
+  return String(n)
+}
+
+function qtyUnitLabel(unit) {
+  return unit === 'kg' ? 'kg' : 'u.'
+}
+
 function statusOf(item) {
   const quantity = toCount(item?.quantity)
   const minStock = toCount(item?.minStock)
@@ -217,7 +248,8 @@ function statusOf(item) {
 function neededToMin(item) {
   const quantity = toCount(item?.quantity)
   const minStock = toCount(item?.minStock)
-  return Math.max(0, minStock - quantity)
+  const need = Math.max(0, minStock - quantity)
+  return normalizeQty(need, qtyUnitOf(item))
 }
 
 function shouldAutoCart(item) {
@@ -1503,7 +1535,9 @@ function App() {
   }
 
   function updateQty(id, next) {
-    const quantity = Math.max(0, next)
+    const current = itemsRef.current.find((entry) => entry.id === id)
+    const unit = qtyUnitOf(current)
+    const quantity = normalizeQty(Math.max(0, next), unit)
     dirtyIdsRef.current.set(id, Date.now())
     setItems((prev) => prev.map((item) => (item.id === id ? { ...item, quantity } : item)))
     clearTimeout(qtySyncRef.current[id])
@@ -1525,7 +1559,7 @@ function App() {
       prev.map((item) => {
         const need = bumps.get(item.id)
         if (!need) return item
-        return { ...item, quantity: toCount(item.quantity) + need }
+        return { ...item, quantity: normalizeQty(toCount(item.quantity) + need, qtyUnitOf(item)) }
       }),
     )
     for (const line of cartLines) {
@@ -1619,6 +1653,7 @@ function App() {
       category: item.category,
       quantity: item.quantity,
       minStock: item.minStock,
+      qtyUnit: qtyUnitOf(item),
       price: item.price ? String(item.price) : '',
       priceSource: item.priceSource || '',
       priceCoto: item.priceCoto ? String(item.priceCoto) : '',
@@ -1878,14 +1913,19 @@ function App() {
       setError('El nombre es obligatorio.')
       return
     }
-    const quantity = Number(form.quantity)
-    const minStock = Number(form.minStock)
+    const unit = form.qtyUnit === 'kg' ? 'kg' : 'unit'
+    const quantity = normalizeQty(Number(String(form.quantity).replace(',', '.')), unit)
+    const minStock = normalizeQty(Number(String(form.minStock).replace(',', '.')), unit)
     const price = Number(String(form.price || '').replace(',', '.'))
     const source = form.priceSource
     const sourceOk =
       source === 'coto' || source === 'carrefour' || source === 'dia' || source === 'custom'
-    if (!Number.isFinite(quantity) || quantity < 0) {
+    if (!Number.isFinite(Number(form.quantity)) || quantity < 0) {
       setError('La cantidad no es válida.')
+      return
+    }
+    if (!Number.isFinite(Number(form.minStock)) || minStock < 0) {
+      setError('El stock mínimo no es válido.')
       return
     }
     if (!sourceOk || !Number.isFinite(price) || price <= 0) {
@@ -1905,7 +1945,8 @@ function App() {
       barcode: form.barcode.trim(),
       category: form.category,
       quantity,
-      minStock: Number.isFinite(minStock) ? minStock : 0,
+      minStock,
+      qtyUnit: unit,
       price,
       priceSource: source,
       priceCoto: Number(form.priceCoto) || 0,
@@ -2218,11 +2259,19 @@ function App() {
                             </td>
                             <td>
                               <div className="qty">
-                                <button type="button" onClick={() => updateQty(item.id, item.quantity - 1)} aria-label="Restar">
+                                <button
+                                  type="button"
+                                  onClick={() => updateQty(item.id, item.quantity - qtyStep(qtyUnitOf(item)))}
+                                  aria-label="Restar"
+                                >
                                   −
                                 </button>
-                                <output>{item.quantity}</output>
-                                <button type="button" onClick={() => updateQty(item.id, item.quantity + 1)} aria-label="Sumar">
+                                <output>{formatQty(item.quantity, qtyUnitOf(item))}</output>
+                                <button
+                                  type="button"
+                                  onClick={() => updateQty(item.id, item.quantity + qtyStep(qtyUnitOf(item)))}
+                                  aria-label="Sumar"
+                                >
                                   +
                                 </button>
                               </div>
@@ -2276,11 +2325,19 @@ function App() {
                           </div>
                           <div className="item-card-meta">
                             <div className="qty">
-                              <button type="button" onClick={() => updateQty(item.id, item.quantity - 1)} aria-label="Restar">
+                              <button
+                                type="button"
+                                onClick={() => updateQty(item.id, item.quantity - qtyStep(qtyUnitOf(item)))}
+                                aria-label="Restar"
+                              >
                                 −
                               </button>
-                              <output>{item.quantity}</output>
-                              <button type="button" onClick={() => updateQty(item.id, item.quantity + 1)} aria-label="Sumar">
+                              <output>{formatQty(item.quantity, qtyUnitOf(item))}</output>
+                              <button
+                                type="button"
+                                onClick={() => updateQty(item.id, item.quantity + qtyStep(qtyUnitOf(item)))}
+                                aria-label="Sumar"
+                              >
                                 +
                               </button>
                             </div>
@@ -2672,20 +2729,63 @@ function App() {
                   drop="up"
                 />
               </div>
+              <div className="field full qty-unit-field">
+                <span>Medida</span>
+                <div className="qty-unit-toggle" role="group" aria-label="Unidad de medida">
+                  <button
+                    type="button"
+                    className={form.qtyUnit !== 'kg' ? 'active' : ''}
+                    onClick={() =>
+                      setForm((prev) => ({
+                        ...prev,
+                        qtyUnit: 'unit',
+                        quantity: normalizeQty(prev.quantity, 'unit'),
+                        minStock: normalizeQty(prev.minStock, 'unit'),
+                      }))
+                    }
+                  >
+                    Por unidad
+                  </button>
+                  <button
+                    type="button"
+                    className={form.qtyUnit === 'kg' ? 'active' : ''}
+                    onClick={() =>
+                      setForm((prev) => ({
+                        ...prev,
+                        qtyUnit: 'kg',
+                        quantity: normalizeQty(prev.quantity, 'kg'),
+                        minStock: normalizeQty(prev.minStock, 'kg'),
+                      }))
+                    }
+                  >
+                    Por kilo
+                  </button>
+                </div>
+              </div>
               <label className="field">
-                <span>{editingId ? 'Cantidad' : 'Cantidad inicial'}</span>
+                <span>
+                  {editingId ? 'Cantidad' : 'Cantidad inicial'}
+                  <small className="field-unit">{qtyUnitLabel(form.qtyUnit)}</small>
+                </span>
                 <input
                   type="number"
                   min="0"
+                  step={qtyStep(form.qtyUnit)}
+                  inputMode="decimal"
                   value={form.quantity}
                   onChange={(event) => setForm({ ...form, quantity: event.target.value })}
                 />
               </label>
               <label className="field">
-                <span>Stock mínimo</span>
+                <span>
+                  Stock mínimo
+                  <small className="field-unit">{qtyUnitLabel(form.qtyUnit)}</small>
+                </span>
                 <input
                   type="number"
                   min="0"
+                  step={qtyStep(form.qtyUnit)}
+                  inputMode="decimal"
                   value={form.minStock}
                   onChange={(event) => setForm({ ...form, minStock: event.target.value })}
                 />
@@ -2876,11 +2976,15 @@ function App() {
                       <div className="cart-line-copy">
                         <strong>{line.item.name}</strong>
                         <span>
-                          Tenés {line.have} · mínimo {line.min} · comprar {line.need}
+                          Tenés {formatQty(line.have, qtyUnitOf(line.item))} · mínimo{' '}
+                          {formatQty(line.min, qtyUnitOf(line.item))} · comprar{' '}
+                          {formatQty(line.need, qtyUnitOf(line.item))}
                         </span>
                         <em>
                           {line.unitPrice
-                            ? `${money(line.unitPrice)} c/u · ${money(line.lineTotal)}`
+                            ? `${money(line.unitPrice)} ${
+                                qtyUnitOf(line.item) === 'kg' ? 'c/kg' : 'c/u'
+                              } · ${money(line.lineTotal)}`
                             : 'Sin precio'}
                           {line.eligible && line.discount > 0
                             ? ` · ahorro ${money(line.discount)}`
@@ -2900,8 +3004,8 @@ function App() {
                         </div>
                       </div>
                       <div className="cart-line-side">
-                        <output className="cart-qty" aria-label={`Comprar ${line.need}`}>
-                          ×{line.need}
+                        <output className="cart-qty" aria-label={`Comprar ${formatQty(line.need, qtyUnitOf(line.item))}`}>
+                          ×{formatQty(line.need, qtyUnitOf(line.item))}
                         </output>
                         <button
                           className="icon-btn danger"
@@ -2948,7 +3052,7 @@ function App() {
 
             <div className="cart-summary">
               <p className="cart-summary-meta">
-                {cartTotals.count} producto{cartTotals.count === 1 ? '' : 's'} · {cartTotals.units} u.
+                {cartTotals.count} producto{cartTotals.count === 1 ? '' : 's'} · {cartTotals.units.toLocaleString('es-AR', { maximumFractionDigits: 1 })} a comprar
               </p>
               <div className="cart-summary-rows">
                 <div>
