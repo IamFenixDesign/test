@@ -144,6 +144,7 @@
 }
 
 .modal.cart-sheet {
+  width: min(1040px, calc(100% - 24px));
   overflow: hidden;
 }
 
@@ -3279,7 +3280,7 @@ html[data-theme="light"] .store-col-title.dia {
   .cart-list {
     max-height: none;
     flex: 1 1 auto;
-    min-height: 0;
+    min-height: 120px;
     overflow-x: hidden;
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
