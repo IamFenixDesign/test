@@ -1771,6 +1771,15 @@ td:has(.item-cell) {
   text-transform: uppercase;
 }
 
+.field-hint {
+  display: block;
+  margin-top: 6px;
+  color: var(--muted);
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
 .qty-unit-toggle {
   display: grid;
   grid-template-columns: 1fr 1fr;
