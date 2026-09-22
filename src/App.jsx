@@ -46,6 +46,9 @@ const emptyForm = {
   priceCoto: '',
   priceCarrefour: '',
   priceDia: '',
+  listPriceCoto: '',
+  listPriceCarrefour: '',
+  listPriceDia: '',
   urlCoto: '',
   urlCarrefour: '',
   urlDia: '',
@@ -167,6 +170,9 @@ function mergeItemRecords(base, incoming) {
     priceCoto: incoming.priceCoto || base.priceCoto,
     priceCarrefour: incoming.priceCarrefour || base.priceCarrefour,
     priceDia: incoming.priceDia || base.priceDia,
+    listPriceCoto: incoming.listPriceCoto || base.listPriceCoto,
+    listPriceCarrefour: incoming.listPriceCarrefour || base.listPriceCarrefour,
+    listPriceDia: incoming.listPriceDia || base.listPriceDia,
     urlCoto: incoming.urlCoto || base.urlCoto,
     urlCarrefour: incoming.urlCarrefour || base.urlCarrefour,
     urlDia: incoming.urlDia || base.urlDia,
@@ -456,6 +462,29 @@ function storePriceOf(item, store) {
     return item.priceSource === 'dia' ? Number(item.price) || 0 : 0
   }
   return 0
+}
+
+/** Precio de lista (sin promo web) para el comparador. */
+function storeListPriceOf(item, store) {
+  if (!item) return 0
+  if (store === 'coto') {
+    const list = Number(item.listPriceCoto)
+    if (list > 0) return list
+  } else if (store === 'carrefour') {
+    const list = Number(item.listPriceCarrefour)
+    if (list > 0) return list
+  } else if (store === 'dia') {
+    const list = Number(item.listPriceDia)
+    if (list > 0) return list
+  }
+  return storePriceOf(item, store)
+}
+
+function listPriceOfProduct(product) {
+  const list = Number(product?.listPrice)
+  if (list > 0) return list
+  const price = Number(product?.price)
+  return price > 0 ? price : 0
 }
 
 function storeLabel(store) {
@@ -1210,6 +1239,33 @@ function App() {
   }, [hydrated, user?.id])
 
   useEffect(() => {
+    if (!hydrated || !user?.id || mainView !== 'compare') return undefined
+    let cancelled = false
+
+    function needsListPrice(item) {
+      const stores = [
+        [item.priceCoto, item.listPriceCoto],
+        [item.priceCarrefour, item.listPriceCarrefour],
+        [item.priceDia, item.listPriceDia],
+      ]
+      return stores.some(([price, list]) => Number(price) > 0 && !(Number(list) > 0))
+    }
+
+    async function backfillListPrices() {
+      const pending = itemsRef.current.filter(needsListPrice)
+      for (const item of pending) {
+        if (cancelled) return
+        await refreshStorePricesRef.current(item, { silent: true })
+      }
+    }
+
+    backfillListPrices()
+    return () => {
+      cancelled = true
+    }
+  }, [hydrated, user?.id, mainView])
+
+  useEffect(() => {
     if (!searchOpen) return
     searchInputRef.current?.focus()
   }, [searchOpen])
@@ -1312,9 +1368,9 @@ function App() {
     const q = query.trim().toLowerCase()
     return items
       .map((item) => {
-        const coto = storePriceOf(item, 'coto')
-        const carrefour = storePriceOf(item, 'carrefour')
-        const dia = storePriceOf(item, 'dia')
+        const coto = storeListPriceOf(item, 'coto')
+        const carrefour = storeListPriceOf(item, 'carrefour')
+        const dia = storeListPriceOf(item, 'dia')
         const cheapest = cheaperOf(coto, carrefour, dia)
         const prices = [coto, carrefour, dia].filter((value) => value > 0)
         const highest = prices.length ? Math.max(...prices) : 0
@@ -1657,6 +1713,9 @@ function App() {
       priceCoto: '',
       priceCarrefour: '',
       priceDia: '',
+      listPriceCoto: '',
+      listPriceCarrefour: '',
+      listPriceDia: '',
       urlCoto: '',
       urlCarrefour: '',
       urlDia: '',
@@ -1704,6 +1763,9 @@ function App() {
       priceCoto: item.priceCoto ? String(item.priceCoto) : '',
       priceCarrefour: item.priceCarrefour ? String(item.priceCarrefour) : '',
       priceDia: item.priceDia ? String(item.priceDia) : '',
+      listPriceCoto: item.listPriceCoto ? String(item.listPriceCoto) : '',
+      listPriceCarrefour: item.listPriceCarrefour ? String(item.listPriceCarrefour) : '',
+      listPriceDia: item.listPriceDia ? String(item.listPriceDia) : '',
       urlCoto: item.urlCoto || '',
       urlCarrefour: item.urlCarrefour || '',
       urlDia: item.urlDia || '',
@@ -1757,6 +1819,11 @@ function App() {
       priceCoto: coto ? String(coto.price) : prev.priceCoto,
       priceCarrefour: carrefour ? String(carrefour.price) : prev.priceCarrefour,
       priceDia: dia ? String(dia.price) : prev.priceDia,
+      listPriceCoto: coto ? String(listPriceOfProduct(coto)) : prev.listPriceCoto,
+      listPriceCarrefour: carrefour
+        ? String(listPriceOfProduct(carrefour))
+        : prev.listPriceCarrefour,
+      listPriceDia: dia ? String(listPriceOfProduct(dia)) : prev.listPriceDia,
       urlCoto: coto?.url || prev.urlCoto,
       urlCarrefour: carrefour?.url || prev.urlCarrefour,
       urlDia: dia?.url || prev.urlDia,
@@ -1905,6 +1972,11 @@ function App() {
           const nextCoto = coto?.price ?? entry.priceCoto
           const nextCarrefour = carrefour?.price ?? entry.priceCarrefour
           const nextDia = dia?.price ?? entry.priceDia
+          const nextListCoto = coto ? listPriceOfProduct(coto) : entry.listPriceCoto
+          const nextListCarrefour = carrefour
+            ? listPriceOfProduct(carrefour)
+            : entry.listPriceCarrefour
+          const nextListDia = dia ? listPriceOfProduct(dia) : entry.listPriceDia
           const source = entry.priceSource
           const nextPrice =
             source === 'coto' && nextCoto
@@ -1934,6 +2006,9 @@ function App() {
             priceCoto: nextCoto,
             priceCarrefour: nextCarrefour,
             priceDia: nextDia,
+            listPriceCoto: nextListCoto,
+            listPriceCarrefour: nextListCarrefour,
+            listPriceDia: nextListDia,
             urlCoto: coto?.url ?? entry.urlCoto,
             urlCarrefour: carrefour?.url ?? entry.urlCarrefour,
             urlDia: dia?.url ?? entry.urlDia,
@@ -2022,6 +2097,9 @@ function App() {
       priceCoto: Number(form.priceCoto) || 0,
       priceCarrefour: Number(form.priceCarrefour) || 0,
       priceDia: Number(form.priceDia) || 0,
+      listPriceCoto: Number(form.listPriceCoto) || 0,
+      listPriceCarrefour: Number(form.listPriceCarrefour) || 0,
+      listPriceDia: Number(form.listPriceDia) || 0,
       urlCoto: form.urlCoto,
       urlCarrefour: form.urlCarrefour,
       urlDia: form.urlDia,
@@ -2443,7 +2521,6 @@ function App() {
                 placeholder="Buscar producto para comparar"
               />
             </label>
-            <p className="compare-hint">Coto · Carrefour · Día · el más barato queda marcado</p>
           </div>
 
           {compareRows.length === 0 ? (
@@ -2987,144 +3064,151 @@ function App() {
               <p className="cart-empty">No hay productos en stock bajo o sin stock para comprar.</p>
             ) : (
               <>
-                <section className="cart-deals-panel cart-scroll-hidden" aria-label="Descuentos por día">
-                  <div className="cart-deals-head">
-                    <div>
-                      <p className="cart-deals-kicker">Sucursales</p>
-                      <h3 className="cart-deals-title">{weekdayLabel(cartDay)}</h3>
+                <div className="cart-main">
+                  <section className="cart-deals-panel cart-scroll-hidden" aria-label="Descuentos por día">
+                    <div className="cart-deals-head">
+                      <div>
+                        <p className="cart-deals-kicker">Sucursales</p>
+                        <h3 className="cart-deals-title">{weekdayLabel(cartDay)}</h3>
+                      </div>
+                      <p className="cart-deals-hint">Elegí día y medio de pago</p>
                     </div>
-                    <p className="cart-deals-hint">Elegí día y medio de pago</p>
-                  </div>
 
-                  <div className="cart-days" role="tablist" aria-label="Día de la promo">
-                    {WEEKDAYS.map((day) => (
-                      <button
-                        key={day.id}
-                        type="button"
-                        role="tab"
-                        aria-selected={cartDay === day.id}
-                        className={`cart-day-chip ${cartDay === day.id ? 'active' : ''} ${
-                          day.id === todayWeekday() ? 'is-today' : ''
-                        }`}
-                        onClick={() => selectCartDay(day.id)}
-                      >
-                        {day.short}
-                      </button>
-                    ))}
-                  </div>
-
-                  <div
-                    key={cartDay}
-                    className="cart-deals-body"
-                    role="group"
-                    aria-label="Descuentos de pago en sucursal"
-                  >
-                    {cartPromoGroups.coto.length > 0 ? (
-                      <div className="cart-deals-group">
-                        <p className="cart-deals-group-title store-coto">Coto</p>
-                        <div className="cart-deals-list">{cartPromoGroups.coto.map(renderPromoOption)}</div>
-                      </div>
-                    ) : null}
-
-                    {cartPromoGroups.carrefour.length > 0 ? (
-                      <div className="cart-deals-group">
-                        <p className="cart-deals-group-title store-carrefour">Carrefour</p>
-                        <div className="cart-deals-list">
-                          {cartPromoGroups.carrefour.map(renderPromoOption)}
-                        </div>
-                      </div>
-                    ) : null}
-
-                    {cartPromoGroups.dia.length > 0 ? (
-                      <div className="cart-deals-group">
-                        <p className="cart-deals-group-title store-dia">Día</p>
-                        <div className="cart-deals-list">{cartPromoGroups.dia.map(renderPromoOption)}</div>
-                      </div>
-                    ) : null}
-                  </div>
-                </section>
-
-                <ul className="cart-list cart-scroll-hidden">
-                  {cartDisplayLines.map((line) => (
-                    <li
-                      key={line.id}
-                      className={`cart-line ${line.eligible ? 'is-eligible' : 'is-excluded'}`}
-                    >
-                      <ItemThumb item={line.item} />
-                      <div className="cart-line-copy">
-                        <strong>{line.item.name}</strong>
-                        <span>
-                          Tenés {formatQty(line.have, qtyUnitOf(line.item))} · mínimo{' '}
-                          {formatQty(line.min, qtyUnitOf(line.item))} · comprar{' '}
-                          {formatQty(line.need, qtyUnitOf(line.item))}
-                        </span>
-                        <em>
-                          {line.unitPrice
-                            ? `${money(line.unitPrice)} ${
-                                qtyUnitOf(line.item) === 'kg' ? 'c/kg' : 'c/u'
-                              } · ${money(line.lineTotal)}`
-                            : 'Sin precio'}
-                          {line.eligible && line.discount > 0
-                            ? ` · ahorro ${money(line.discount)}`
-                            : ''}
-                        </em>
-                        <div className="cart-line-tags">
-                          <span className={`cart-web ${line.webDiscount ? 'yes' : 'no'}`}>
-                            {line.webDiscount ? `Web: ${line.webDiscount}` : 'Web: sin dto'}
-                          </span>
-                          <span className={`cart-elig ${line.eligible ? 'yes' : 'no'}`}>
-                            {line.eligible
-                              ? cartQuote.promo.percent > 0
-                                ? `Aplica ${cartQuote.promo.short}`
-                                : 'Sin dto de pago'
-                              : line.reason || 'No aplica'}
-                          </span>
-                        </div>
-                      </div>
-                      <div className="cart-line-side">
-                        <output className="cart-qty" aria-label={`Comprar ${formatQty(line.need, qtyUnitOf(line.item))}`}>
-                          ×{formatQty(line.need, qtyUnitOf(line.item))}
-                        </output>
+                    <div className="cart-days" role="tablist" aria-label="Día de la promo">
+                      {WEEKDAYS.map((day) => (
                         <button
-                          className="icon-btn danger"
+                          key={day.id}
                           type="button"
-                          title="Quitar del carrito"
-                          aria-label={`Quitar ${line.item.name} del carrito`}
-                          onClick={() => removeFromCart(line.id)}
+                          role="tab"
+                          aria-selected={cartDay === day.id}
+                          className={`cart-day-chip ${cartDay === day.id ? 'active' : ''} ${
+                            day.id === todayWeekday() ? 'is-today' : ''
+                          }`}
+                          onClick={() => selectCartDay(day.id)}
                         >
-                          <IconTrash />
+                          {day.short}
                         </button>
-                      </div>
-                    </li>
-                  ))}
-                </ul>
+                      ))}
+                    </div>
 
-                {(cartQuote.eligible.length > 0 || cartQuote.excluded.length > 0) &&
-                cartQuote.promo.percent > 0 ? (
-                  <div className="cart-split">
-                    <span>
-                      <strong>{cartQuote.eligible.length}</strong> con dto
-                    </span>
-                    <span>
-                      <strong>{cartQuote.excluded.length}</strong> sin dto
-                    </span>
-                    <span>
-                      <strong>{cartQuote.withWebOffer || 0}</strong> oferta web
-                    </span>
+                    <div
+                      key={cartDay}
+                      className="cart-deals-body"
+                      role="group"
+                      aria-label="Descuentos de pago en sucursal"
+                    >
+                      {cartPromoGroups.coto.length > 0 ? (
+                        <div className="cart-deals-group">
+                          <p className="cart-deals-group-title store-coto">Coto</p>
+                          <div className="cart-deals-list">{cartPromoGroups.coto.map(renderPromoOption)}</div>
+                        </div>
+                      ) : null}
+
+                      {cartPromoGroups.carrefour.length > 0 ? (
+                        <div className="cart-deals-group">
+                          <p className="cart-deals-group-title store-carrefour">Carrefour</p>
+                          <div className="cart-deals-list">
+                            {cartPromoGroups.carrefour.map(renderPromoOption)}
+                          </div>
+                        </div>
+                      ) : null}
+
+                      {cartPromoGroups.dia.length > 0 ? (
+                        <div className="cart-deals-group">
+                          <p className="cart-deals-group-title store-dia">Día</p>
+                          <div className="cart-deals-list">{cartPromoGroups.dia.map(renderPromoOption)}</div>
+                        </div>
+                      ) : null}
+                    </div>
+                  </section>
+
+                  <div className="cart-items-col">
+                    <ul className="cart-list cart-scroll-hidden">
+                      {cartDisplayLines.map((line) => (
+                        <li
+                          key={line.id}
+                          className={`cart-line ${line.eligible ? 'is-eligible' : 'is-excluded'}`}
+                        >
+                          <ItemThumb item={line.item} />
+                          <div className="cart-line-copy">
+                            <strong>{line.item.name}</strong>
+                            <span>
+                              Tenés {formatQty(line.have, qtyUnitOf(line.item))} · mínimo{' '}
+                              {formatQty(line.min, qtyUnitOf(line.item))} · comprar{' '}
+                              {formatQty(line.need, qtyUnitOf(line.item))}
+                            </span>
+                            <em>
+                              {line.unitPrice
+                                ? `${money(line.unitPrice)} ${
+                                    qtyUnitOf(line.item) === 'kg' ? 'c/kg' : 'c/u'
+                                  } · ${money(line.lineTotal)}`
+                                : 'Sin precio'}
+                              {line.eligible && line.discount > 0
+                                ? ` · ahorro ${money(line.discount)}`
+                                : ''}
+                            </em>
+                            <div className="cart-line-tags">
+                              <span className={`cart-web ${line.webDiscount ? 'yes' : 'no'}`}>
+                                {line.webDiscount ? `Web: ${line.webDiscount}` : 'Web: sin dto'}
+                              </span>
+                              <span className={`cart-elig ${line.eligible ? 'yes' : 'no'}`}>
+                                {line.eligible
+                                  ? cartQuote.promo.percent > 0
+                                    ? `Aplica ${cartQuote.promo.short}`
+                                    : 'Sin dto de pago'
+                                  : line.reason || 'No aplica'}
+                              </span>
+                            </div>
+                          </div>
+                          <div className="cart-line-side">
+                            <output
+                              className="cart-qty"
+                              aria-label={`Comprar ${formatQty(line.need, qtyUnitOf(line.item))}`}
+                            >
+                              ×{formatQty(line.need, qtyUnitOf(line.item))}
+                            </output>
+                            <button
+                              className="icon-btn danger"
+                              type="button"
+                              title="Quitar del carrito"
+                              aria-label={`Quitar ${line.item.name} del carrito`}
+                              onClick={() => removeFromCart(line.id)}
+                            >
+                              <IconTrash />
+                            </button>
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+
+                    {(cartQuote.eligible.length > 0 || cartQuote.excluded.length > 0) &&
+                    cartQuote.promo.percent > 0 ? (
+                      <div className="cart-split">
+                        <span>
+                          <strong>{cartQuote.eligible.length}</strong> con dto
+                        </span>
+                        <span>
+                          <strong>{cartQuote.excluded.length}</strong> sin dto
+                        </span>
+                        <span>
+                          <strong>{cartQuote.withWebOffer || 0}</strong> oferta web
+                        </span>
+                      </div>
+                    ) : cartLines.length > 0 ? (
+                      <div className="cart-split">
+                        <span>
+                          <strong>{cartQuote.withWebOffer || 0}</strong> oferta web
+                        </span>
+                        <span>
+                          <strong>
+                            {Math.max(0, cartLines.length - (cartQuote.withWebOffer || 0))}
+                          </strong>{' '}
+                          sin oferta web
+                        </span>
+                      </div>
+                    ) : null}
                   </div>
-                ) : cartLines.length > 0 ? (
-                  <div className="cart-split">
-                    <span>
-                      <strong>{cartQuote.withWebOffer || 0}</strong> oferta web
-                    </span>
-                    <span>
-                      <strong>
-                        {Math.max(0, cartLines.length - (cartQuote.withWebOffer || 0))}
-                      </strong>{' '}
-                      sin oferta web
-                    </span>
-                  </div>
-                ) : null}
+                </div>
               </>
             )}
 
