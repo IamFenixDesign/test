@@ -42,6 +42,9 @@ const emptyForm = {
   priceCoto: '',
   priceCarrefour: '',
   priceDia: '',
+  listPriceCoto: '',
+  listPriceCarrefour: '',
+  listPriceDia: '',
   urlCoto: '',
   urlCarrefour: '',
   urlDia: '',
@@ -160,6 +163,9 @@ function mergeItemRecords(base, incoming) {
     priceCoto: incoming.priceCoto || base.priceCoto,
     priceCarrefour: incoming.priceCarrefour || base.priceCarrefour,
     priceDia: incoming.priceDia || base.priceDia,
+    listPriceCoto: incoming.listPriceCoto || base.listPriceCoto,
+    listPriceCarrefour: incoming.listPriceCarrefour || base.listPriceCarrefour,
+    listPriceDia: incoming.listPriceDia || base.listPriceDia,
     urlCoto: incoming.urlCoto || base.urlCoto,
     urlCarrefour: incoming.urlCarrefour || base.urlCarrefour,
     urlDia: incoming.urlDia || base.urlDia,
@@ -421,6 +427,29 @@ function storePriceOf(item, store) {
     return item.priceSource === 'dia' ? Number(item.price) || 0 : 0
   }
   return 0
+}
+
+/** Precio de lista (sin promo web) para el comparador. */
+function storeListPriceOf(item, store) {
+  if (!item) return 0
+  if (store === 'coto') {
+    const list = Number(item.listPriceCoto)
+    if (list > 0) return list
+  } else if (store === 'carrefour') {
+    const list = Number(item.listPriceCarrefour)
+    if (list > 0) return list
+  } else if (store === 'dia') {
+    const list = Number(item.listPriceDia)
+    if (list > 0) return list
+  }
+  return storePriceOf(item, store)
+}
+
+function listPriceOfProduct(product) {
+  const list = Number(product?.listPrice)
+  if (list > 0) return list
+  const price = Number(product?.price)
+  return price > 0 ? price : 0
 }
 
 function storeLabel(store) {
@@ -1250,9 +1279,9 @@ function App() {
     const q = query.trim().toLowerCase()
     return items
       .map((item) => {
-        const coto = storePriceOf(item, 'coto')
-        const carrefour = storePriceOf(item, 'carrefour')
-        const dia = storePriceOf(item, 'dia')
+        const coto = storeListPriceOf(item, 'coto')
+        const carrefour = storeListPriceOf(item, 'carrefour')
+        const dia = storeListPriceOf(item, 'dia')
         const cheapest = cheaperOf(coto, carrefour, dia)
         const prices = [coto, carrefour, dia].filter((value) => value > 0)
         const highest = prices.length ? Math.max(...prices) : 0
@@ -1578,6 +1607,9 @@ function App() {
       priceCoto: '',
       priceCarrefour: '',
       priceDia: '',
+      listPriceCoto: '',
+      listPriceCarrefour: '',
+      listPriceDia: '',
       urlCoto: '',
       urlCarrefour: '',
       urlDia: '',
@@ -1624,6 +1656,9 @@ function App() {
       priceCoto: item.priceCoto ? String(item.priceCoto) : '',
       priceCarrefour: item.priceCarrefour ? String(item.priceCarrefour) : '',
       priceDia: item.priceDia ? String(item.priceDia) : '',
+      listPriceCoto: item.listPriceCoto ? String(item.listPriceCoto) : '',
+      listPriceCarrefour: item.listPriceCarrefour ? String(item.listPriceCarrefour) : '',
+      listPriceDia: item.listPriceDia ? String(item.listPriceDia) : '',
       urlCoto: item.urlCoto || '',
       urlCarrefour: item.urlCarrefour || '',
       urlDia: item.urlDia || '',
@@ -1670,6 +1705,11 @@ function App() {
       priceCoto: coto ? String(coto.price) : prev.priceCoto,
       priceCarrefour: carrefour ? String(carrefour.price) : prev.priceCarrefour,
       priceDia: dia ? String(dia.price) : prev.priceDia,
+      listPriceCoto: coto ? String(listPriceOfProduct(coto)) : prev.listPriceCoto,
+      listPriceCarrefour: carrefour
+        ? String(listPriceOfProduct(carrefour))
+        : prev.listPriceCarrefour,
+      listPriceDia: dia ? String(listPriceOfProduct(dia)) : prev.listPriceDia,
       urlCoto: coto?.url || prev.urlCoto,
       urlCarrefour: carrefour?.url || prev.urlCarrefour,
       urlDia: dia?.url || prev.urlDia,
@@ -1814,6 +1854,11 @@ function App() {
           const nextCoto = coto?.price ?? entry.priceCoto
           const nextCarrefour = carrefour?.price ?? entry.priceCarrefour
           const nextDia = dia?.price ?? entry.priceDia
+          const nextListCoto = coto ? listPriceOfProduct(coto) : entry.listPriceCoto
+          const nextListCarrefour = carrefour
+            ? listPriceOfProduct(carrefour)
+            : entry.listPriceCarrefour
+          const nextListDia = dia ? listPriceOfProduct(dia) : entry.listPriceDia
           const source = entry.priceSource
           const nextPrice =
             source === 'coto' && nextCoto
@@ -1829,6 +1874,9 @@ function App() {
             priceCoto: nextCoto,
             priceCarrefour: nextCarrefour,
             priceDia: nextDia,
+            listPriceCoto: nextListCoto,
+            listPriceCarrefour: nextListCarrefour,
+            listPriceDia: nextListDia,
             urlCoto: coto?.url ?? entry.urlCoto,
             urlCarrefour: carrefour?.url ?? entry.urlCarrefour,
             urlDia: dia?.url ?? entry.urlDia,
@@ -1911,6 +1959,9 @@ function App() {
       priceCoto: Number(form.priceCoto) || 0,
       priceCarrefour: Number(form.priceCarrefour) || 0,
       priceDia: Number(form.priceDia) || 0,
+      listPriceCoto: Number(form.listPriceCoto) || 0,
+      listPriceCarrefour: Number(form.listPriceCarrefour) || 0,
+      listPriceDia: Number(form.listPriceDia) || 0,
       urlCoto: form.urlCoto,
       urlCarrefour: form.urlCarrefour,
       urlDia: form.urlDia,
@@ -2316,7 +2367,7 @@ function App() {
                 placeholder="Buscar producto para comparar"
               />
             </label>
-            <p className="compare-hint">Coto · Carrefour · Día · el más barato queda marcado</p>
+            <p className="compare-hint">Coto · Carrefour · Día · precios de lista (sin promociones)</p>
           </div>
 
           {compareRows.length === 0 ? (
