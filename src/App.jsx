@@ -534,20 +534,12 @@ function storePriceOf(item, store) {
   return 0
 }
 
-/** Precio de lista (sin promo) — p.ej. góndola / sucursal. */
+/** Precio de lista — el que muestra la web del súper (góndola / contado). */
 function listPriceOfProduct(product) {
   const list = Number(product?.listPrice)
   if (list > 0) return list
   const price = Number(product?.price)
   return price > 0 ? price : 0
-}
-
-/** Precio vigente a mostrar en Comparar (oferta/actual, no lista). */
-function comparePriceOfProduct(product) {
-  if (!product) return 0
-  const price = Number(product.price)
-  if (price > 0) return price
-  return listPriceOfProduct(product)
 }
 
 /** Une resultados web de Coto / Carrefour / Día por EAN para Comparar. */
@@ -585,9 +577,10 @@ function buildWebCompareRows({ coto = [], carrefour = [], dia = [] }) {
     const primary = cotoProduct || carrefourProduct || diaProduct
     if (!primary) return
 
-    const cotoPrice = comparePriceOfProduct(cotoProduct)
-    const carrefourPrice = comparePriceOfProduct(carrefourProduct)
-    const diaPrice = comparePriceOfProduct(diaProduct)
+    // Comparar: precio de lista (como en la web del súper), no el de oferta.
+    const cotoPrice = listPriceOfProduct(cotoProduct)
+    const carrefourPrice = listPriceOfProduct(carrefourProduct)
+    const diaPrice = listPriceOfProduct(diaProduct)
     const cheapest = cheaperOf(cotoPrice, carrefourPrice, diaPrice)
     const prices = [cotoPrice, carrefourPrice, diaPrice].filter((value) => value > 0)
     const highest = prices.length ? Math.max(...prices) : 0
@@ -1592,13 +1585,18 @@ function App() {
     }
 
     let cancelled = false
-    let timer
+    let debounceTimer
+    let pollTimer
+    let inFlight = false
 
-    const runSearch = () => {
-      clearTimeout(timer)
-      timer = setTimeout(async () => {
+    const runSearch = ({ showSpinner = false } = {}) => {
+      if (inFlight) return
+      inFlight = true
+      if (showSpinner) {
         setCompareLoading(true)
         setCompareError('')
+      }
+      ;(async () => {
         try {
           const data = await searchSupermarkets(q, { limit: 48 })
           if (cancelled) return
@@ -1621,29 +1619,36 @@ function App() {
                 ? 'No se pudieron consultar Coto, Carrefour y Día.'
                 : 'No hay productos web para esa búsqueda.',
             )
+          } else {
+            setCompareError('')
           }
         } catch {
           if (!cancelled) {
-            setCompareRows([])
             setCompareError('No se pudieron consultar Coto, Carrefour y Día.')
           }
         } finally {
+          inFlight = false
           if (!cancelled) setCompareLoading(false)
         }
-      }, 350)
+      })()
     }
 
-    runSearch()
+    // Debounce al tipear; después refrescar precios cada 1s.
+    debounceTimer = setTimeout(() => {
+      runSearch({ showSpinner: true })
+      pollTimer = setInterval(() => runSearch({ showSpinner: false }), 1000)
+    }, 350)
 
     const onVisible = () => {
-      if (document.visibilityState === 'visible') runSearch()
+      if (document.visibilityState === 'visible') runSearch({ showSpinner: false })
     }
     document.addEventListener('visibilitychange', onVisible)
     window.addEventListener('focus', onVisible)
 
     return () => {
       cancelled = true
-      clearTimeout(timer)
+      clearTimeout(debounceTimer)
+      clearInterval(pollTimer)
       document.removeEventListener('visibilitychange', onVisible)
       window.removeEventListener('focus', onVisible)
     }

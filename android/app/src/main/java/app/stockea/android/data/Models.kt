@@ -83,13 +83,9 @@ data class StoreProduct(
     val hasDiscount: Boolean = false,
     val discountLabel: String = "",
 ) {
-    /** Precio de góndola / lista (sin oferta). */
+    /** Precio de góndola / lista (como en la web del súper). */
     val displayPrice: Double
         get() = if (listPrice > 0) listPrice else price
-
-    /** Precio vigente a mostrar en Comparar (oferta/actual, no lista). */
-    val comparePrice: Double
-        get() = if (price > 0) price else displayPrice
 
     val categoryHint: String
         get() = categories.firstOrNull().orEmpty().ifBlank { department }
@@ -358,9 +354,10 @@ fun buildWebCompareRows(
         val diaProduct = diaIdx.takeIf { it >= 0 }?.let { dia[it] }
         val primary = cotoProduct ?: carrefourProduct ?: diaProduct ?: return
 
-        val cotoPrice = cotoProduct?.comparePrice ?: 0.0
-        val carrefourPrice = carrefourProduct?.comparePrice ?: 0.0
-        val diaPrice = diaProduct?.comparePrice ?: 0.0
+        // Comparar: precio de lista (como en la web), no el de oferta.
+        val cotoPrice = cotoProduct?.let { listPriceOfProduct(it) } ?: 0.0
+        val carrefourPrice = carrefourProduct?.let { listPriceOfProduct(it) } ?: 0.0
+        val diaPrice = diaProduct?.let { listPriceOfProduct(it) } ?: 0.0
         val ean = primary.ean
         val id = ean.ifBlank { "$store:$index:${primary.name}" }
 

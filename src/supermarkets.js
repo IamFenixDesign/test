@@ -154,19 +154,34 @@ export function cotoOfferInfo(attrs = {}) {
     label = String(deal.textoDescuento).trim()
     const match = label.match(/(\d+)\s*%/)
     if (match) percent = Number(match[1])
-  } else if (tipo) {
+  } else if (tipo && /\d+\s*%/.test(tipo)) {
+    // Solo tipos con % real (ej. "Hasta 30% DTO!!"); ignora "Otras Ofertas".
     label = tipo
+    const match = tipo.match(/(\d+)\s*%/)
+    if (match) percent = Number(match[1])
   }
 
   const dealPrice = toPrice(deal?.precioDesc)
-  const regular =
-    toPrice(deal?.precioRegular) || toPrice(deal?.textoPrecioRegular) || 0
   const shelf = cotoPrice(attrs)
-  const listPrice = regular > shelf ? regular : regular || shelf
+  // Lista = lo que muestra Coto en la web (activePrice / precioLista).
+  // No usar textoPrecioRegular "Precio Contado: $X": a menudo viene desactualizado
+  // (ej. tomate web $3699 vs texto $4299).
+  const regularField = toPrice(deal?.precioRegular)
+  const listPrice =
+    regularField > 0 && shelf > 0
+      ? Math.max(regularField, shelf)
+      : regularField || shelf
+
+  const hasDiscount =
+    Boolean(label) &&
+    dealPrice > 0 &&
+    listPrice > 0 &&
+    dealPrice < listPrice * 0.999
+
   return {
-    hasDiscount: Boolean(label),
-    discountLabel: label,
-    discountPercent: percent,
+    hasDiscount,
+    discountLabel: hasDiscount ? label : '',
+    discountPercent: hasDiscount ? percent : 0,
     dealPrice,
     listPrice: listPrice || shelf,
   }
