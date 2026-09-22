@@ -12,27 +12,33 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import app.stockea.android.data.StockItem
+import app.stockea.android.data.cartQtyLabel
 import app.stockea.android.data.money
+import app.stockea.android.data.qtyLabel
 
 @Composable
 fun CartScreen(
     items: List<StockItem>,
     contentPadding: PaddingValues,
     onMarkBought: () -> Unit,
+    onRemove: (String) -> Unit,
 ) {
-    val cart = remember(items) { items.filter { it.inCart } }
-    val total = cart.sumOf { lineTotal(it) }
+    val total = items.sumOf { it.price * it.neededToMin }
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -47,16 +53,21 @@ fun CartScreen(
         item {
             Text("Carrito", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
             Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                "Se sincroniza con el stock bajo de tu cuenta (igual que la web).",
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                style = MaterialTheme.typography.bodyMedium,
+            )
         }
 
-        if (cart.isEmpty()) {
+        if (items.isEmpty()) {
             item {
                 Card(
                     shape = RoundedCornerShape(18.dp),
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                 ) {
                     Text(
-                        "El carrito está vacío. Agregá productos desde Stock o Comparar.",
+                        "El carrito está vacío. Los productos bajo el mínimo aparecen solos acá.",
                         modifier = Modifier.padding(16.dp),
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -64,36 +75,63 @@ fun CartScreen(
             }
         }
 
-        items(cart, key = { it.id }) { item ->
+        items(items, key = { it.id }) { item ->
             Card(
                 shape = RoundedCornerShape(18.dp),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                 modifier = Modifier.fillMaxWidth(),
             ) {
-                Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Text(item.name, fontWeight = FontWeight.SemiBold)
+                Column(
+                    modifier = Modifier.padding(14.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            item.name,
+                            fontWeight = FontWeight.SemiBold,
+                            modifier = Modifier.weight(1f),
+                        )
+                        IconButton(onClick = { onRemove(item.id) }) {
+                            Icon(Icons.Outlined.Close, contentDescription = "Sacar del carrito")
+                        }
+                    }
                     Text(
-                        "Comprar ${formatCartQty(item)} · Tenés ${item.quantity}",
+                        "Comprar ${cartQtyLabel(item)} · Tenés ${qtyLabel(item)}",
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
-                    Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
+                    Row(
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
                         Text(money(item.price))
-                        Text(money(lineTotal(item)), fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                        Text(
+                            money(item.price * item.neededToMin),
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary,
+                        )
                     }
                 }
             }
         }
 
-        if (cart.isNotEmpty()) {
+        if (items.isNotEmpty()) {
             item {
                 Card(
                     shape = RoundedCornerShape(20.dp),
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
                     modifier = Modifier.fillMaxWidth(),
                 ) {
-                    Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                        Text("${cart.size} productos")
-                        Text("Total ${money(total)}", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                    Column(
+                        modifier = Modifier.padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp),
+                    ) {
+                        Text("${items.size} productos")
+                        Text(
+                            "Total ${money(total)}",
+                            style = MaterialTheme.typography.headlineSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary,
+                        )
                         Button(
                             onClick = onMarkBought,
                             modifier = Modifier.fillMaxWidth().height(48.dp),
@@ -105,19 +143,5 @@ fun CartScreen(
                 }
             }
         }
-    }
-}
-
-private fun lineTotal(item: StockItem): Double {
-    val qty = if (item.cartQty > 0) item.cartQty else 1.0
-    return item.price * qty
-}
-
-private fun formatCartQty(item: StockItem): String {
-    return if (item.qtyUnit == "kg") {
-        val g = (item.cartQty * 1000).toInt()
-        if (g >= 1000) "${item.cartQty} kg" else "$g g"
-    } else {
-        "×${if (item.cartQty % 1.0 == 0.0) item.cartQty.toInt() else item.cartQty}"
     }
 }

@@ -25,6 +25,9 @@ class StockeaApi(context: Context) {
                 if (cookie.name == "stockly_session") {
                     editor.putString("stockly_session", cookie.value)
                     editor.putLong("stockly_session_expires", cookie.expiresAt)
+                    editor.putString("stockly_session_domain", cookie.domain)
+                    editor.putBoolean("stockly_session_secure", cookie.secure)
+                    editor.putString("stockly_session_path", cookie.path)
                 }
             }
             editor.apply()
@@ -33,15 +36,18 @@ class StockeaApi(context: Context) {
         override fun loadForRequest(url: HttpUrl): List<Cookie> {
             val value = prefs.getString("stockly_session", null) ?: return emptyList()
             val expires = prefs.getLong("stockly_session_expires", Long.MAX_VALUE / 2)
-            if (expires < System.currentTimeMillis()) return emptyList()
-            val cookie = Cookie.Builder()
+            if (expires > 0 && expires < System.currentTimeMillis()) return emptyList()
+            val domain = prefs.getString("stockly_session_domain", null) ?: url.host
+            val path = prefs.getString("stockly_session_path", "/") ?: "/"
+            val secure = prefs.getBoolean("stockly_session_secure", true)
+            val builder = Cookie.Builder()
                 .name("stockly_session")
                 .value(value)
-                .domain(url.host)
-                .path("/")
-                .expiresAt(expires)
-                .build()
-            return listOf(cookie)
+                .domain(domain.removePrefix("."))
+                .path(path)
+                .expiresAt(if (expires > 0) expires else System.currentTimeMillis() + 30L * 24 * 60 * 60 * 1000)
+            if (secure) builder.secure()
+            return listOf(builder.build())
         }
     }
 
@@ -100,7 +106,13 @@ class StockeaApi(context: Context) {
     }
 
     fun clearSession() {
-        prefs.edit().remove("stockly_session").remove("stockly_session_expires").apply()
+        prefs.edit()
+            .remove("stockly_session")
+            .remove("stockly_session_expires")
+            .remove("stockly_session_domain")
+            .remove("stockly_session_secure")
+            .remove("stockly_session_path")
+            .apply()
     }
 
     fun me(): User? {
@@ -182,16 +194,13 @@ class StockeaApi(context: Context) {
         request("DELETE", "/api/items?id=${java.net.URLEncoder.encode(id, "UTF-8")}", JSONObject().put("id", id))
     }
 
-    fun searchSupers(query: String, limit: Int = 24): List<CompareRow> {
+    fun searchSupers(query: String, limit: Int = 48): List<CompareRow> {
         val q = java.net.URLEncoder.encode(query, "UTF-8")
         val data = request("GET", "/api/supers?q=$q&limit=$limit")
-        // supers returns a raw array; request() wraps arrays under _array
-        val arr = when {
-            data.has("_array") -> data.getJSONArray("_array")
-            data.has("results") -> data.getJSONArray("results")
-            else -> JSONArray()
-        }
-        return arr.toCompareRows()
+        val coto = data.optJSONArray("coto")?.toStoreProducts().orEmpty()
+        val carrefour = data.optJSONArray("carrefour")?.toStoreProducts().orEmpty()
+        val dia = data.optJSONArray("dia")?.toStoreProducts().orEmpty()
+        return buildWebCompareRows(coto, carrefour, dia)
     }
 }
 

@@ -38,6 +38,7 @@ import app.stockea.android.data.qtyLabel
 fun StockScreen(
     items: List<StockItem>,
     contentPadding: PaddingValues,
+    isInCart: (String) -> Boolean,
     onBump: (String, Double) -> Unit,
     onToggleCart: (String) -> Unit,
     onDelete: (String) -> Unit,
@@ -73,7 +74,10 @@ fun StockScreen(
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.primary,
                     )
-                    Text("${items.count { it.quantity <= 0 }} sin stock", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(
+                        "${items.count { it.quantity <= 0 }} sin stock",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                 }
             }
         }
@@ -86,7 +90,7 @@ fun StockScreen(
                     modifier = Modifier.fillMaxWidth(),
                 ) {
                     Text(
-                        "Todavía no hay productos. Buscá en Comparar y agregalos.",
+                        "Todavía no hay productos. Tocá + Nuevo o buscá en Comparar.",
                         modifier = Modifier.padding(20.dp),
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -104,7 +108,13 @@ fun StockScreen(
                 )
             }
             items(rows, key = { it.id }) { item ->
-                StockItemCard(item, onBump, onToggleCart, onDelete)
+                StockItemCard(
+                    item = item,
+                    inCart = isInCart(item.id),
+                    onBump = onBump,
+                    onToggleCart = onToggleCart,
+                    onDelete = onDelete,
+                )
             }
         }
     }
@@ -113,6 +123,7 @@ fun StockScreen(
 @Composable
 private fun StockItemCard(
     item: StockItem,
+    inCart: Boolean,
     onBump: (String, Double) -> Unit,
     onToggleCart: (String) -> Unit,
     onDelete: (String) -> Unit,
@@ -128,7 +139,11 @@ private fun StockItemCard(
                 Column(modifier = Modifier.weight(1f)) {
                     Text(item.name, fontWeight = FontWeight.SemiBold)
                     if (item.barcode.isNotBlank()) {
-                        Text(item.barcode, color = MaterialTheme.colorScheme.onSurfaceVariant, style = MaterialTheme.typography.bodySmall)
+                        Text(
+                            item.barcode,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            style = MaterialTheme.typography.bodySmall,
+                        )
                     }
                 }
                 if (item.isLowStock) {
@@ -136,20 +151,39 @@ private fun StockItemCard(
                 }
             }
             Text(money(item.price), fontWeight = FontWeight.Bold)
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                IconButton(onClick = { onBump(item.id, -step) }) { Icon(Icons.Outlined.Remove, null) }
-                Text(qtyLabel(item), fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 8.dp))
-                IconButton(onClick = { onBump(item.id, step) }) { Icon(Icons.Outlined.Add, null) }
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                IconButton(onClick = { onBump(item.id, -step) }) {
+                    Icon(Icons.Outlined.Remove, null)
+                }
+                Text(
+                    qtyLabel(item),
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(horizontal = 8.dp),
+                )
+                IconButton(onClick = { onBump(item.id, step) }) {
+                    Icon(Icons.Outlined.Add, null)
+                }
                 Spacer(modifier = Modifier.weight(1f))
                 IconButton(onClick = { onToggleCart(item.id) }) {
                     Icon(
                         Icons.Outlined.ShoppingCart,
                         contentDescription = "Carrito",
-                        tint = if (item.inCart) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                        tint = if (inCart) {
+                            MaterialTheme.colorScheme.primary
+                        } else {
+                            MaterialTheme.colorScheme.onSurfaceVariant
+                        },
                     )
                 }
                 IconButton(onClick = { onDelete(item.id) }) {
-                    Icon(Icons.Outlined.Delete, contentDescription = "Borrar", tint = MaterialTheme.colorScheme.error)
+                    Icon(
+                        Icons.Outlined.Delete,
+                        contentDescription = "Borrar",
+                        tint = MaterialTheme.colorScheme.error,
+                    )
                 }
             }
         }
