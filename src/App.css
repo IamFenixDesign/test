@@ -140,7 +140,7 @@
 .profile-panel {
   display: grid;
   gap: 16px;
-  max-width: 520px;
+  width: min(560px, 100%);
 }
 
 .profile-hero {
