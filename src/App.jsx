@@ -1169,29 +1169,41 @@ function App() {
     const { body } = document
     const prevHtmlOverflow = html.style.overflow
     const prevBodyOverflow = body.style.overflow
-    const prevBodyPosition = body.style.position
-    const prevBodyTop = body.style.top
-    const prevBodyLeft = body.style.left
-    const prevBodyRight = body.style.right
-    const prevBodyWidth = body.style.width
+    const prevHtmlOverscroll = html.style.overscrollBehavior
+    const prevBodyOverscroll = body.style.overscrollBehavior
     const scrollY = window.scrollY || html.scrollTop || 0
+
     html.classList.add('cart-open')
     html.style.overflow = 'hidden'
     body.style.overflow = 'hidden'
-    body.style.position = 'fixed'
-    body.style.top = `-${scrollY}px`
-    body.style.left = '0'
-    body.style.right = '0'
-    body.style.width = '100%'
+    html.style.overscrollBehavior = 'none'
+    body.style.overscrollBehavior = 'none'
+
+    // iOS: bloquear el scroll del fondo sin position:fixed (rompe el sheet)
+    function onTouchMove(event) {
+      const target = event.target
+      if (!(target instanceof Element)) {
+        event.preventDefault()
+        return
+      }
+      const scroller = target.closest('.cart-sheet-body, .cart-days')
+      if (!scroller) {
+        event.preventDefault()
+        return
+      }
+      const canScroll = scroller.scrollHeight > scroller.clientHeight + 1
+      if (!canScroll) event.preventDefault()
+    }
+
+    document.addEventListener('touchmove', onTouchMove, { passive: false })
+
     return () => {
       html.classList.remove('cart-open')
       html.style.overflow = prevHtmlOverflow
       body.style.overflow = prevBodyOverflow
-      body.style.position = prevBodyPosition
-      body.style.top = prevBodyTop
-      body.style.left = prevBodyLeft
-      body.style.right = prevBodyRight
-      body.style.width = prevBodyWidth
+      html.style.overscrollBehavior = prevHtmlOverscroll
+      body.style.overscrollBehavior = prevBodyOverscroll
+      document.removeEventListener('touchmove', onTouchMove)
       window.scrollTo(0, scrollY)
     }
   }, [cartOpen])
