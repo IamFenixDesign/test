@@ -140,6 +140,8 @@
 .cart-overlay {
   z-index: 85;
   overscroll-behavior: none;
+  background: color-mix(in srgb, var(--bg) 88%, #000 12%);
+  backdrop-filter: blur(14px);
 }
 
 .cart-overlay .cart-sheet {
@@ -2974,6 +2976,14 @@ button.store-pill {
 
 .sheet-close {
   flex-shrink: 0;
+  display: inline-grid;
+  place-items: center;
+  place-content: center;
+  line-height: 0;
+}
+
+.sheet-close svg {
+  display: block;
 }
 
 .item-cards {
@@ -3604,18 +3614,25 @@ html[data-theme="light"] .store-col-title.dia {
     gap: 8px;
   }
 
-  /* Bottom sheet móvil / iOS: pegado a bordes, altura natural, contenido compacto */
+  /* Bottom sheet móvil / iOS: pegado al borde inferior, tapa el stock */
   .cart-overlay.overlay-dialog {
+    display: block;
     padding: 0;
-    place-items: end stretch;
-    align-items: end;
+    inset: 0;
+    width: 100%;
     height: 100%;
-    height: 100dvh;
-    height: -webkit-fill-available;
-    max-height: -webkit-fill-available;
+    min-height: 100dvh;
+    min-height: -webkit-fill-available;
+    max-height: none;
+    background: color-mix(in srgb, var(--bg) 92%, #000 8%);
+    backdrop-filter: blur(16px);
   }
 
   .cart-overlay .cart-sheet {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
     width: 100%;
     max-width: none;
     margin: 0;
@@ -3624,9 +3641,10 @@ html[data-theme="light"] .store-col-title.dia {
     border-bottom: 0;
     border-radius: 20px 20px 0 0;
     height: auto;
-    max-height: min(88dvh, calc(100dvh - env(safe-area-inset-top, 0px) - 8px));
-    max-height: min(88dvh, calc(100% - env(safe-area-inset-top, 0px) - 8px));
+    max-height: min(92dvh, calc(100% - env(safe-area-inset-top, 0px) - 8px));
+    max-height: min(92dvh, calc(100dvh - env(safe-area-inset-top, 0px) - 8px));
     background: var(--bg-elev);
+    box-shadow: 0 -12px 40px rgba(0, 0, 0, 0.35);
   }
 
   .cart-overlay .cart-sheet-header {
@@ -3639,12 +3657,28 @@ html[data-theme="light"] .store-col-title.dia {
     font-size: 1.15rem;
   }
 
-  .cart-overlay .sheet-close {
+  .cart-overlay .sheet-close,
+  .cart-overlay .sheet-close.btn {
     width: 36px;
     height: 36px;
     min-width: 36px;
+    min-height: 36px;
     padding: 0;
+    gap: 0;
     border-radius: 999px;
+    display: inline-grid;
+    place-items: center;
+    place-content: center;
+    line-height: 0;
+    justify-content: center;
+    align-items: center;
+  }
+
+  .cart-overlay .sheet-close svg {
+    width: 18px;
+    height: 18px;
+    display: block;
+    margin: 0;
   }
 
   .cart-overlay .cart-sheet-body {
@@ -3710,7 +3744,6 @@ html[data-theme="light"] .store-col-title.dia {
     height: 32px;
   }
 
-  /* Stats como chips en una fila (legible en iPhone) */
   .cart-overlay .cart-line-stats {
     display: flex;
     flex-wrap: nowrap;
@@ -3754,8 +3787,9 @@ html[data-theme="light"] .store-col-title.dia {
   }
 
   .cart-overlay .cart-sheet-footer {
-    padding: 8px 12px calc(10px + env(safe-area-inset-bottom, 0px));
+    padding: 8px 12px calc(14px + env(safe-area-inset-bottom, 0px));
     box-shadow: 0 -8px 20px color-mix(in srgb, #000 18%, transparent);
+    background: var(--bg-elev);
   }
 
   .cart-overlay .cart-sheet-footer .cart-summary {
@@ -3763,7 +3797,6 @@ html[data-theme="light"] .store-col-title.dia {
     gap: 8px;
   }
 
-  /* Footer compacto iOS: detalle + total grande */
   .cart-overlay .cart-summary-top {
     display: grid;
     grid-template-columns: 1fr;
@@ -4360,21 +4393,29 @@ html[data-theme="light"] .store-col-title.dia {
       max(16px, env(safe-area-inset-left, 0px));
   }
 
-  /* PWA iOS: sheet nativo, sin hueco negro arriba ni altura forzada */
+  /* PWA iOS: sheet absolutado al fondo, tapa stock, safe-area en footer */
   html.is-pwa:not(.is-desktop-site) .cart-overlay.overlay-dialog {
+    display: block;
     padding: 0;
-    place-items: end stretch;
+    inset: 0;
+    width: 100%;
     height: 100%;
-    height: 100dvh;
-    height: -webkit-fill-available;
+    min-height: 100dvh;
+    min-height: -webkit-fill-available;
+    background: color-mix(in srgb, var(--bg) 94%, #000 6%);
+    backdrop-filter: blur(18px);
   }
 
   html.is-pwa:not(.is-desktop-site) .cart-sheet {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
     width: 100%;
     max-width: none;
     height: auto;
-    max-height: min(90dvh, calc(100dvh - env(safe-area-inset-top, 0px)));
-    max-height: min(90dvh, calc(100% - env(safe-area-inset-top, 0px)));
+    max-height: min(92dvh, calc(100% - env(safe-area-inset-top, 0px) - 4px));
+    max-height: min(92dvh, calc(100dvh - env(safe-area-inset-top, 0px) - 4px));
     border-radius: 20px 20px 0 0;
     border-left: 0;
     border-right: 0;
@@ -4391,7 +4432,25 @@ html[data-theme="light"] .store-col-title.dia {
   }
 
   html.is-pwa:not(.is-desktop-site) .cart-sheet-footer {
-    padding: 8px 12px calc(12px + env(safe-area-inset-bottom, 0px));
+    padding: 8px 12px calc(16px + env(safe-area-inset-bottom, 0px));
+    background: var(--bg-elev);
+  }
+
+  html.is-pwa:not(.is-desktop-site) .cart-overlay .sheet-close,
+  html.is-pwa:not(.is-desktop-site) .cart-overlay .sheet-close.btn {
+    display: inline-grid;
+    place-items: center;
+    place-content: center;
+    padding: 0;
+    gap: 0;
+    line-height: 0;
+  }
+
+  html.is-pwa:not(.is-desktop-site) .cart-overlay .sheet-close svg {
+    display: block;
+    width: 18px;
+    height: 18px;
+    margin: 0;
   }
 
   html.is-pwa:not(.is-desktop-site) .cart-line {
