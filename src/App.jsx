@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import './App.css'
-import { barcodeDigits, extractEan13, guessCategory, matchByEan, searchSupermarkets, cheaperOf } from './supermarkets'
+import { barcodeDigits, extractEan13, guessCategory, matchByEan, qtyUnitOfProduct, searchSupermarkets, cheaperOf } from './supermarkets'
 import {
   PAYMENT_PROMOS,
   WEEKDAYS,
@@ -38,6 +38,9 @@ const emptyForm = {
   quantity: 1,
   minStock: 5,
   qtyUnit: 'unit',
+  qtyUnitCoto: '',
+  qtyUnitCarrefour: '',
+  qtyUnitDia: '',
   price: '',
   priceSource: '',
   priceCoto: '',
@@ -896,6 +899,7 @@ function BarcodeScanner({ stream, onDetect, onCancel }) {
 }
 
 function StoreResult({ product, onPick }) {
+  const unit = qtyUnitOfProduct(product)
   return (
     <button className={`store-result ${product.store}`} type="button" onClick={() => onPick(product)}>
       {product.image ? <img src={product.image} alt="" /> : <span className="store-thumb" />}
@@ -905,6 +909,7 @@ function StoreResult({ product, onPick }) {
           {product.ean ? `${product.ean} · ` : ''}
           {product.brand ? `${product.brand} · ` : ''}
           {money(product.price)}
+          {unit === 'kg' ? ' / kg' : ' / u.'}
           {product.hasDiscount && product.discountLabel ? ` · ${product.discountLabel}` : ''}
         </em>
         {product.hasDiscount ? (
@@ -1588,17 +1593,29 @@ function App() {
           ? Number(form.priceCarrefour)
           : Number(form.priceDia)
     if (!value) return
-    setForm((prev) => ({
-      ...prev,
-      price: String(value),
-      priceSource: store,
-      image:
+    setForm((prev) => {
+      const storeUnit =
         store === 'coto'
-          ? prev.imageCoto || prev.image
+          ? prev.qtyUnitCoto
           : store === 'carrefour'
-            ? prev.imageCarrefour || prev.image
-            : prev.imageDia || prev.image,
-    }))
+            ? prev.qtyUnitCarrefour
+            : prev.qtyUnitDia
+      const qtyUnit = storeUnit === 'kg' || storeUnit === 'unit' ? storeUnit : prev.qtyUnit
+      return {
+        ...prev,
+        price: String(value),
+        priceSource: store,
+        qtyUnit: qtyUnit === 'kg' ? 'kg' : 'unit',
+        quantity: normalizeQty(prev.quantity, qtyUnit === 'kg' ? 'kg' : 'unit'),
+        minStock: normalizeQty(prev.minStock, qtyUnit === 'kg' ? 'kg' : 'unit'),
+        image:
+          store === 'coto'
+            ? prev.imageCoto || prev.image
+            : store === 'carrefour'
+              ? prev.imageCarrefour || prev.image
+              : prev.imageDia || prev.image,
+      }
+    })
     setAllowCustomPrice(false)
     setError('')
   }
@@ -1607,6 +1624,9 @@ function App() {
     setForm((prev) => ({
       ...prev,
       barcode: '',
+      qtyUnitCoto: '',
+      qtyUnitCarrefour: '',
+      qtyUnitDia: '',
       price: '',
       priceSource: '',
       priceCoto: '',
@@ -1695,11 +1715,18 @@ function App() {
     const dia = product.store === 'dia' ? product : matchByEan(product, storeResults.dia || [])
     const storeName =
       product.store === 'coto' ? 'Coto' : product.store === 'carrefour' ? 'Carrefour' : 'Día'
+    const qtyUnit = qtyUnitOfProduct(product)
     setForm((prev) => ({
       ...prev,
       name: product.name,
       barcode: product.ean || prev.barcode,
       category: guessCategory(product),
+      qtyUnit,
+      quantity: normalizeQty(prev.quantity, qtyUnit),
+      minStock: normalizeQty(prev.minStock, qtyUnit),
+      qtyUnitCoto: coto ? qtyUnitOfProduct(coto) : prev.qtyUnitCoto,
+      qtyUnitCarrefour: carrefour ? qtyUnitOfProduct(carrefour) : prev.qtyUnitCarrefour,
+      qtyUnitDia: dia ? qtyUnitOfProduct(dia) : prev.qtyUnitDia,
       price: String(product.price),
       priceSource: product.store,
       priceCoto: coto ? String(coto.price) : prev.priceCoto,
@@ -1733,7 +1760,11 @@ function App() {
     setStoreError('')
     setAllowCustomPrice(false)
     setError('')
-    showToast(product.ean ? `Código ${product.ean} detectado` : `Precio de ${storeName} aplicado`)
+    showToast(
+      product.ean
+        ? `Código ${product.ean} · ${qtyUnit === 'kg' ? 'por kilo' : 'por unidad'}`
+        : `Precio de ${storeName} · ${qtyUnit === 'kg' ? 'por kilo' : 'por unidad'}`,
+    )
   }
 
   function enableCustomPrice() {
@@ -1858,8 +1889,22 @@ function App() {
                 : source === 'dia' && nextDia
                   ? nextDia
                   : entry.price
+          const sourceProduct =
+            source === 'coto'
+              ? coto
+              : source === 'carrefour'
+                ? carrefour
+                : source === 'dia'
+                  ? dia
+                  : coto || carrefour || dia
+          const nextQtyUnit = sourceProduct
+            ? qtyUnitOfProduct(sourceProduct)
+            : qtyUnitOf(entry)
           return {
             ...entry,
+            qtyUnit: nextQtyUnit,
+            quantity: normalizeQty(entry.quantity, nextQtyUnit),
+            minStock: normalizeQty(entry.minStock, nextQtyUnit),
             price: nextPrice,
             priceCoto: nextCoto,
             priceCarrefour: nextCarrefour,
