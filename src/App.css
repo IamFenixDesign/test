@@ -242,11 +242,11 @@
     width: min(920px, 100%);
     margin: 0 auto;
     gap: 20px;
-    grid-template-columns: minmax(260px, 0.9fr) minmax(0, 1.4fr);
+    grid-template-columns: 1fr 1fr;
     grid-template-areas:
       "hero form"
-      "actions form";
-    align-items: start;
+      "actions actions";
+    align-items: stretch;
     padding: 0;
   }
 
@@ -257,7 +257,8 @@
     gap: 16px;
     padding: 22px;
     border-radius: 22px;
-    min-height: 220px;
+    min-height: 100%;
+    box-sizing: border-box;
     background:
       radial-gradient(90% 70% at 0% 0%, color-mix(in srgb, var(--accent-text) 14%, transparent), transparent 58%),
       radial-gradient(70% 60% at 100% 100%, color-mix(in srgb, var(--ok) 10%, transparent), transparent 55%),
@@ -292,6 +293,8 @@
     padding: 22px;
     border-radius: 22px;
     grid-template-columns: 1fr 1fr;
+    box-sizing: border-box;
+    min-height: 100%;
   }
 
   .profile-form .field.full:nth-of-type(1),
@@ -314,11 +317,33 @@
 
   .profile-actions {
     grid-area: actions;
-    gap: 10px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    width: 100%;
   }
 
   .profile-actions .btn {
     width: 100%;
+    min-height: 52px;
+    justify-content: center;
+    border-radius: 16px;
+    font-size: 0.95rem;
+    padding: 12px 18px;
+  }
+
+  .profile-actions .btn-ghost {
+    background: var(--bg-card);
+    border-color: var(--line);
+  }
+
+  .profile-actions .btn-ghost:hover {
+    background: var(--bg-hover);
+    border-color: var(--line-strong);
+  }
+
+  .profile-actions .btn-danger {
+    border: 1px solid color-mix(in srgb, var(--danger) 28%, var(--line));
   }
 }
 
@@ -329,12 +354,15 @@
   }
 
   .profile-hero {
-    min-height: 260px;
     padding: 28px;
   }
 
   .profile-form {
     padding: 28px;
+  }
+
+  .profile-actions {
+    gap: 24px;
   }
 }
 
