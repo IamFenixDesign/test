@@ -96,6 +96,30 @@ function cotoPrice(attrs) {
   return 0
 }
 
+/** Coto: pesable / KGS = por kilo; el resto por unidad. */
+export function cotoQtyUnit(attrs = {}) {
+  const pesable = String(first(attrs['product.unidades.esPesable']) || '').trim()
+  if (pesable === '1') return 'kg'
+  const desc = fold(first(attrs['product.unidades.descUnidad']) || '')
+  if (desc === 'kgs' || desc === 'kg' || desc === 'kilo' || desc === 'kilogramo') return 'kg'
+  const name = fold(
+    first(attrs['product.displayName']) || first(attrs['sku.displayName']) || '',
+  )
+  if (/\bx\s*kg\b|\bxkg\b|\b\/\s*kg\b|\bpor\s*kg\b/.test(name)) return 'kg'
+  return 'unit'
+}
+
+/** VTEX (Carrefour / Día): measurementUnit "kg" = por kilo. */
+export function vtexQtyUnit(item = {}) {
+  const unit = fold(item?.measurementUnit || item?.MeasurementUnit || '')
+  if (unit === 'kg' || unit === 'kilo' || unit === 'kilogramo' || unit === 'kgs') return 'kg'
+  return 'unit'
+}
+
+export function qtyUnitOfProduct(product) {
+  return product?.qtyUnit === 'kg' ? 'kg' : 'unit'
+}
+
 function parseMaybeArray(value) {
   const raw = first(value)
   if (Array.isArray(raw)) return raw
@@ -216,6 +240,7 @@ export function parseCoto(data) {
           ? attrs['allAncestors.displayName']
           : [first(attrs['product.category'])].filter(Boolean),
         price: cotoPrice(attrs),
+        qtyUnit: cotoQtyUnit(attrs),
         hasDiscount: offer.hasDiscount,
         discountLabel: offer.discountLabel,
         discountPercent: offer.discountPercent,
@@ -247,6 +272,7 @@ function parseVtexProducts(products, { store, origin, limit = 8 }) {
         categories: Array.isArray(product.categories) ? product.categories : [],
         price: pricing.price,
         listPrice: pricing.listPrice,
+        qtyUnit: vtexQtyUnit(item),
         hasDiscount: pricing.hasDiscount,
         discountLabel: pricing.discountLabel,
         discountPercent: pricing.discountPercent,

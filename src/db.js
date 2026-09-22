@@ -50,8 +50,9 @@ export async function ensureSchema() {
       name TEXT NOT NULL,
       barcode TEXT DEFAULT '',
       category TEXT NOT NULL,
-      quantity INTEGER NOT NULL DEFAULT 0,
-      min_stock INTEGER NOT NULL DEFAULT 0,
+      quantity NUMERIC NOT NULL DEFAULT 0,
+      min_stock NUMERIC NOT NULL DEFAULT 0,
+      qty_unit TEXT DEFAULT 'unit',
       price NUMERIC NOT NULL DEFAULT 0,
       price_source TEXT DEFAULT '',
       price_coto NUMERIC DEFAULT 0,
@@ -78,6 +79,9 @@ export async function ensureSchema() {
   await db`ALTER TABLE stockly_items ADD COLUMN IF NOT EXISTS url_dia TEXT DEFAULT ''`
   await db`ALTER TABLE stockly_items ADD COLUMN IF NOT EXISTS image_dia TEXT DEFAULT ''`
   await db`ALTER TABLE stockly_items ADD COLUMN IF NOT EXISTS discount_dia TEXT DEFAULT ''`
+  await db`ALTER TABLE stockly_items ADD COLUMN IF NOT EXISTS qty_unit TEXT DEFAULT 'unit'`
+  await db`ALTER TABLE stockly_items ALTER COLUMN quantity TYPE NUMERIC USING quantity::numeric`
+  await db`ALTER TABLE stockly_items ALTER COLUMN min_stock TYPE NUMERIC USING min_stock::numeric`
   await db`CREATE INDEX IF NOT EXISTS stockly_items_user_id_idx ON stockly_items (user_id)`
 }
 
@@ -94,6 +98,7 @@ export function rowToItem(row) {
     category: row.category,
     quantity: num(row.quantity),
     minStock: num(row.min_stock),
+    qtyUnit: row.qty_unit === 'kg' ? 'kg' : 'unit',
     price: num(row.price),
     priceSource: row.price_source || '',
     priceCoto: num(row.price_coto),
@@ -374,7 +379,7 @@ export async function upsertItem(item, userId) {
   await ensureSchema()
   await getSql()`
     INSERT INTO stockly_items (
-      id, name, barcode, category, quantity, min_stock, price, price_source,
+      id, name, barcode, category, quantity, min_stock, qty_unit, price, price_source,
       price_coto, price_carrefour, price_dia, url_coto, url_carrefour, url_dia,
       image, image_coto, image_carrefour, image_dia,
       discount_coto, discount_carrefour, discount_dia, user_id, updated_at
@@ -386,6 +391,7 @@ export async function upsertItem(item, userId) {
       ${item.category},
       ${num(item.quantity)},
       ${num(item.minStock)},
+      ${item.qtyUnit === 'kg' ? 'kg' : 'unit'},
       ${num(item.price)},
       ${item.priceSource || ''},
       ${num(item.priceCoto)},
@@ -410,6 +416,7 @@ export async function upsertItem(item, userId) {
       category = EXCLUDED.category,
       quantity = EXCLUDED.quantity,
       min_stock = EXCLUDED.min_stock,
+      qty_unit = EXCLUDED.qty_unit,
       price = EXCLUDED.price,
       price_source = EXCLUDED.price_source,
       price_coto = EXCLUDED.price_coto,
