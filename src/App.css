@@ -220,6 +220,124 @@
   justify-content: center;
 }
 
+@media (min-width: 761px) {
+  .app.view-profile {
+    align-items: center;
+  }
+
+  .app.view-profile .topbar {
+    width: min(920px, 100%);
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  .profile-panel.panel {
+    background: transparent;
+    border: none;
+    box-shadow: none;
+    overflow: visible;
+  }
+
+  .profile-panel {
+    width: min(920px, 100%);
+    margin: 0 auto;
+    gap: 20px;
+    grid-template-columns: minmax(260px, 0.9fr) minmax(0, 1.4fr);
+    grid-template-areas:
+      "hero form"
+      "actions form";
+    align-items: start;
+    padding: 0;
+  }
+
+  .profile-hero {
+    grid-area: hero;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 16px;
+    padding: 22px;
+    border-radius: 22px;
+    min-height: 220px;
+    background:
+      radial-gradient(90% 70% at 0% 0%, color-mix(in srgb, var(--accent-text) 14%, transparent), transparent 58%),
+      radial-gradient(70% 60% at 100% 100%, color-mix(in srgb, var(--ok) 10%, transparent), transparent 55%),
+      var(--bg-card);
+  }
+
+  .profile-avatar {
+    width: 88px;
+    height: 88px;
+    font-size: 2rem;
+    border-radius: 24px;
+  }
+
+  .profile-hero-copy {
+    gap: 6px;
+  }
+
+  .profile-hero-copy strong {
+    font-family: var(--display);
+    font-size: 1.55rem;
+    letter-spacing: -0.04em;
+    line-height: 1.15;
+  }
+
+  .profile-hero-copy span {
+    font-size: 0.95rem;
+  }
+
+  .profile-form {
+    grid-area: form;
+    gap: 14px;
+    padding: 22px;
+    border-radius: 22px;
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .profile-form .field.full:nth-of-type(1),
+  .profile-form .field.full:nth-of-type(2) {
+    grid-column: span 1;
+  }
+
+  .profile-form .field.full:nth-of-type(3),
+  .profile-form .error,
+  .profile-form .btn-primary {
+    grid-column: 1 / -1;
+  }
+
+  .profile-form .btn-primary {
+    width: auto;
+    justify-self: start;
+    min-width: 200px;
+    margin-top: 8px;
+  }
+
+  .profile-actions {
+    grid-area: actions;
+    gap: 10px;
+  }
+
+  .profile-actions .btn {
+    width: 100%;
+  }
+}
+
+@media (min-width: 1100px) {
+  .profile-panel {
+    width: min(980px, 100%);
+    gap: 24px;
+  }
+
+  .profile-hero {
+    min-height: 260px;
+    padding: 28px;
+  }
+
+  .profile-form {
+    padding: 28px;
+  }
+}
+
 .cart-deals-panel {
   display: flex;
   flex-direction: column;
