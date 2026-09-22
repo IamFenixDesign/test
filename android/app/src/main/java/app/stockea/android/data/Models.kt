@@ -83,13 +83,9 @@ data class StoreProduct(
     val hasDiscount: Boolean = false,
     val discountLabel: String = "",
 ) {
-    /** Precio de góndola / lista (sin oferta). */
+    /** Precio de góndola / lista (como en la web del súper). */
     val displayPrice: Double
         get() = if (listPrice > 0) listPrice else price
-
-    /** Precio vigente a mostrar en Comparar (oferta/actual, no lista). */
-    val comparePrice: Double
-        get() = if (price > 0) price else displayPrice
 
     val categoryHint: String
         get() = categories.firstOrNull().orEmpty().ifBlank { department }
@@ -157,12 +153,202 @@ fun listPriceOfProduct(product: StoreProduct): Double {
     return if (product.price > 0) product.price else 0.0
 }
 
+/**
+ * Precio a mostrar en Comparar: el de la ficha web (no el tachado/inflado).
+ * Coto → lista/activo; Carrefour/Día → Price de VTEX.
+ */
+fun compareShelfPrice(product: StoreProduct): Double {
+    if (product.store == "carrefour" || product.store == "dia") {
+        if (product.price > 0) return product.price
+    }
+    return listPriceOfProduct(product)
+}
+
 fun qtyUnitOfProduct(product: StoreProduct): String =
     if (product.qtyUnit == "kg") "kg" else "unit"
 
 fun matchByEan(product: StoreProduct, otherList: List<StoreProduct>): StoreProduct? {
     if (product.ean.isBlank()) return null
     return otherList.firstOrNull { it.ean.isNotBlank() && it.ean == product.ean }
+}
+
+private val COMPARE_FILLERS = setOf(
+    "x", "kg", "kgs", "kilo", "kilogramo", "gr", "grs", "g", "gramo", "gramos",
+    "ml", "cc", "cl", "lt", "l", "litro", "litros", "un", "u", "und", "unidad", "unidades",
+    "pack", "paq", "paquete", "botella", "sachet", "tetra", "ttb", "caja", "bolsa", "malla",
+    "porron", "lata", "frasco", "pote", "vaso", "brick", "brik",
+    "huella", "natural", "classic", "clasica", "clasico", "comun", "seleccion",
+    "largo", "larga", "vida", "uat", "ultra",
+)
+
+private val COMPARE_STRONG_VARIANTS = listOf(
+    listOf("cherry", "cocktail"),
+    listOf("perita"),
+    listOf("kumato"),
+    listOf("raf"),
+    listOf("organico", "organica"),
+    listOf("deshidrat", "deshidratado", "deshidratada"),
+    listOf("relleno", "rellena"),
+    listOf("especial"),
+    listOf("racimo", "rama"),
+    listOf("comercial"),
+    listOf("light", "liviana", "descremada", "parcialmente"),
+    listOf("enter", "entera", "entero"),
+)
+
+private val COMPARE_SYNONYMS = mapOf(
+    "redondo" to "red",
+    "red" to "red",
+    "cavendish" to "banana",
+)
+
+private val COMPARE_WEAK_BRANDS = setOf(
+    "dia", "carrefour", "coto", "classic", "clasica", "clasico",
+    "huella", "huellanatural", "natural", "generico", "comun", "",
+)
+
+private val COMPARE_GENERIC_TOKENS = setOf(
+    "leche", "agua", "aceite", "arroz", "azucar", "sal", "yogur", "yogurt", "jugo",
+    "pan", "queso", "crema", "manteca", "huevo", "cerveza", "vino", "gaseosa",
+    "fideo", "harina", "cafe", "te", "galletita", "entera", "enter", "descremada",
+    "light", "polvo", "sabor",
+)
+
+private const val COMPARE_NAME_MATCH_MIN = 48.0
+
+private fun canonCompareToken(token: String): String {
+    var t = foldText(token).replace(Regex("[^a-z0-9]"), "")
+    if (t.isEmpty()) return ""
+    COMPARE_SYNONYMS[t]?.let { return it }
+    if (t.endsWith("es") && t.length > 5) t = t.dropLast(2)
+    else if (t.endsWith("s") && t.length > 4) t = t.dropLast(1)
+    return t
+}
+
+private fun extractCompareSize(foldedName: String): String {
+    val text = foldText(foldedName)
+    val match = Regex("""\b(\d+[.,]?\d*)\s*(kg|kgs|g|gr|grs|grm|ml|cc|cl|l|lt|lts)\b""")
+        .find(text)
+        ?: Regex("""\b(\d+[.,]?\d*)(kg|kgs|g|gr|grs|grm|ml|cc|cl|l|lt|lts)\b""").find(text)
+        ?: return ""
+    val n = match.groupValues[1].replace(',', '.')
+    var u = match.groupValues[2]
+    if (u == "grs" || u == "gr" || u == "grm") u = "g"
+    if (u == "kgs") u = "kg"
+    if (u == "lts" || u == "lt") u = "l"
+    if (u == "cc") u = "ml"
+    return "$n$u"
+}
+
+private data class CompareIdentity(
+    val unit: String,
+    val size: String,
+    val tokens: List<String>,
+    val variants: Set<String>,
+    val brand: String,
+    val folded: String,
+)
+
+private fun compareProductIdentity(product: StoreProduct): CompareIdentity {
+    val folded = foldText(product.name)
+    val size = extractCompareSize(folded)
+    val unit = if (product.qtyUnit == "kg") "kg" else "unit"
+    val raw = folded.replace(Regex("[^a-z0-9]+"), " ").split(Regex("\\s+"))
+        .map { canonCompareToken(it) }
+        .filter { it.isNotEmpty() }
+    val seen = mutableSetOf<String>()
+    val tokens = mutableListOf<String>()
+    for (t in raw) {
+        if (t in COMPARE_FILLERS || t.all { it.isDigit() } || t in seen) continue
+        seen.add(t)
+        tokens.add(t)
+    }
+    val joined = tokens.joinToString(" ")
+    val variants = mutableSetOf<String>()
+    for (group in COMPARE_STRONG_VARIANTS) {
+        if (group.any { it in tokens || joined.contains(it) }) variants.add(group.first())
+    }
+    val brand = canonCompareToken(product.brand)
+    return CompareIdentity(unit, size, tokens, variants, brand, folded)
+}
+
+private fun variantsCompatible(a: CompareIdentity, b: CompareIdentity): Boolean {
+    val onlyA = a.variants.filter { it !in b.variants }
+    val onlyB = b.variants.filter { it !in a.variants }
+    if (onlyA.isEmpty() && onlyB.isEmpty()) return true
+    if (onlyA.isNotEmpty() && onlyB.isNotEmpty()) return false
+    return (if (onlyA.isNotEmpty()) onlyA else onlyB).isEmpty()
+}
+
+fun scoreCompareMatch(seed: StoreProduct?, candidate: StoreProduct?): Double {
+    if (seed == null || candidate == null) return 0.0
+    val a = compareProductIdentity(seed)
+    val b = compareProductIdentity(candidate)
+    if (a.unit != b.unit) return 0.0
+    if (a.size.isNotEmpty() || b.size.isNotEmpty()) {
+        if (a.size.isEmpty() || b.size.isEmpty() || a.size != b.size) return 0.0
+    }
+    if (!variantsCompatible(a, b)) return 0.0
+
+    val brandA = if (a.brand.isNotEmpty() && a.brand !in COMPARE_WEAK_BRANDS) a.brand else ""
+    val brandB = if (b.brand.isNotEmpty() && b.brand !in COMPARE_WEAK_BRANDS) b.brand else ""
+    if (a.unit == "unit") {
+        if (brandA.isNotEmpty() && brandB.isNotEmpty() && brandA != brandB) return 0.0
+        if (brandA.isNotEmpty() && brandB.isEmpty() && !b.folded.contains(brandA) && brandA !in b.tokens) return 0.0
+        if (brandB.isNotEmpty() && brandA.isEmpty() && !a.folded.contains(brandB) && brandB !in a.tokens) return 0.0
+    }
+
+    if (a.tokens.isEmpty() || b.tokens.isEmpty()) return 0.0
+    val setA = a.tokens.toSet()
+    val setB = b.tokens.toSet()
+    val inter = setA.intersect(setB).toList()
+    if (inter.isEmpty()) return 0.0
+    if (a.unit == "unit" && inter.size < 2 && !(brandA.isNotEmpty() && brandA == brandB)) return 0.0
+    if (a.unit == "unit" && brandA.isEmpty() && brandB.isEmpty()) {
+        val specific = inter.filter { it !in COMPARE_GENERIC_TOKENS }
+        if (specific.isEmpty() || inter.size < 3) return 0.0
+    }
+    val headA = a.tokens.firstOrNull()
+    val headB = b.tokens.firstOrNull()
+    if (headA != null && headB != null && headA != headB && headA !in inter && headB !in inter) return 0.0
+
+    val union = setA + setB
+    var score = (inter.size.toDouble() / union.size) * 70.0
+    if (a.size.isNotEmpty() && a.size == b.size) score += 18
+    if (a.unit == "kg") score += 8
+    if (brandA.isNotEmpty() && brandB.isNotEmpty() && brandA == brandB) score += 16
+    if (inter.size >= 2) score += 10
+    if (inter.size >= 3) score += 8
+    if (a.folded.contains(inter[0]) && b.folded.contains(inter[0])) score += 4
+    return score
+}
+
+fun findCompareMatchIndex(seed: StoreProduct, list: List<StoreProduct>, used: Set<Int>): Int {
+    if (list.isEmpty()) return -1
+    if (seed.ean.isNotBlank()) {
+        list.forEachIndexed { index, product ->
+            if (index !in used && product.ean.isNotBlank() && product.ean == seed.ean) return index
+        }
+    }
+    var bestIdx = -1
+    var bestScore = 0.0
+    var bestClose = Double.NEGATIVE_INFINITY
+    list.forEachIndexed { index, product ->
+        if (index in used) return@forEachIndexed
+        val score = scoreCompareMatch(seed, product)
+        if (score < COMPARE_NAME_MATCH_MIN) return@forEachIndexed
+        val seedId = compareProductIdentity(seed)
+        val otherId = compareProductIdentity(product)
+        val close =
+            -kotlin.math.abs(seedId.tokens.size - otherId.tokens.size) * 10.0 -
+                kotlin.math.abs(seedId.folded.length - otherId.folded.length)
+        if (score > bestScore || (score == bestScore && close > bestClose)) {
+            bestScore = score
+            bestClose = close
+            bestIdx = index
+        }
+    }
+    return bestIdx
 }
 
 /** Pasa gramos del formulario a kilos guardados (precisión 0,1 g). */
@@ -315,7 +501,7 @@ fun JSONArray.toStoreProducts(): List<StoreProduct> = buildList {
     for (i in 0 until length()) add(getJSONObject(i).toStoreProduct())
 }
 
-/** Une resultados de Coto / Carrefour / Día por EAN, igual que la web. */
+/** Une resultados de Coto / Carrefour / Día por EAN o nombre equivalente. */
 fun buildWebCompareRows(
     coto: List<StoreProduct>,
     carrefour: List<StoreProduct>,
@@ -327,15 +513,8 @@ fun buildWebCompareRows(
         "dia" to mutableSetOf(),
     )
 
-    fun findByEan(list: List<StoreProduct>, store: String, ean: String): Int {
-        if (ean.isBlank()) return -1
-        list.forEachIndexed { index, product ->
-            if (!used.getValue(store).contains(index) && product.ean.isNotBlank() && product.ean == ean) {
-                return index
-            }
-        }
-        return -1
-    }
+    fun findPartner(seed: StoreProduct, list: List<StoreProduct>, store: String): Int =
+        findCompareMatchIndex(seed, list, used.getValue(store))
 
     val rows = mutableListOf<CompareRow>()
 
@@ -344,10 +523,10 @@ fun buildWebCompareRows(
         val seed = list[index]
         used.getValue(store).add(index)
 
-        val cotoIdx = if (store == "coto") index else findByEan(coto, "coto", seed.ean)
+        val cotoIdx = if (store == "coto") index else findPartner(seed, coto, "coto")
         val carrefourIdx =
-            if (store == "carrefour") index else findByEan(carrefour, "carrefour", seed.ean)
-        val diaIdx = if (store == "dia") index else findByEan(dia, "dia", seed.ean)
+            if (store == "carrefour") index else findPartner(seed, carrefour, "carrefour")
+        val diaIdx = if (store == "dia") index else findPartner(seed, dia, "dia")
 
         if (cotoIdx >= 0) used.getValue("coto").add(cotoIdx)
         if (carrefourIdx >= 0) used.getValue("carrefour").add(carrefourIdx)
@@ -358,9 +537,10 @@ fun buildWebCompareRows(
         val diaProduct = diaIdx.takeIf { it >= 0 }?.let { dia[it] }
         val primary = cotoProduct ?: carrefourProduct ?: diaProduct ?: return
 
-        val cotoPrice = cotoProduct?.comparePrice ?: 0.0
-        val carrefourPrice = carrefourProduct?.comparePrice ?: 0.0
-        val diaPrice = diaProduct?.comparePrice ?: 0.0
+        // Comparar: precio de la ficha web (Coto lista; Carrefour/Día Price).
+        val cotoPrice = cotoProduct?.let { compareShelfPrice(it) } ?: 0.0
+        val carrefourPrice = carrefourProduct?.let { compareShelfPrice(it) } ?: 0.0
+        val diaPrice = diaProduct?.let { compareShelfPrice(it) } ?: 0.0
         val ean = primary.ean
         val id = ean.ifBlank { "$store:$index:${primary.name}" }
 
