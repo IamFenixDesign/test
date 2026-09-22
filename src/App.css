@@ -2096,7 +2096,7 @@ td:has(.item-cell) {
 
 .compare-head {
   display: grid;
-  grid-template-columns: 44px minmax(0, 1fr) 40px;
+  grid-template-columns: 44px minmax(0, 1fr);
   gap: 10px;
   align-items: center;
 }
