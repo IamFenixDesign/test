@@ -2269,7 +2269,7 @@ button.store-pill {
 
 .store-cols {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 1fr 1fr 1fr;
   gap: 12px;
   margin-top: 8px;
   max-height: 360px;
@@ -2985,7 +2985,7 @@ html[data-theme="light"] .store-col-title.dia {
 
   .store-result-tabs {
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: 1fr 1fr 1fr;
     gap: 8px;
     margin-top: 10px;
   }
@@ -2999,9 +2999,10 @@ html[data-theme="light"] .store-col-title.dia {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    gap: 8px;
+    gap: 6px;
     font-weight: 750;
-    font-size: 0.88rem;
+    font-size: 0.8rem;
+    padding: 0 6px;
   }
 
   .store-result-tab small {
@@ -3155,7 +3156,7 @@ html[data-theme="light"] .store-col-title.dia {
 
   .item-sheet .store-result-tabs {
     display: grid !important;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: 1fr 1fr 1fr;
   }
 
   .item-sheet .store-cols {
@@ -3213,7 +3214,7 @@ html.is-pwa .item-sheet .form-store-results {
 
 html.is-pwa .item-sheet .store-result-tabs {
   display: grid !important;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 1fr 1fr 1fr;
   gap: 8px;
   margin-top: 10px;
 }
