@@ -8,5 +8,6 @@
 /captures
 .externalNativeBuild
 .cxx
-*.apk
 *.aab
+!/release/
+!/release/*.apk

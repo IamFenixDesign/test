@@ -19,6 +19,8 @@ cd android
 
 APK: `android/app/build/outputs/apk/debug/app-debug.apk`
 
+Descarga directa (repo): [`android/release/stockea-debug.apk`](android/release/stockea-debug.apk)
+
 Detalles: [`android/README.md`](android/README.md).
 
 ## GitHub Pages

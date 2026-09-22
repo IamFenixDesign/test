@@ -29,6 +29,10 @@ echo "sdk.dir=$ANDROID_HOME" > local.properties
 
 APK: `android/app/build/outputs/apk/debug/app-debug.apk`
 
+También está versionado en el repo:
+
+[`android/release/stockea-debug.apk`](./release/stockea-debug.apk)
+
 Desde la raíz del repo:
 
 ```bash
