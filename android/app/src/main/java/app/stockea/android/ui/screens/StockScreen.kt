@@ -1,6 +1,7 @@
 package app.stockea.android.ui.screens
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -8,6 +9,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -19,7 +21,6 @@ import androidx.compose.material.icons.outlined.Remove
 import androidx.compose.material.icons.outlined.ShoppingCart
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Badge
-import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
@@ -73,12 +74,8 @@ fun StockScreen(
                     fontWeight = FontWeight.Bold,
                     modifier = Modifier.weight(1f),
                 )
-                IconButton(onClick = onOpenCart) {
-                    BadgedBox(badge = {
-                        if (cartCount > 0) {
-                            Badge { Text("$cartCount", fontWeight = FontWeight.Bold) }
-                        }
-                    }) {
+                Box {
+                    IconButton(onClick = onOpenCart) {
                         Icon(
                             Icons.Outlined.ShoppingCart,
                             contentDescription = "Abrir carrito",
@@ -88,6 +85,15 @@ fun StockScreen(
                                 MaterialTheme.colorScheme.onSurface
                             },
                         )
+                    }
+                    if (cartCount > 0) {
+                        Badge(
+                            modifier = Modifier
+                                .align(Alignment.TopEnd)
+                                .offset(x = (-2).dp, y = 6.dp),
+                        ) {
+                            Text("$cartCount", fontWeight = FontWeight.Bold)
+                        }
                     }
                 }
             }
