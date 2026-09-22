@@ -319,7 +319,7 @@
     grid-area: actions;
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 14px;
+    gap: 20px;
     width: 100%;
   }
 
@@ -362,7 +362,7 @@
   }
 
   .profile-actions {
-    gap: 16px;
+    gap: 24px;
   }
 }
 
