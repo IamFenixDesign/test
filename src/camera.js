@@ -45,6 +45,9 @@ function isStandalonePwa() {
 }
 
 function isMobileOrPwa() {
+  if (document.documentElement.classList.contains('is-desktop-site')) {
+    return window.matchMedia('(max-width: 760px)').matches
+  }
   return (
     isStandalonePwa() ||
     isAppleTouch() ||

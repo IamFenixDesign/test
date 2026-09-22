@@ -13,14 +13,49 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="Stockea" />
     <meta name="application-name" content="Stockea" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta
+      id="viewport"
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, viewport-fit=cover"
+    />
     <title>Stockea — Control de stock</title>
     <script>
       document.documentElement.dataset.theme =
         localStorage.getItem('stockly-theme') === 'light' ? 'light' : 'dark'
-      if (window.navigator.standalone || window.matchMedia('(display-mode: standalone)').matches) {
-        document.documentElement.classList.add('is-pwa')
+
+      function syncSiteMode() {
+        var ua = navigator.userAgent || ''
+        var touch = navigator.maxTouchPoints > 0 || 'ontouchend' in document
+        // iOS/iPadOS "Solicitar sitio de escritorio" → UA Macintosh + touch
+        var iosDesktop = /Macintosh/i.test(ua) && touch
+        // Android Chrome "Sitio de escritorio" → Android sin token Mobile
+        var androidDesktop = /Android/i.test(ua) && !/Mobile/i.test(ua)
+        var desktopSite = iosDesktop || androidDesktop
+
+        var standalone =
+          window.navigator.standalone === true ||
+          window.matchMedia('(display-mode: standalone)').matches ||
+          window.matchMedia('(display-mode: fullscreen)').matches
+
+        var root = document.documentElement
+        var meta = document.getElementById('viewport')
+        var mobileViewport = 'width=device-width, initial-scale=1.0, viewport-fit=cover'
+        var desktopViewport = 'width=1280, initial-scale=1, viewport-fit=cover'
+
+        if (desktopSite) {
+          root.classList.add('is-desktop-site')
+          root.classList.remove('is-pwa')
+          if (meta) meta.setAttribute('content', desktopViewport)
+        } else {
+          root.classList.remove('is-desktop-site')
+          if (standalone) root.classList.add('is-pwa')
+          else root.classList.remove('is-pwa')
+          if (meta) meta.setAttribute('content', mobileViewport)
+        }
       }
+
+      syncSiteMode()
+      window.addEventListener('pageshow', syncSiteMode)
     </script>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
