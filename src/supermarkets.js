@@ -223,7 +223,7 @@ function flattenCotoRecords(records, out = []) {
   return out
 }
 
-export function parseCoto(data) {
+export function parseCoto(data, { limit = 24 } = {}) {
   const list = findCotoResultsList(data)
   const rawRecords = list?.records?.length
     ? flattenCotoRecords(list.records)
@@ -259,7 +259,7 @@ export function parseCoto(data) {
       }
     })
     .filter((item) => item && item.name && item.price > 0)
-    .slice(0, 24)
+    .slice(0, limit)
 }
 
 function parseVtexProducts(products, { store, origin, limit = 8 }) {
@@ -294,19 +294,19 @@ function parseVtexProducts(products, { store, origin, limit = 8 }) {
     .slice(0, limit)
 }
 
-export function parseCarrefour(products) {
+export function parseCarrefour(products, { limit = 8 } = {}) {
   return parseVtexProducts(products, {
     store: 'carrefour',
     origin: 'https://www.carrefour.com.ar',
-    limit: 8,
+    limit,
   })
 }
 
-export function parseDia(products) {
+export function parseDia(products, { limit = 8 } = {}) {
   return parseVtexProducts(products, {
     store: 'dia',
     origin: 'https://diaonline.supermercadosdia.com.ar',
-    limit: 8,
+    limit,
   })
 }
 
@@ -424,8 +424,9 @@ async function firstMatch(urls, parse) {
   return []
 }
 
-export async function fetchCotoProducts(query) {
+export async function fetchCotoProducts(query, { limit = 24 } = {}) {
   const encoded = encodeURIComponent(query)
+  const pageSize = Math.min(Math.max(limit, 12), 48)
   const urls = []
   if (isBarcode(query)) {
     const ean = barcodeDigits(query)
@@ -434,13 +435,15 @@ export async function fetchCotoProducts(query) {
     )
   }
   urls.push(
-    `https://www.coto.com.ar/sitios/cdigi/categoria?format=json&Ntt=${encoded}&Dy=1&Nrpp=24`,
+    `https://www.coto.com.ar/sitios/cdigi/categoria?format=json&Ntt=${encoded}&Dy=1&Nrpp=${pageSize}`,
   )
-  return firstMatch(urls, parseCoto)
+  return firstMatch(urls, (data) => parseCoto(data, { limit: pageSize }))
 }
 
-export async function fetchCarrefourProducts(query) {
+export async function fetchCarrefourProducts(query, { limit = 8 } = {}) {
   const encoded = encodeURIComponent(query)
+  const pageSize = Math.min(Math.max(limit, 8), 50)
+  const to = pageSize - 1
   const urls = []
   if (isBarcode(query)) {
     const ean = barcodeDigits(query)
@@ -449,13 +452,15 @@ export async function fetchCarrefourProducts(query) {
     )
   }
   urls.push(
-    `https://www.carrefour.com.ar/api/catalog_system/pub/products/search?ft=${encoded}&_from=0&_to=9`,
+    `https://www.carrefour.com.ar/api/catalog_system/pub/products/search?ft=${encoded}&_from=0&_to=${to}`,
   )
-  return firstMatch(urls, parseCarrefour)
+  return firstMatch(urls, (data) => parseCarrefour(data, { limit: pageSize }))
 }
 
-export async function fetchDiaProducts(query) {
+export async function fetchDiaProducts(query, { limit = 8 } = {}) {
   const encoded = encodeURIComponent(query)
+  const pageSize = Math.min(Math.max(limit, 8), 50)
+  const to = pageSize - 1
   const urls = []
   if (isBarcode(query)) {
     const ean = barcodeDigits(query)
@@ -464,19 +469,20 @@ export async function fetchDiaProducts(query) {
     )
   }
   urls.push(
-    `https://diaonline.supermercadosdia.com.ar/api/catalog_system/pub/products/search?ft=${encoded}&_from=0&_to=9`,
+    `https://diaonline.supermercadosdia.com.ar/api/catalog_system/pub/products/search?ft=${encoded}&_from=0&_to=${to}`,
   )
-  return firstMatch(urls, parseDia)
+  return firstMatch(urls, (data) => parseDia(data, { limit: pageSize }))
 }
 
-export async function searchSupermarketsServer(query) {
+export async function searchSupermarketsServer(query, { limit } = {}) {
   const q = isBarcode(query) ? barcodeDigits(query) : String(query || '').trim()
   if (!q) return { coto: [], carrefour: [], dia: [], errors: {} }
 
+  const opts = limit ? { limit } : {}
   const [cotoResult, carrefourResult, diaResult] = await Promise.allSettled([
-    fetchCotoProducts(q),
-    fetchCarrefourProducts(q),
-    fetchDiaProducts(q),
+    fetchCotoProducts(q, opts),
+    fetchCarrefourProducts(q, opts),
+    fetchDiaProducts(q, opts),
   ])
   return {
     coto: cotoResult.status === 'fulfilled' ? cotoResult.value : [],
@@ -490,18 +496,20 @@ export async function searchSupermarketsServer(query) {
   }
 }
 
-export async function searchSupermarkets(query) {
+export async function searchSupermarkets(query, { limit } = {}) {
   const q = isBarcode(query) ? barcodeDigits(query) : query.trim()
   if (!q) return { coto: [], carrefour: [], dia: [], errors: {} }
 
   try {
-    const res = await fetch(`/api/supers?q=${encodeURIComponent(q)}`)
+    const params = new URLSearchParams({ q })
+    if (limit) params.set('limit', String(limit))
+    const res = await fetch(`/api/supers?${params}`)
     if (res.ok) return res.json()
   } catch {
     /* GitHub Pages has no API; fall back to the browser */
   }
 
-  return searchSupermarketsServer(q)
+  return searchSupermarketsServer(q, { limit })
 }
 
 export function matchByEan(product, otherList) {

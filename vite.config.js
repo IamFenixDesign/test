@@ -19,8 +19,11 @@ async function supersMiddleware(req, res, next) {
     return
   }
 
+  const limitRaw = Number(url.searchParams.get('limit'))
+  const limit = Number.isFinite(limitRaw) && limitRaw > 0 ? limitRaw : undefined
+
   try {
-    res.end(JSON.stringify(await searchSupermarketsServer(q)))
+    res.end(JSON.stringify(await searchSupermarketsServer(q, { limit })))
   } catch {
     res.statusCode = 502
     res.end(JSON.stringify({ error: 'No se pudieron consultar los supermercados' }))
