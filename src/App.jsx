@@ -2640,10 +2640,7 @@ function App() {
                   <div className="cart-deals-head">
                     <div>
                       <p className="cart-deals-kicker">Sucursales</p>
-                      <h3 className="cart-deals-title">
-                        {weekdayLabel(cartDay)}
-                        {cartDay === todayWeekday() ? <span>hoy</span> : null}
-                      </h3>
+                      <h3 className="cart-deals-title">{weekdayLabel(cartDay)}</h3>
                     </div>
                     <p className="cart-deals-hint">Elegí día y medio de pago</p>
                   </div>
