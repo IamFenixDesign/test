@@ -534,12 +534,26 @@ function storePriceOf(item, store) {
   return 0
 }
 
-/** Precio de lista — el que muestra la web del súper (góndola / contado). */
+/** Precio de lista — referencia / tachado (si hay promo). */
 function listPriceOfProduct(product) {
   const list = Number(product?.listPrice)
   if (list > 0) return list
   const price = Number(product?.price)
   return price > 0 ? price : 0
+}
+
+/**
+ * Precio a mostrar en Comparar: el de la ficha web (no el tachado/inflado).
+ * - Coto: activePrice / precioLista (ya sin "Precio Contado" viejo)
+ * - Carrefour / Día: Price de VTEX (ListPrice más alto es el tachado)
+ */
+function compareShelfPrice(product) {
+  if (!product) return 0
+  if (product.store === 'carrefour' || product.store === 'dia') {
+    const price = Number(product.price)
+    if (price > 0) return price
+  }
+  return listPriceOfProduct(product)
 }
 
 /** Une resultados web de Coto / Carrefour / Día por EAN para Comparar. */
@@ -577,10 +591,10 @@ function buildWebCompareRows({ coto = [], carrefour = [], dia = [] }) {
     const primary = cotoProduct || carrefourProduct || diaProduct
     if (!primary) return
 
-    // Comparar: precio de lista (como en la web del súper), no el de oferta.
-    const cotoPrice = listPriceOfProduct(cotoProduct)
-    const carrefourPrice = listPriceOfProduct(carrefourProduct)
-    const diaPrice = listPriceOfProduct(diaProduct)
+    // Comparar: precio de la ficha web (Coto lista/activo; Carrefour/Día Price).
+    const cotoPrice = compareShelfPrice(cotoProduct)
+    const carrefourPrice = compareShelfPrice(carrefourProduct)
+    const diaPrice = compareShelfPrice(diaProduct)
     const cheapest = cheaperOf(cotoPrice, carrefourPrice, diaPrice)
     const prices = [cotoPrice, carrefourPrice, diaPrice].filter((value) => value > 0)
     const highest = prices.length ? Math.max(...prices) : 0
