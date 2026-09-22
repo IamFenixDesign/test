@@ -1124,6 +1124,8 @@ function App() {
     lastScrollYRef.current = window.scrollY || 0
 
     function isCompactChrome() {
+      if (document.documentElement.classList.contains('is-desktop-site')) return false
+      if (window.matchMedia('(min-width: 761px)').matches) return false
       return (
         window.matchMedia('(max-width: 760px)').matches ||
         document.documentElement.classList.contains('is-pwa') ||
