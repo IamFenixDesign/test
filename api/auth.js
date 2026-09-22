@@ -37,10 +37,22 @@ function expiresAt() {
   return new Date(Date.now() + CODE_TTL_MS).toISOString()
 }
 
+function pendingMailResult(email, code, delivery) {
+  const result = { pending: true, email }
+  // Resend sandbox (onboarding@resend.dev) can't deliver to other inboxes —
+  // return the code so register/verify still works with any email.
+  if (delivery && !delivery.delivered) {
+    result.code = code
+    result.mailMode = 'sandbox'
+  }
+  return result
+}
+
 async function issueEmailCode(user, purpose = 'verify') {
   const code = createEmailCode()
   await saveEmailCode(user.id, hashEmailCode(code, user.email), expiresAt())
-  await sendCodeEmail({ to: user.email, firstName: user.firstName, code, purpose })
+  const delivery = await sendCodeEmail({ to: user.email, firstName: user.firstName, code, purpose })
+  return pendingMailResult(user.email, code, delivery)
 }
 
 async function handleRegister(body) {
@@ -63,8 +75,8 @@ async function handleRegister(body) {
     codeHash: hashEmailCode(code, email),
     expiresAt: expiresAt(),
   })
-  await sendVerificationEmail({ to: user.email, firstName: user.firstName, code })
-  return { pending: true, email: user.email }
+  const delivery = await sendVerificationEmail({ to: user.email, firstName: user.firstName, code })
+  return pendingMailResult(user.email, code, delivery)
 }
 
 async function handleLogin(body) {
@@ -110,15 +122,14 @@ async function handleResend(body) {
   if (purpose === 'verify' && row.email_verified) {
     throw Object.assign(new Error('Esa cuenta ya está confirmada'), { status: 400 })
   }
-  await issueEmailCode(rowToUser(row), purpose)
-  return { pending: true, email: row.email }
+  return issueEmailCode(rowToUser(row), purpose)
 }
 
 async function handleForgot(body) {
   const email = normalizeEmail(body.email || body.correo)
   if (!EMAIL_RE.test(email)) throw Object.assign(new Error('El correo no es válido'), { status: 400 })
   const row = await getUserRowByEmail(email)
-  if (row?.provider === 'email') await issueEmailCode(rowToUser(row), 'reset')
+  if (row?.provider === 'email') return issueEmailCode(rowToUser(row), 'reset')
   return { pending: true, email }
 }
 
