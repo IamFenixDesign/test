@@ -5,19 +5,22 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Balance
-import androidx.compose.material.icons.outlined.DarkMode
 import androidx.compose.material.icons.outlined.Inventory2
-import androidx.compose.material.icons.outlined.LightMode
 import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material.icons.outlined.ShoppingCart
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
@@ -32,9 +35,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
 import app.stockea.android.ui.screens.CartScreen
 import app.stockea.android.ui.screens.CompareScreen
 import app.stockea.android.ui.screens.LoginScreen
+import app.stockea.android.ui.screens.NewItemDialog
 import app.stockea.android.ui.screens.ProfileScreen
 import app.stockea.android.ui.screens.StockScreen
 import app.stockea.android.ui.theme.StockeaTheme
@@ -96,14 +101,14 @@ private fun StockeaRoot(vm: StockeaViewModel) {
 
         else -> {
             val user = state.user
-            val cartCount = state.items.count { it.inCart }
+            val cartCount = state.cartItems().size
 
             Scaffold(
                 snackbarHost = { SnackbarHost(snackbar) },
                 bottomBar = {
                     NavigationBar {
                         NavigationBarItem(
-                            selected = state.tab == MainTab.Stock,
+                            selected = state.tab == MainTab.Stock && !state.showNewItem,
                             onClick = { vm.setTab(MainTab.Stock) },
                             icon = { Icon(Icons.Outlined.Inventory2, contentDescription = null) },
                             label = { Text("Stock") },
@@ -116,14 +121,22 @@ private fun StockeaRoot(vm: StockeaViewModel) {
                         )
                         NavigationBarItem(
                             selected = false,
-                            onClick = vm::toggleTheme,
+                            onClick = vm::openNewItem,
                             icon = {
-                                Icon(
-                                    if (state.darkTheme) Icons.Outlined.LightMode else Icons.Outlined.DarkMode,
-                                    contentDescription = "Tema",
-                                )
+                                Box(
+                                    modifier = Modifier
+                                        .size(48.dp)
+                                        .background(MaterialTheme.colorScheme.primary, CircleShape),
+                                    contentAlignment = Alignment.Center,
+                                ) {
+                                    Icon(
+                                        Icons.Outlined.Add,
+                                        contentDescription = "Nuevo ítem",
+                                        tint = MaterialTheme.colorScheme.onPrimary,
+                                    )
+                                }
                             },
-                            label = { Text("Tema") },
+                            label = { Text("Nuevo") },
                         )
                         NavigationBarItem(
                             selected = state.tab == MainTab.Cart,
@@ -152,6 +165,7 @@ private fun StockeaRoot(vm: StockeaViewModel) {
                     MainTab.Stock -> StockScreen(
                         items = state.items,
                         contentPadding = padding,
+                        isInCart = { id -> state.isInCart(id) },
                         onBump = vm::bumpQty,
                         onToggleCart = vm::toggleCart,
                         onDelete = vm::deleteItem,
@@ -165,18 +179,28 @@ private fun StockeaRoot(vm: StockeaViewModel) {
                         onAdd = vm::addFromCompare,
                     )
                     MainTab.Cart -> CartScreen(
-                        items = state.items,
+                        items = state.cartItems(),
                         contentPadding = padding,
                         onMarkBought = vm::markCartBought,
+                        onRemove = vm::toggleCart,
                     )
                     MainTab.Profile -> ProfileScreen(
                         user = user!!,
                         busy = state.busy,
                         info = state.info,
                         error = state.error,
+                        darkTheme = state.darkTheme,
                         contentPadding = padding,
                         onSave = vm::saveProfile,
+                        onToggleTheme = vm::toggleTheme,
                         onLogout = vm::logout,
+                    )
+                }
+
+                if (state.showNewItem) {
+                    NewItemDialog(
+                        onDismiss = vm::closeNewItem,
+                        onCreate = vm::createItem,
                     )
                 }
             }
