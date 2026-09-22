@@ -114,9 +114,27 @@ private fun CompareCard(row: CompareRow, onAdd: (CompareRow) -> Unit) {
             if (row.barcode.isNotBlank()) {
                 Text(row.barcode, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-            Text("Coto ${money(row.priceCoto)}", color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Text("Carrefour ${money(row.priceCarrefour)}", color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Text("Día ${money(row.priceDia)}", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(
+                buildString {
+                    append("Coto ${money(row.priceCoto)}")
+                    if (row.discountCoto.isNotBlank()) append(" · ${row.discountCoto}")
+                },
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Text(
+                buildString {
+                    append("Carrefour ${money(row.priceCarrefour)}")
+                    if (row.discountCarrefour.isNotBlank()) append(" · ${row.discountCarrefour}")
+                },
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Text(
+                buildString {
+                    append("Día ${money(row.priceDia)}")
+                    if (row.discountDia.isNotBlank()) append(" · ${row.discountDia}")
+                },
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
             Button(onClick = { onAdd(row) }, shape = RoundedCornerShape(12.dp)) {
                 Text("Agregar al stock")
             }

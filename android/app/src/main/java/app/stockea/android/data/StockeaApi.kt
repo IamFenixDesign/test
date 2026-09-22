@@ -65,6 +65,10 @@ class StockeaApi(context: Context) {
         body: JSONObject? = null,
     ): JSONObject {
         val builder = Request.Builder().url("$base$path")
+        if (method == "GET" && path.contains("/api/supers")) {
+            builder.header("Cache-Control", "no-cache")
+            builder.header("Pragma", "no-cache")
+        }
         when (method) {
             "GET" -> builder.get()
             "DELETE" -> {
@@ -196,7 +200,8 @@ class StockeaApi(context: Context) {
 
     fun searchSupersRaw(query: String, limit: Int = 24): StoreSearchResults {
         val q = java.net.URLEncoder.encode(query, "UTF-8")
-        val data = request("GET", "/api/supers?q=$q&limit=$limit")
+        // _ts evita respuestas cacheadas: Comparar debe verse al momento
+        val data = request("GET", "/api/supers?q=$q&limit=$limit&_ts=${System.currentTimeMillis()}")
         val errorsObj = data.optJSONObject("errors")
         val errors = buildMap {
             if (errorsObj != null) {

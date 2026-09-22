@@ -61,6 +61,9 @@ data class CompareRow(
     val listPriceCoto: Double = 0.0,
     val listPriceCarrefour: Double = 0.0,
     val listPriceDia: Double = 0.0,
+    val discountCoto: String = "",
+    val discountCarrefour: String = "",
+    val discountDia: String = "",
     val qtyUnit: String = "unit",
     val image: String = "",
 )
@@ -80,8 +83,13 @@ data class StoreProduct(
     val hasDiscount: Boolean = false,
     val discountLabel: String = "",
 ) {
+    /** Precio de góndola / lista (sin oferta). */
     val displayPrice: Double
         get() = if (listPrice > 0) listPrice else price
+
+    /** Precio vigente a mostrar en Comparar (oferta/actual, no lista). */
+    val comparePrice: Double
+        get() = if (price > 0) price else displayPrice
 
     val categoryHint: String
         get() = categories.firstOrNull().orEmpty().ifBlank { department }
@@ -350,9 +358,9 @@ fun buildWebCompareRows(
         val diaProduct = diaIdx.takeIf { it >= 0 }?.let { dia[it] }
         val primary = cotoProduct ?: carrefourProduct ?: diaProduct ?: return
 
-        val cotoPrice = cotoProduct?.displayPrice ?: 0.0
-        val carrefourPrice = carrefourProduct?.displayPrice ?: 0.0
-        val diaPrice = diaProduct?.displayPrice ?: 0.0
+        val cotoPrice = cotoProduct?.comparePrice ?: 0.0
+        val carrefourPrice = carrefourProduct?.comparePrice ?: 0.0
+        val diaPrice = diaProduct?.comparePrice ?: 0.0
         val ean = primary.ean
         val id = ean.ifBlank { "$store:$index:${primary.name}" }
 
@@ -368,6 +376,10 @@ fun buildWebCompareRows(
                 listPriceCoto = cotoProduct?.listPrice ?: 0.0,
                 listPriceCarrefour = carrefourProduct?.listPrice ?: 0.0,
                 listPriceDia = diaProduct?.listPrice ?: 0.0,
+                discountCoto = if (cotoProduct?.hasDiscount == true) cotoProduct.discountLabel else "",
+                discountCarrefour =
+                    if (carrefourProduct?.hasDiscount == true) carrefourProduct.discountLabel else "",
+                discountDia = if (diaProduct?.hasDiscount == true) diaProduct.discountLabel else "",
                 qtyUnit = primary.qtyUnit.ifBlank { "unit" },
                 image = primary.image,
             ),

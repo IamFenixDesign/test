@@ -534,12 +534,20 @@ function storePriceOf(item, store) {
   return 0
 }
 
-/** Precio de lista (sin promo web) para el comparador. */
+/** Precio de lista (sin promo) — p.ej. góndola / sucursal. */
 function listPriceOfProduct(product) {
   const list = Number(product?.listPrice)
   if (list > 0) return list
   const price = Number(product?.price)
   return price > 0 ? price : 0
+}
+
+/** Precio vigente a mostrar en Comparar (oferta/actual, no lista). */
+function comparePriceOfProduct(product) {
+  if (!product) return 0
+  const price = Number(product.price)
+  if (price > 0) return price
+  return listPriceOfProduct(product)
 }
 
 /** Une resultados web de Coto / Carrefour / Día por EAN para Comparar. */
@@ -577,9 +585,9 @@ function buildWebCompareRows({ coto = [], carrefour = [], dia = [] }) {
     const primary = cotoProduct || carrefourProduct || diaProduct
     if (!primary) return
 
-    const cotoPrice = listPriceOfProduct(cotoProduct)
-    const carrefourPrice = listPriceOfProduct(carrefourProduct)
-    const diaPrice = listPriceOfProduct(diaProduct)
+    const cotoPrice = comparePriceOfProduct(cotoProduct)
+    const carrefourPrice = comparePriceOfProduct(carrefourProduct)
+    const diaPrice = comparePriceOfProduct(diaProduct)
     const cheapest = cheaperOf(cotoPrice, carrefourPrice, diaPrice)
     const prices = [cotoPrice, carrefourPrice, diaPrice].filter((value) => value > 0)
     const highest = prices.length ? Math.max(...prices) : 0
@@ -600,6 +608,11 @@ function buildWebCompareRows({ coto = [], carrefour = [], dia = [] }) {
       coto: cotoPrice,
       carrefour: carrefourPrice,
       dia: diaPrice,
+      discountCoto: cotoProduct?.hasDiscount ? cotoProduct.discountLabel || '' : '',
+      discountCarrefour: carrefourProduct?.hasDiscount
+        ? carrefourProduct.discountLabel || ''
+        : '',
+      discountDia: diaProduct?.hasDiscount ? diaProduct.discountLabel || '' : '',
       cheapest,
       saving,
       storeCount: prices.length,
@@ -1579,45 +1592,60 @@ function App() {
     }
 
     let cancelled = false
-    const timer = setTimeout(async () => {
-      setCompareLoading(true)
-      setCompareError('')
-      try {
-        const data = await searchSupermarkets(q, { limit: 48 })
-        if (cancelled) return
-        setCompareRows(
-          buildWebCompareRows({
-            coto: data.coto || [],
-            carrefour: data.carrefour || [],
-            dia: data.dia || [],
-          }),
-        )
-        const failed = [data.errors?.coto, data.errors?.carrefour, data.errors?.dia].filter(Boolean)
-        if (
-          failed.length === 3 ||
-          (!(data.coto || []).length &&
-            !(data.carrefour || []).length &&
-            !(data.dia || []).length)
-        ) {
-          setCompareError(
-            failed.length
-              ? 'No se pudieron consultar Coto, Carrefour y Día.'
-              : 'No hay productos web para esa búsqueda.',
+    let timer
+
+    const runSearch = () => {
+      clearTimeout(timer)
+      timer = setTimeout(async () => {
+        setCompareLoading(true)
+        setCompareError('')
+        try {
+          const data = await searchSupermarkets(q, { limit: 48 })
+          if (cancelled) return
+          setCompareRows(
+            buildWebCompareRows({
+              coto: data.coto || [],
+              carrefour: data.carrefour || [],
+              dia: data.dia || [],
+            }),
           )
+          const failed = [data.errors?.coto, data.errors?.carrefour, data.errors?.dia].filter(Boolean)
+          if (
+            failed.length === 3 ||
+            (!(data.coto || []).length &&
+              !(data.carrefour || []).length &&
+              !(data.dia || []).length)
+          ) {
+            setCompareError(
+              failed.length
+                ? 'No se pudieron consultar Coto, Carrefour y Día.'
+                : 'No hay productos web para esa búsqueda.',
+            )
+          }
+        } catch {
+          if (!cancelled) {
+            setCompareRows([])
+            setCompareError('No se pudieron consultar Coto, Carrefour y Día.')
+          }
+        } finally {
+          if (!cancelled) setCompareLoading(false)
         }
-      } catch {
-        if (!cancelled) {
-          setCompareRows([])
-          setCompareError('No se pudieron consultar Coto, Carrefour y Día.')
-        }
-      } finally {
-        if (!cancelled) setCompareLoading(false)
-      }
-    }, 350)
+      }, 350)
+    }
+
+    runSearch()
+
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') runSearch()
+    }
+    document.addEventListener('visibilitychange', onVisible)
+    window.addEventListener('focus', onVisible)
 
     return () => {
       cancelled = true
       clearTimeout(timer)
+      document.removeEventListener('visibilitychange', onVisible)
+      window.removeEventListener('focus', onVisible)
     }
   }, [compareQuery, mainView])
 
@@ -2820,10 +2848,10 @@ function App() {
                     </div>
                     <div className="compare-prices">
                       {[
-                        ['coto', row.coto],
-                        ['carrefour', row.carrefour],
-                        ['dia', row.dia],
-                      ].map(([store, price]) => (
+                        ['coto', row.coto, row.discountCoto],
+                        ['carrefour', row.carrefour, row.discountCarrefour],
+                        ['dia', row.dia, row.discountDia],
+                      ].map(([store, price, discount]) => (
                         <div
                           key={store}
                           className={`compare-price store-${store} ${
@@ -2832,6 +2860,7 @@ function App() {
                         >
                           <em>{storeLabel(store)}</em>
                           <strong>{price > 0 ? money(price) : '—'}</strong>
+                          {discount ? <span className="compare-discount">{discount}</span> : null}
                         </div>
                       ))}
                     </div>
