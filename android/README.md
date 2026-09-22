@@ -9,7 +9,7 @@ Package: `app.stockea.android`
 - Login / registro / verificación
 - Stock (alertas, +/- cantidad, **botón carrito** en el header, borrar)
 - **Nuevo** (bottom sheet: nombre, unidad, stock, precio, EAN + **escanear con cámara**)
-- Comparar precios (Coto / Carrefour / Día vía API, unidos por EAN)
+- Comparar precios (Coto / Carrefour / Día vía API, unidos por EAN o nombre equivalente)
 - **Carrito** (sheet desde Stock, se cierra con ✕; sync por stock bajo)
 - Perfil (editar, **tema claro/oscuro**, cerrar sesión)
 
@@ -32,7 +32,7 @@ APK: `android/app/build/outputs/apk/debug/app-debug.apk`
 
 También está versionado en el repo:
 
-[`android/release/stockea-debug.apk`](./release/stockea-debug.apk) · **v1.1.0** (`versionCode` 2)
+[`android/release/stockea-debug.apk`](./release/stockea-debug.apk) · **v1.2.0** (`versionCode` 3)
 
 Desde la raíz del repo:
 

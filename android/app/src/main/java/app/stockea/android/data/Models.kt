@@ -64,6 +64,9 @@ data class CompareRow(
     val discountCoto: String = "",
     val discountCarrefour: String = "",
     val discountDia: String = "",
+    val nameCoto: String = "",
+    val nameCarrefour: String = "",
+    val nameDia: String = "",
     val qtyUnit: String = "unit",
     val image: String = "",
 )
@@ -560,6 +563,9 @@ fun buildWebCompareRows(
                 discountCarrefour =
                     if (carrefourProduct?.hasDiscount == true) carrefourProduct.discountLabel else "",
                 discountDia = if (diaProduct?.hasDiscount == true) diaProduct.discountLabel else "",
+                nameCoto = cotoProduct?.name.orEmpty(),
+                nameCarrefour = carrefourProduct?.name.orEmpty(),
+                nameDia = diaProduct?.name.orEmpty(),
                 qtyUnit = primary.qtyUnit.ifBlank { "unit" },
                 image = primary.image,
             ),
