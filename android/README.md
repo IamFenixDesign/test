@@ -7,10 +7,11 @@ Package: `app.stockea.android`
 ## Pantallas
 
 - Login / registro / verificación
-- Stock (alertas, +/- cantidad, carrito, borrar)
-- Comparar precios (Coto / Carrefour / Día vía API)
-- Carrito (total + marcar comprados)
-- Perfil (editar + cerrar sesión)
+- Stock (alertas, +/- cantidad, carrito automático por stock bajo, borrar)
+- **Nuevo** (botón + en la barra inferior)
+- Comparar precios (Coto / Carrefour / Día vía API, unidos por EAN)
+- Carrito sincronizado con el stock bajo de la cuenta (igual que la web)
+- Perfil (editar, **tema claro/oscuro**, cerrar sesión)
 
 Habla con el backend de Vercel: `https://test-iota-two-49.vercel.app`
 
