@@ -2519,6 +2519,17 @@ html.cart-open .cart-sheet-footer {
   line-height: 1.2;
 }
 
+.compare-price .compare-store-name {
+  font-size: 0.62rem;
+  font-weight: 600;
+  color: var(--muted);
+  line-height: 1.25;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
 .compare-price.store-coto em {
   color: #e45a62;
 }

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import './App.css'
-import { barcodeDigits, extractEan13, guessCategory, matchByEan, qtyUnitOfProduct, searchSupermarkets, cheaperOf } from './supermarkets'
+import { barcodeDigits, extractEan13, guessCategory, matchByEan, qtyUnitOfProduct, searchSupermarkets, cheaperOf, findCompareMatchIndex } from './supermarkets'
 import {
   PAYMENT_PROMOS,
   WEEKDAYS,
@@ -556,7 +556,7 @@ function compareShelfPrice(product) {
   return listPriceOfProduct(product)
 }
 
-/** Une resultados web de Coto / Carrefour / Día por EAN para Comparar. */
+/** Une resultados web de Coto / Carrefour / Día por EAN o nombre equivalente. */
 function buildWebCompareRows({ coto = [], carrefour = [], dia = [] }) {
   const used = {
     coto: new Set(),
@@ -564,9 +564,8 @@ function buildWebCompareRows({ coto = [], carrefour = [], dia = [] }) {
     dia: new Set(),
   }
 
-  function findByEan(list, store, ean) {
-    if (!ean) return -1
-    return list.findIndex((product, index) => !used[store].has(index) && product.ean && product.ean === ean)
+  function findPartner(seed, list, store) {
+    return findCompareMatchIndex(seed, list, used[store])
   }
 
   const rows = []
@@ -576,10 +575,10 @@ function buildWebCompareRows({ coto = [], carrefour = [], dia = [] }) {
     const seed = list[index]
     used[store].add(index)
 
-    const cotoIdx = store === 'coto' ? index : findByEan(coto, 'coto', seed.ean)
+    const cotoIdx = store === 'coto' ? index : findPartner(seed, coto, 'coto')
     const carrefourIdx =
-      store === 'carrefour' ? index : findByEan(carrefour, 'carrefour', seed.ean)
-    const diaIdx = store === 'dia' ? index : findByEan(dia, 'dia', seed.ean)
+      store === 'carrefour' ? index : findPartner(seed, carrefour, 'carrefour')
+    const diaIdx = store === 'dia' ? index : findPartner(seed, dia, 'dia')
 
     if (cotoIdx >= 0) used.coto.add(cotoIdx)
     if (carrefourIdx >= 0) used.carrefour.add(carrefourIdx)
@@ -611,6 +610,11 @@ function buildWebCompareRows({ coto = [], carrefour = [], dia = [] }) {
         barcode: ean,
         image: primary.image || cotoProduct?.image || carrefourProduct?.image || diaProduct?.image || '',
         priceSource: primary.store,
+      },
+      names: {
+        coto: cotoProduct?.name || '',
+        carrefour: carrefourProduct?.name || '',
+        dia: diaProduct?.name || '',
       },
       coto: cotoPrice,
       carrefour: carrefourPrice,
@@ -2867,10 +2871,10 @@ function App() {
                     </div>
                     <div className="compare-prices">
                       {[
-                        ['coto', row.coto, row.discountCoto],
-                        ['carrefour', row.carrefour, row.discountCarrefour],
-                        ['dia', row.dia, row.discountDia],
-                      ].map(([store, price, discount]) => (
+                        ['coto', row.coto, row.discountCoto, row.names?.coto],
+                        ['carrefour', row.carrefour, row.discountCarrefour, row.names?.carrefour],
+                        ['dia', row.dia, row.discountDia, row.names?.dia],
+                      ].map(([store, price, discount, storeName]) => (
                         <div
                           key={store}
                           className={`compare-price store-${store} ${
@@ -2880,6 +2884,11 @@ function App() {
                           <em>{storeLabel(store)}</em>
                           <strong>{price > 0 ? money(price) : '—'}</strong>
                           {discount ? <span className="compare-discount">{discount}</span> : null}
+                          {storeName && storeName !== row.item.name ? (
+                            <span className="compare-store-name" title={storeName}>
+                              {storeName}
+                            </span>
+                          ) : null}
                         </div>
                       ))}
                     </div>

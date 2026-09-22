@@ -544,6 +544,252 @@ export function matchByEan(product, otherList) {
   return otherList.find((entry) => entry.ean && entry.ean === product.ean) || null
 }
 
+/** Palabras de relleno al comparar nombres entre súpers. */
+const COMPARE_FILLERS = new Set([
+  'x', 'kg', 'kgs', 'kilo', 'kilogramo', 'gr', 'grs', 'g', 'gramo', 'gramos',
+  'ml', 'cc', 'cl', 'lt', 'l', 'litro', 'litros', 'un', 'u', 'und', 'unidad', 'unidades',
+  'pack', 'paq', 'paquete', 'botella', 'sachet', 'tetra', 'ttb', 'caja', 'bolsa', 'malla',
+  'porron', 'lata', 'frasco', 'pote', 'vaso', 'brick', 'brik',
+  'huella', 'natural', 'classic', 'clasica', 'clasico', 'comun', 'seleccion',
+  'largo', 'larga', 'vida', 'uat', 'ultra',
+])
+
+/** Variantes fuertes: si una tiene y la otra no, no son el mismo producto. */
+const COMPARE_STRONG_VARIANTS = [
+  ['cherry', 'cocktail'],
+  ['perita'],
+  ['kumato'],
+  ['raf'],
+  ['organico', 'organica'],
+  ['deshidrat', 'deshidratado', 'deshidratada'],
+  ['relleno', 'rellena'],
+  ['especial'],
+  ['racimo', 'rama'],
+  ['comercial'],
+  ['light', 'liviana', 'descremada', 'parcialmente'],
+  ['enter', 'entera', 'entero'],
+]
+
+/** Sinónimos de tokens para matching (red ≈ redondo). */
+const COMPARE_SYNONYMS = {
+  redondo: 'red',
+  red: 'red',
+  cavendish: 'banana',
+  seleccion: 'seleccion',
+  porron: 'porron',
+  cerveza: 'cerveza',
+}
+
+function canonToken(token) {
+  const t = fold(token).replace(/[^a-z0-9]/g, '')
+  if (!t) return ''
+  if (COMPARE_SYNONYMS[t]) return COMPARE_SYNONYMS[t]
+  // stemming liviano
+  if (t.endsWith('es') && t.length > 5) return t.slice(0, -2)
+  if (t.endsWith('s') && t.length > 4) return t.slice(0, -1)
+  return t
+}
+
+function extractCompareSize(foldedName) {
+  const text = fold(foldedName)
+  const match =
+    text.match(/\b(\d+[.,]?\d*)\s*(kg|kgs|g|gr|grs|grm|ml|cc|cl|l|lt|lts)\b/) ||
+    text.match(/\b(\d+[.,]?\d*)(kg|kgs|g|gr|grs|grm|ml|cc|cl|l|lt|lts)\b/)
+  if (!match) return ''
+  const n = String(match[1]).replace(',', '.')
+  let u = match[2]
+  if (u === 'grs' || u === 'gr' || u === 'grm') u = 'g'
+  if (u === 'kgs') u = 'kg'
+  if (u === 'lts' || u === 'lt') u = 'l'
+  if (u === 'cc') u = 'ml'
+  return `${n}${u}`
+}
+
+function extractCompareVariants(tokens) {
+  const found = new Set()
+  const joined = tokens.join(' ')
+  for (const group of COMPARE_STRONG_VARIANTS) {
+    if (group.some((v) => tokens.includes(v) || joined.includes(v))) {
+      found.add(group[0])
+    }
+  }
+  return found
+}
+
+/** Identidad comparable de un producto entre Coto / Carrefour / Día. */
+export function compareProductIdentity(product) {
+  const name = String(product?.name || '')
+  const folded = fold(name)
+  const size = extractCompareSize(folded)
+  const unit = product?.qtyUnit === 'kg' ? 'kg' : 'unit'
+  const rawTokens = folded
+    .replace(/[^a-z0-9]+/g, ' ')
+    .split(/\s+/)
+    .map(canonToken)
+    .filter(Boolean)
+  const seen = new Set()
+  const tokens = []
+  for (const t of rawTokens) {
+    if (COMPARE_FILLERS.has(t) || /^\d+$/.test(t) || seen.has(t)) continue
+    seen.add(t)
+    tokens.push(t)
+  }
+  const variants = extractCompareVariants(tokens)
+  const brand = canonToken(product?.brand || '')
+  return { unit, size, tokens, variants, brand, folded }
+}
+
+function variantsCompatible(a, b) {
+  const onlyA = [...a.variants].filter((v) => !b.variants.has(v))
+  const onlyB = [...b.variants].filter((v) => !a.variants.has(v))
+  if (!onlyA.length && !onlyB.length) return true
+  // Una sola tiene variante fuerte → distinto producto (ej. cherry vs redondo).
+  if (onlyA.length && onlyB.length) return false
+  const extra = onlyA.length ? onlyA : onlyB
+  // "especial" / "racimo" sin contraparte: no fusionar con el genérico.
+  return extra.length === 0
+}
+
+/** Score 0–100+; umbral típico ~48 para aceptar match por nombre. */
+export function scoreCompareMatch(seed, candidate) {
+  if (!seed || !candidate) return 0
+  const a = compareProductIdentity(seed)
+  const b = compareProductIdentity(candidate)
+  if (a.unit !== b.unit) return 0
+  // Si alguno declara tamaño (500g, 1l…), ambos deben coincidir.
+  if (a.size || b.size) {
+    if (!a.size || !b.size || a.size !== b.size) return 0
+  }
+  if (!variantsCompatible(a, b)) return 0
+
+  const weakBrand = new Set([
+    'dia',
+    'carrefour',
+    'coto',
+    'classic',
+    'clasica',
+    'clasico',
+    'huella',
+    'huellanatural',
+    'natural',
+    'generico',
+    'comun',
+    '',
+  ])
+  const brandA = a.brand && !weakBrand.has(a.brand) ? a.brand : ''
+  const brandB = b.brand && !weakBrand.has(b.brand) ? b.brand : ''
+
+  // Marca solo exige en envasados; en kg (verdura/fruta) suele ser marca propia irrelevante.
+  if (a.unit === 'unit') {
+    if (brandA && brandB && brandA !== brandB) return 0
+    if (brandA && !brandB && !b.folded.includes(brandA) && !b.tokens.includes(brandA)) return 0
+    if (brandB && !brandA && !a.folded.includes(brandB) && !a.tokens.includes(brandB)) return 0
+  }
+
+  const setA = new Set(a.tokens)
+  const setB = new Set(b.tokens)
+  if (!setA.size || !setB.size) return 0
+  const inter = [...setA].filter((t) => setB.has(t))
+  if (!inter.length) return 0
+
+  const genericTokens = new Set([
+    'leche',
+    'agua',
+    'aceite',
+    'arroz',
+    'azucar',
+    'sal',
+    'yogur',
+    'yogurt',
+    'jugo',
+    'pan',
+    'queso',
+    'crema',
+    'manteca',
+    'huevo',
+    'cerveza',
+    'vino',
+    'gaseosa',
+    'fideo',
+    'harina',
+    'cafe',
+    'te',
+    'galletita',
+    'entera',
+    'enter',
+    'descremada',
+    'light',
+    'polvo',
+    'sabor',
+  ])
+
+  // Envasados: más de un token, o misma marca fuerte.
+  if (a.unit === 'unit' && inter.length < 2 && !(brandA && brandA === brandB)) {
+    return 0
+  }
+
+  // Envasados sin marca fuerte: evitar “leche entera 1l” genérico entre súpers.
+  if (a.unit === 'unit' && !brandA && !brandB) {
+    const specific = inter.filter((t) => !genericTokens.has(t))
+    if (specific.length < 1 || inter.length < 3) return 0
+  }
+
+  // Exigir al menos un token "cabeza" compartido (producto base).
+  const headA = a.tokens[0]
+  const headB = b.tokens[0]
+  if (headA && headB && headA !== headB && !inter.includes(headA) && !inter.includes(headB)) {
+    return 0
+  }
+
+  const union = new Set([...setA, ...setB])
+  let score = (inter.length / union.size) * 70
+  if (a.size && a.size === b.size) score += 18
+  if (a.unit === 'kg') score += 8
+  if (brandA && brandB && brandA === brandB) score += 16
+  if (inter.length >= 2) score += 10
+  if (inter.length >= 3) score += 8
+  if (a.folded.includes(inter[0]) && b.folded.includes(inter[0])) score += 4
+  return score
+}
+
+const COMPARE_NAME_MATCH_MIN = 48
+
+/**
+ * Busca el mejor par en otra lista: primero EAN, luego nombre/unidad/tamaño.
+ * `used` es un Set de índices ya tomados.
+ * @returns {number} índice o -1
+ */
+export function findCompareMatchIndex(seed, list, used = new Set()) {
+  if (!seed || !Array.isArray(list) || !list.length) return -1
+
+  if (seed.ean) {
+    const byEan = list.findIndex(
+      (product, index) => !used.has(index) && product.ean && product.ean === seed.ean,
+    )
+    if (byEan >= 0) return byEan
+  }
+
+  let bestIdx = -1
+  let bestScore = 0
+  let bestClose = -Infinity
+  list.forEach((product, index) => {
+    if (used.has(index)) return
+    const score = scoreCompareMatch(seed, product)
+    if (score < COMPARE_NAME_MATCH_MIN) return
+    const seedId = compareProductIdentity(seed)
+    const otherId = compareProductIdentity(product)
+    const close =
+      -Math.abs(seedId.tokens.length - otherId.tokens.length) * 10 -
+      Math.abs(seedId.folded.length - otherId.folded.length)
+    if (score > bestScore || (score === bestScore && close > bestClose)) {
+      bestScore = score
+      bestClose = close
+      bestIdx = index
+    }
+  })
+  return bestIdx
+}
+
 export function cheaperOf(priceCoto, priceCarrefour, priceDia = 0) {
   const entries = [
     ['coto', Number(priceCoto) || 0],
