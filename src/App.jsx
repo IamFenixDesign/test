@@ -20,6 +20,7 @@ const CATEGORIES = ['Alimentos', 'Bebidas', 'Limpieza', 'Papelería', 'Insumos']
 const FILTER_CATEGORIES = ['Todo', ...CATEGORIES]
 const SYNC_MS = 2500
 const DIRTY_MS = 2500
+const COMPARE_PAGE_SIZE = 10
 const syncChannel = typeof BroadcastChannel === 'function' ? new BroadcastChannel('stockly-inventory') : null
 
 function inventoryFingerprint(list) {
@@ -990,6 +991,7 @@ function App() {
   const [query, setQuery] = useState('')
   const [searchOpen, setSearchOpen] = useState(false)
   const [category, setCategory] = useState('Todo')
+  const [comparePage, setComparePage] = useState(0)
   const [modal, setModal] = useState(null)
   const [pendingDelete, setPendingDelete] = useState(null)
   const [editingId, setEditingId] = useState(null)
@@ -1355,7 +1357,6 @@ function App() {
         return { item, coto, carrefour, dia, cheapest, saving, storeCount }
       })
       .filter((row) => {
-        if (row.storeCount < 1) return false
         if (!q) return true
         return (
           row.item.name.toLowerCase().includes(q) ||
@@ -1363,10 +1364,30 @@ function App() {
         )
       })
       .sort((a, b) => {
+        if (b.storeCount !== a.storeCount) return b.storeCount - a.storeCount
         if (b.saving !== a.saving) return b.saving - a.saving
         return a.item.name.localeCompare(b.item.name, 'es')
       })
   }, [items, query])
+
+  const comparePageCount = Math.max(1, Math.ceil(compareRows.length / COMPARE_PAGE_SIZE) || 1)
+  const comparePageSafe = Math.min(comparePage, comparePageCount - 1)
+  const comparePageRows = useMemo(() => {
+    const start = comparePageSafe * COMPARE_PAGE_SIZE
+    return compareRows.slice(start, start + COMPARE_PAGE_SIZE)
+  }, [compareRows, comparePageSafe])
+
+  useEffect(() => {
+    setComparePage(0)
+  }, [query])
+
+  useEffect(() => {
+    if (mainView === 'compare') setComparePage(0)
+  }, [mainView])
+
+  useEffect(() => {
+    if (comparePage > comparePageCount - 1) setComparePage(Math.max(0, comparePageCount - 1))
+  }, [comparePage, comparePageCount])
 
   const cartLines = useMemo(() => {
     return items
@@ -2506,49 +2527,82 @@ function App() {
 
           {compareRows.length === 0 ? (
             <div className="empty">
-              <h3>Sin precios para comparar</h3>
+              <h3>{items.length === 0 ? 'Sin productos' : 'Sin resultados'}</h3>
               <p>
                 {items.length === 0
-                  ? 'Agregá productos con precio de súper para ver el comparador.'
-                  : 'No hay ítems con precio de Coto, Carrefour o Día que coincidan.'}
+                  ? 'Agregá productos para verlos en el comparador.'
+                  : 'No hay productos que coincidan con la búsqueda.'}
               </p>
             </div>
           ) : (
-            <ul className="compare-list">
-              {compareRows.map((row) => (
-                <li key={row.item.id} className="compare-card">
-                  <div className="compare-head">
-                    <ItemThumb item={row.item} />
-                    <div className="compare-copy">
-                      <strong>{row.item.name}</strong>
-                      <span>
-                        {row.cheapest
-                          ? `Mejor: ${storeLabel(row.cheapest)}`
-                          : 'Sin precio de súper'}
-                        {row.saving > 0 ? ` · ahorro hasta ${money(row.saving)}` : ''}
-                      </span>
-                    </div>
-                  </div>
-                  <div className="compare-prices">
-                    {[
-                      ['coto', row.coto],
-                      ['carrefour', row.carrefour],
-                      ['dia', row.dia],
-                    ].map(([store, price]) => (
-                      <div
-                        key={store}
-                        className={`compare-price store-${store} ${
-                          price > 0 && row.cheapest === store ? 'is-best' : ''
-                        } ${price > 0 ? '' : 'is-empty'}`}
-                      >
-                        <em>{storeLabel(store)}</em>
-                        <strong>{price > 0 ? money(price) : '—'}</strong>
+            <>
+              <p className="compare-meta">
+                {compareRows.length} producto{compareRows.length === 1 ? '' : 's'}
+                {comparePageCount > 1
+                  ? ` · página ${comparePageSafe + 1} de ${comparePageCount}`
+                  : ''}
+              </p>
+              <ul className="compare-list">
+                {comparePageRows.map((row) => (
+                  <li key={row.item.id} className="compare-card">
+                    <div className="compare-head">
+                      <ItemThumb item={row.item} />
+                      <div className="compare-copy">
+                        <strong>{row.item.name}</strong>
+                        <span>
+                          {row.cheapest
+                            ? `Mejor: ${storeLabel(row.cheapest)}`
+                            : 'Sin precio de súper'}
+                          {row.saving > 0 ? ` · ahorro hasta ${money(row.saving)}` : ''}
+                        </span>
                       </div>
-                    ))}
-                  </div>
-                </li>
-              ))}
-            </ul>
+                    </div>
+                    <div className="compare-prices">
+                      {[
+                        ['coto', row.coto],
+                        ['carrefour', row.carrefour],
+                        ['dia', row.dia],
+                      ].map(([store, price]) => (
+                        <div
+                          key={store}
+                          className={`compare-price store-${store} ${
+                            price > 0 && row.cheapest === store ? 'is-best' : ''
+                          } ${price > 0 ? '' : 'is-empty'}`}
+                        >
+                          <em>{storeLabel(store)}</em>
+                          <strong>{price > 0 ? money(price) : '—'}</strong>
+                        </div>
+                      ))}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+              {comparePageCount > 1 ? (
+                <div className="compare-pager">
+                  <button
+                    type="button"
+                    className="btn btn-ghost"
+                    disabled={comparePageSafe <= 0}
+                    onClick={() => setComparePage((page) => Math.max(0, page - 1))}
+                  >
+                    Anterior
+                  </button>
+                  <span className="compare-pager-status">
+                    {comparePageSafe + 1} / {comparePageCount}
+                  </span>
+                  <button
+                    type="button"
+                    className="btn btn-ghost"
+                    disabled={comparePageSafe >= comparePageCount - 1}
+                    onClick={() =>
+                      setComparePage((page) => Math.min(comparePageCount - 1, page + 1))
+                    }
+                  >
+                    Siguiente
+                  </button>
+                </div>
+              ) : null}
+            </>
           )}
         </section>
       ) : (
