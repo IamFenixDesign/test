@@ -2387,7 +2387,9 @@ function App() {
             setSearchOpen(false)
           }}
         >
-          <IconCompare />
+          <span className="bottom-nav-icon" aria-hidden="true">
+            <IconCompare />
+          </span>
           <span>Comparar</span>
         </button>
         <button
@@ -2396,7 +2398,9 @@ function App() {
           onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
           aria-label={theme === 'dark' ? 'Cambiar a tema claro' : 'Cambiar a tema oscuro'}
         >
-          {theme === 'dark' ? <IconSun /> : <IconMoon />}
+          <span className="bottom-nav-icon" aria-hidden="true">
+            {theme === 'dark' ? <IconSun /> : <IconMoon />}
+          </span>
           <span>Tema</span>
         </button>
         <button
@@ -2411,7 +2415,7 @@ function App() {
         </button>
         <button
           type="button"
-          className={`bottom-nav-btn cart-toggle ${cartTotals.count ? 'has-items' : ''}`}
+          className={`bottom-nav-btn ${cartTotals.count ? 'has-items' : ''}`}
           onClick={() => {
             setCartOpen(true)
             setOpenMenu(null)
@@ -2422,9 +2426,11 @@ function App() {
               : 'Carrito de compras'
           }
         >
-          <IconCart />
+          <span className="bottom-nav-icon" aria-hidden="true">
+            <IconCart />
+            {cartTotals.count > 0 ? <em className="cart-badge">{cartTotals.count}</em> : null}
+          </span>
           <span>Carrito</span>
-          {cartTotals.count > 0 ? <em className="cart-badge">{cartTotals.count}</em> : null}
         </button>
         <div className="bottom-nav-profile" data-menu="user">
           <button
@@ -2433,11 +2439,13 @@ function App() {
             aria-label="Cuenta"
             onClick={() => setOpenMenu(openMenu === 'user' ? null : 'user')}
           >
-            {user.picture ? (
-              <img className="bottom-nav-avatar" src={user.picture} alt="" referrerPolicy="no-referrer" />
-            ) : (
-              <span className="bottom-nav-avatar letter">{(user.name || user.email || 'S').slice(0, 1)}</span>
-            )}
+            <span className="bottom-nav-icon" aria-hidden="true">
+              {user.picture ? (
+                <img className="bottom-nav-avatar" src={user.picture} alt="" referrerPolicy="no-referrer" />
+              ) : (
+                <span className="bottom-nav-avatar letter">{(user.name || user.email || 'S').slice(0, 1)}</span>
+              )}
+            </span>
             <span>Perfil</span>
           </button>
           {openMenu === 'user' && (
