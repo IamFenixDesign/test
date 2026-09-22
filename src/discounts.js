@@ -304,6 +304,58 @@ export const PAYMENT_PROMOS = [
     excludeCarrefourBank: true,
     note: 'Lunes a viernes · 5% presencial con MODO Banco Nación (jubilados/pensionados según vigencia). Tope semanal aprox. $5.000.',
   },
+
+  // —— Día · Martes ——
+  {
+    id: 'dia-naranja-x-mar',
+    label: 'Naranja X · Día',
+    store: 'dia',
+    percent: 30,
+    short: 'Naranja X',
+    days: [2],
+    payment: 'Naranja X · Plan Épico',
+    channel: 'presencial',
+    note: 'Martes · 30% presencial con Naranja X (Plan Épico). Tope semanal aprox. $12.000.',
+  },
+
+  // —— Día · Miércoles ——
+  {
+    id: 'mp-dia-mie',
+    label: 'Mercado Pago · Día',
+    store: 'dia',
+    percent: 15,
+    short: 'MP Día',
+    days: [3],
+    payment: 'Mercado Pago QR',
+    channel: 'presencial',
+    note: 'Miércoles · 15% presencial con Mercado Pago (QR). Compra mínima aprox. $20.000. Sin tope de reintegro.',
+  },
+
+  // —— Día · Viernes / sábado ——
+  {
+    id: 'dia-galicia-viesab',
+    label: 'Galicia · Día',
+    store: 'dia',
+    percent: 20,
+    short: 'Galicia Día',
+    days: [5, 6],
+    payment: 'Galicia · débito/crédito o QR',
+    channel: 'presencial',
+    note: 'Viernes y sábado · 20% presencial con Galicia. Compra mínima aprox. $35.000. Tope mensual aprox. $20.000.',
+  },
+
+  // —— Día · Lun a Vie (menor %) ——
+  {
+    id: 'dia-nacion-lunvie',
+    label: 'Banco Nación · Día',
+    store: 'dia',
+    percent: 5,
+    short: 'Nación Día',
+    days: [1, 2, 3, 4, 5],
+    payment: 'Débito/crédito Nación o MODO',
+    channel: 'presencial',
+    note: 'Lunes a viernes · 5% presencial con Banco Nación. Tope semanal aprox. $5.000.',
+  },
 ]
 
 export function todayWeekday(date = new Date()) {
@@ -346,6 +398,15 @@ export function storeUnitPrice(item, store) {
     }
     return 0
   }
+  if (store === 'dia') {
+    const dia = Number(item.priceDia)
+    if (Number.isFinite(dia) && dia > 0) return dia
+    if (item.priceSource === 'dia') {
+      const price = Number(item.price)
+      return Number.isFinite(price) && price > 0 ? price : 0
+    }
+    return 0
+  }
   return 0
 }
 
@@ -353,9 +414,11 @@ export function webDiscountLabel(item, store) {
   if (!item) return ''
   if (store === 'coto') return String(item.discountCoto || '').trim()
   if (store === 'carrefour') return String(item.discountCarrefour || '').trim()
+  if (store === 'dia') return String(item.discountDia || '').trim()
   if (item.priceSource === 'coto') return String(item.discountCoto || '').trim()
   if (item.priceSource === 'carrefour') return String(item.discountCarrefour || '').trim()
-  return String(item.discountCoto || item.discountCarrefour || '').trim()
+  if (item.priceSource === 'dia') return String(item.discountDia || '').trim()
+  return String(item.discountCoto || item.discountCarrefour || item.discountDia || '').trim()
 }
 
 export function hasWebDiscount(item, store) {
@@ -372,10 +435,17 @@ export function isCarrefourBankExcluded(item) {
   return CARREFOUR_BANK_EXCLUSIONS.some((key) => hay.includes(key))
 }
 
+function storeLabel(store) {
+  if (store === 'coto') return 'Coto'
+  if (store === 'carrefour') return 'Carrefour'
+  if (store === 'dia') return 'Día'
+  return 'el súper'
+}
+
 function exclusionReason(promo, item, unitPrice) {
   if (!promo.store) return ''
   if (!unitPrice) {
-    return promo.store === 'coto' ? 'Sin precio en Coto' : 'Sin precio en Carrefour'
+    return `Sin precio en ${storeLabel(promo.store)}`
   }
   // En Coto las promos de pago no se acumulan con descuento web del producto
   if (promo.store === 'coto' && hasWebDiscount(item, 'coto')) {

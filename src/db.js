@@ -56,13 +56,17 @@ export async function ensureSchema() {
       price_source TEXT DEFAULT '',
       price_coto NUMERIC DEFAULT 0,
       price_carrefour NUMERIC DEFAULT 0,
+      price_dia NUMERIC DEFAULT 0,
       url_coto TEXT DEFAULT '',
       url_carrefour TEXT DEFAULT '',
+      url_dia TEXT DEFAULT '',
       image TEXT DEFAULT '',
       image_coto TEXT DEFAULT '',
       image_carrefour TEXT DEFAULT '',
+      image_dia TEXT DEFAULT '',
       discount_coto TEXT DEFAULT '',
       discount_carrefour TEXT DEFAULT '',
+      discount_dia TEXT DEFAULT '',
       user_id UUID,
       updated_at TIMESTAMPTZ DEFAULT now()
     )
@@ -70,6 +74,10 @@ export async function ensureSchema() {
   await db`ALTER TABLE stockly_items ADD COLUMN IF NOT EXISTS user_id UUID`
   await db`ALTER TABLE stockly_items ADD COLUMN IF NOT EXISTS discount_coto TEXT DEFAULT ''`
   await db`ALTER TABLE stockly_items ADD COLUMN IF NOT EXISTS discount_carrefour TEXT DEFAULT ''`
+  await db`ALTER TABLE stockly_items ADD COLUMN IF NOT EXISTS price_dia NUMERIC DEFAULT 0`
+  await db`ALTER TABLE stockly_items ADD COLUMN IF NOT EXISTS url_dia TEXT DEFAULT ''`
+  await db`ALTER TABLE stockly_items ADD COLUMN IF NOT EXISTS image_dia TEXT DEFAULT ''`
+  await db`ALTER TABLE stockly_items ADD COLUMN IF NOT EXISTS discount_dia TEXT DEFAULT ''`
   await db`CREATE INDEX IF NOT EXISTS stockly_items_user_id_idx ON stockly_items (user_id)`
 }
 
@@ -90,13 +98,17 @@ export function rowToItem(row) {
     priceSource: row.price_source || '',
     priceCoto: num(row.price_coto),
     priceCarrefour: num(row.price_carrefour),
+    priceDia: num(row.price_dia),
     urlCoto: row.url_coto || '',
     urlCarrefour: row.url_carrefour || '',
+    urlDia: row.url_dia || '',
     image: row.image || '',
     imageCoto: row.image_coto || '',
     imageCarrefour: row.image_carrefour || '',
+    imageDia: row.image_dia || '',
     discountCoto: row.discount_coto || '',
     discountCarrefour: row.discount_carrefour || '',
+    discountDia: row.discount_dia || '',
   }
 }
 
@@ -363,8 +375,9 @@ export async function upsertItem(item, userId) {
   await getSql()`
     INSERT INTO stockly_items (
       id, name, barcode, category, quantity, min_stock, price, price_source,
-      price_coto, price_carrefour, url_coto, url_carrefour, image, image_coto, image_carrefour,
-      discount_coto, discount_carrefour, user_id, updated_at
+      price_coto, price_carrefour, price_dia, url_coto, url_carrefour, url_dia,
+      image, image_coto, image_carrefour, image_dia,
+      discount_coto, discount_carrefour, discount_dia, user_id, updated_at
     )
     VALUES (
       ${item.id}::uuid,
@@ -377,13 +390,17 @@ export async function upsertItem(item, userId) {
       ${item.priceSource || ''},
       ${num(item.priceCoto)},
       ${num(item.priceCarrefour)},
+      ${num(item.priceDia)},
       ${item.urlCoto || ''},
       ${item.urlCarrefour || ''},
+      ${item.urlDia || ''},
       ${item.image || ''},
       ${item.imageCoto || ''},
       ${item.imageCarrefour || ''},
+      ${item.imageDia || ''},
       ${item.discountCoto || ''},
       ${item.discountCarrefour || ''},
+      ${item.discountDia || ''},
       ${userId}::uuid,
       now()
     )
@@ -397,13 +414,17 @@ export async function upsertItem(item, userId) {
       price_source = EXCLUDED.price_source,
       price_coto = EXCLUDED.price_coto,
       price_carrefour = EXCLUDED.price_carrefour,
+      price_dia = EXCLUDED.price_dia,
       url_coto = EXCLUDED.url_coto,
       url_carrefour = EXCLUDED.url_carrefour,
+      url_dia = EXCLUDED.url_dia,
       image = EXCLUDED.image,
       image_coto = EXCLUDED.image_coto,
       image_carrefour = EXCLUDED.image_carrefour,
+      image_dia = EXCLUDED.image_dia,
       discount_coto = EXCLUDED.discount_coto,
       discount_carrefour = EXCLUDED.discount_carrefour,
+      discount_dia = EXCLUDED.discount_dia,
       updated_at = now()
     WHERE stockly_items.user_id = EXCLUDED.user_id
   `

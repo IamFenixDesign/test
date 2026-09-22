@@ -132,6 +132,7 @@
 .cart-sheet {
   --cart-coto: #e45a62;
   --cart-carrefour: #5b9de8;
+  --cart-dia: #7ac143;
   width: min(560px, 100%);
   display: flex;
   flex-direction: column;
@@ -293,6 +294,10 @@
   color: var(--cart-carrefour);
 }
 
+.cart-deals-group-title.store-dia {
+  color: var(--cart-dia);
+}
+
 .cart-deals-list {
   display: grid;
   gap: 6px;
@@ -345,6 +350,11 @@
 .cart-deal.store-carrefour .cart-deal-pct {
   color: var(--cart-carrefour);
   background: color-mix(in srgb, var(--cart-carrefour) 12%, transparent);
+}
+
+.cart-deal.store-dia .cart-deal-pct {
+  color: var(--cart-dia);
+  background: color-mix(in srgb, var(--cart-dia) 14%, transparent);
 }
 
 .cart-deal-copy {
@@ -1768,12 +1778,21 @@ td:has(.item-cell) {
   color: #7eb3ff;
 }
 
+.store-pill.dia {
+  background: rgba(122, 193, 67, 0.16);
+  color: #9adf55;
+}
+
 html[data-theme="light"] .store-pill.coto {
   color: #c40020;
 }
 
 html[data-theme="light"] .store-pill.carrefour {
   color: #004e9f;
+}
+
+html[data-theme="light"] .store-pill.dia {
+  color: #4f8a14;
 }
 
 .store-pill.cheaper {
@@ -2298,10 +2317,22 @@ button.store-pill {
   background: rgba(77, 157, 255, 0.1);
 }
 
+.store-result-tab.active.dia {
+  border-color: #7ac143;
+  color: #9adf55;
+  background: rgba(122, 193, 67, 0.12);
+}
+
 html[data-theme="light"] .store-result-tab.active.carrefour {
   border-color: #004e9f;
   color: #004e9f;
   background: rgba(0, 78, 159, 0.08);
+}
+
+html[data-theme="light"] .store-result-tab.active.dia {
+  border-color: #5a9e14;
+  color: #4f8a14;
+  background: rgba(122, 193, 67, 0.12);
 }
 
 .store-col-title {
@@ -2320,8 +2351,16 @@ html[data-theme="light"] .store-result-tab.active.carrefour {
   color: #4d9dff;
 }
 
+.store-col-title.dia {
+  color: #9adf55;
+}
+
 html[data-theme="light"] .store-col-title.carrefour {
   color: #004e9f;
+}
+
+html[data-theme="light"] .store-col-title.dia {
+  color: #4f8a14;
 }
 
 .store-result {
@@ -2988,10 +3027,22 @@ html[data-theme="light"] .store-col-title.carrefour {
     background: rgba(77, 157, 255, 0.1);
   }
 
+  .store-result-tab.active.dia {
+    border-color: #7ac143;
+    color: #9adf55;
+    background: rgba(122, 193, 67, 0.12);
+  }
+
   html[data-theme="light"] .store-result-tab.active.carrefour {
     border-color: #004e9f;
     color: #004e9f;
     background: rgba(0, 78, 159, 0.08);
+  }
+
+  html[data-theme="light"] .store-result-tab.active.dia {
+    border-color: #5a9e14;
+    color: #4f8a14;
+    background: rgba(122, 193, 67, 0.12);
   }
 
   .item-sheet .store-selected {
