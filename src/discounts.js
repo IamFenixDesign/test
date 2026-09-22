@@ -5,6 +5,31 @@ function fold(text) {
     .replace(/\p{M}/gu, '')
 }
 
+/**
+ * Descuentos de producto que solo valen online / digital / comunidad web
+ * (no en góndola de sucursal).
+ */
+export function isDigitalOrOnlineExclusiveDiscount(...parts) {
+  const hay = fold(parts.filter(Boolean).join(' | '))
+  if (!hay) return false
+  return (
+    /exclusiv\w*\s+(digital|online|web)/.test(hay) ||
+    /exclusivas?\s+online/.test(hay) ||
+    /solo\s+(digital|online|web)/.test(hay) ||
+    /especial\s+online/.test(hay) ||
+    /valido\s+solo\s+(en\s+)?(digital|online|web)/.test(hay) ||
+    /no\s+valido\s+en\s+(sucursal|local|tienda)/.test(hay) ||
+    /exclusivo\s+online/.test(hay) ||
+    /miembros?\s+comunidad/.test(hay) ||
+    /comunidad\s+coto/.test(hay) ||
+    /comunidad\.png/.test(hay) ||
+    /coto\s+digital/.test(hay) ||
+    /precio\s+online/.test(hay) ||
+    /venta\s+online/.test(hay) ||
+    /ecommerce|e-commerce/.test(hay)
+  )
+}
+
 /** Heurísticas de exclusiones típicas de Visa Débito NFC / rubros bancarios en Coto. */
 const VISA_NFC_COTO_EXCLUSIONS = [
   'electro',
@@ -111,17 +136,7 @@ export const PAYMENT_PROMOS = [
     channel: 'presencial',
     note: 'Martes · 20% presencial con MODO (Nación, Santander, Galicia, BBVA, Macro, etc.). Sin tope en productos alcanzados. No aplica si ya tiene descuento web.',
   },
-  {
-    id: 'coto-comunidad',
-    label: 'Comunidad Coto',
-    store: 'coto',
-    percent: 15,
-    short: 'Comunidad',
-    days: [2, 3, 4],
-    payment: 'Cualquier medio · DNI Comunidad',
-    channel: 'presencial',
-    note: 'Martes a jueves · 15% presencial para miembros Comunidad Coto (DNI en caja). No acumulable con promos bancarias. No aplica si ya tiene descuento web.',
-  },
+  // Comunidad Coto (web/app) NO se lista: no es descuento de góndola en sucursal.
 
   // —— Coto · Miércoles ——
   {
@@ -353,7 +368,7 @@ export function weekdayLabel(day) {
   return WEEKDAYS.find((entry) => entry.id === day)?.label || ''
 }
 
-/** Solo promos de pago en sucursal física (no digital/online). */
+/** Solo promos de pago en sucursal física (no digital/online/comunidad web). */
 export function isSucursalWeeklyPromo(promo) {
   if (!promo) return false
   if (promo.id === 'none') return true
@@ -361,10 +376,13 @@ export function isSucursalWeeklyPromo(promo) {
   const hay = fold(
     [promo.id, promo.label, promo.short, promo.payment, promo.note].filter(Boolean).join(' | '),
   )
-  // Canales digitales / solo online fuera de la semana de sucursal
+  // Canales digitales / solo online / comunidad web fuera de la semana de sucursal
   if (/\bcuenta\s+digital\b/.test(hay)) return false
   if (/\b(exclusivo online|solo online|solo digital|venta online)\b/.test(hay)) return false
   if (/\bonline\b/.test(hay) && !/\b(no\s+valido\s+online|presencial)\b/.test(hay)) return false
+  if (/\bcomunidad\b/.test(hay)) return false
+  if (/\bmiembros?\s+comunidad\b/.test(hay)) return false
+  if (isDigitalOrOnlineExclusiveDiscount(hay)) return false
   return true
 }
 
@@ -425,13 +443,22 @@ export function storeUnitPrice(item, store) {
 
 export function webDiscountLabel(item, store) {
   if (!item) return ''
-  if (store === 'coto') return String(item.discountCoto || '').trim()
-  if (store === 'carrefour') return String(item.discountCarrefour || '').trim()
-  if (store === 'dia') return String(item.discountDia || '').trim()
-  if (item.priceSource === 'coto') return String(item.discountCoto || '').trim()
-  if (item.priceSource === 'carrefour') return String(item.discountCarrefour || '').trim()
-  if (item.priceSource === 'dia') return String(item.discountDia || '').trim()
-  return String(item.discountCoto || item.discountCarrefour || item.discountDia || '').trim()
+  let label = ''
+  if (store === 'coto') label = String(item.discountCoto || '').trim()
+  else if (store === 'carrefour') label = String(item.discountCarrefour || '').trim()
+  else if (store === 'dia') label = String(item.discountDia || '').trim()
+  else if (item.priceSource === 'coto') label = String(item.discountCoto || '').trim()
+  else if (item.priceSource === 'carrefour') label = String(item.discountCarrefour || '').trim()
+  else if (item.priceSource === 'dia') label = String(item.discountDia || '').trim()
+  else {
+    label = String(
+      item.discountCoto || item.discountCarrefour || item.discountDia || '',
+    ).trim()
+  }
+  if (!label) return ''
+  // No mostrar descuentos exclusivos digital/online/comunidad en la semana de sucursal
+  if (isDigitalOrOnlineExclusiveDiscount(label)) return ''
+  return label
 }
 
 export function hasWebDiscount(item, store) {
