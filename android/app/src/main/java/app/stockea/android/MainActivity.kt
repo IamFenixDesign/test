@@ -13,7 +13,9 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Balance
+import androidx.compose.material.icons.outlined.DarkMode
 import androidx.compose.material.icons.outlined.Inventory2
+import androidx.compose.material.icons.outlined.LightMode
 import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
@@ -146,6 +148,21 @@ private fun StockeaRoot(vm: StockeaViewModel) {
                             icon = { Icon(Icons.Outlined.Person, contentDescription = null) },
                             label = { Text("Perfil") },
                         )
+                        NavigationBarItem(
+                            selected = false,
+                            onClick = vm::toggleTheme,
+                            icon = {
+                                Icon(
+                                    if (state.darkTheme) Icons.Outlined.LightMode else Icons.Outlined.DarkMode,
+                                    contentDescription = if (state.darkTheme) {
+                                        "Cambiar a tema claro"
+                                    } else {
+                                        "Cambiar a tema oscuro"
+                                    },
+                                )
+                            },
+                            label = { Text(if (state.darkTheme) "Claro" else "Oscuro") },
+                        )
                     }
                 },
             ) { padding ->
@@ -173,10 +190,8 @@ private fun StockeaRoot(vm: StockeaViewModel) {
                         busy = state.busy,
                         info = state.info,
                         error = state.error,
-                        darkTheme = state.darkTheme,
                         contentPadding = padding,
                         onSave = vm::saveProfile,
-                        onToggleTheme = vm::toggleTheme,
                         onLogout = vm::logout,
                     )
                 }
