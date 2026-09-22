@@ -66,6 +66,7 @@ import app.stockea.android.data.guessCategory
 import app.stockea.android.data.listPriceOfProduct
 import app.stockea.android.data.matchByEan
 import app.stockea.android.data.money
+import app.stockea.android.data.productDiscountLabel
 import app.stockea.android.data.qtyUnitOfProduct
 import coil.compose.AsyncImage
 import kotlinx.coroutines.launch
@@ -212,15 +213,9 @@ fun NewItemSheet(
         imageCoto = coto?.image ?: imageCoto
         imageCarrefour = carrefour?.image ?: imageCarrefour
         imageDia = dia?.image ?: imageDia
-        discountCoto =
-            coto?.let { if (it.hasDiscount) it.discountLabel.ifBlank { "Oferta" } else "" }
-                ?: discountCoto
-        discountCarrefour =
-            carrefour?.let { if (it.hasDiscount) it.discountLabel.ifBlank { "Oferta" } else "" }
-                ?: discountCarrefour
-        discountDia =
-            dia?.let { if (it.hasDiscount) it.discountLabel.ifBlank { "Oferta" } else "" }
-                ?: discountDia
+        discountCoto = coto?.let { productDiscountLabel(it) } ?: discountCoto
+        discountCarrefour = carrefour?.let { productDiscountLabel(it) } ?: discountCarrefour
+        discountDia = dia?.let { productDiscountLabel(it) } ?: discountDia
         storeQuery = ""
         customUnlocked = false
         localError = ""
@@ -913,13 +908,12 @@ private fun StoreResultRow(
                     overflow = TextOverflow.Ellipsis,
                 )
                 val unit = if (qtyUnitOfProduct(product) == "kg") "/ kg" else "/ u."
+                val offer = productDiscountLabel(product)
                 val meta = buildString {
                     if (product.ean.isNotBlank()) append("${product.ean} · ")
                     if (product.brand.isNotBlank()) append("${product.brand} · ")
                     append("${money(product.price)}$unit")
-                    if (product.hasDiscount && product.discountLabel.isNotBlank()) {
-                        append(" · ${product.discountLabel}")
-                    }
+                    if (offer.isNotBlank()) append(" · $offer")
                 }
                 Text(
                     meta,
@@ -929,9 +923,9 @@ private fun StoreResultRow(
                     overflow = TextOverflow.Ellipsis,
                 )
                 Text(
-                    if (product.hasDiscount) "Con descuento web" else "Sin descuento web",
+                    if (offer.isNotBlank()) "Con oferta" else "Sin oferta",
                     style = MaterialTheme.typography.labelSmall,
-                    color = if (product.hasDiscount) accent else MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = if (offer.isNotBlank()) accent else MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
         }
