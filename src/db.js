@@ -80,6 +80,9 @@ export async function ensureSchema() {
   await db`ALTER TABLE stockly_items ADD COLUMN IF NOT EXISTS image_dia TEXT DEFAULT ''`
   await db`ALTER TABLE stockly_items ADD COLUMN IF NOT EXISTS discount_dia TEXT DEFAULT ''`
   await db`ALTER TABLE stockly_items ADD COLUMN IF NOT EXISTS qty_unit TEXT DEFAULT 'unit'`
+  await db`ALTER TABLE stockly_items ADD COLUMN IF NOT EXISTS list_price_coto NUMERIC DEFAULT 0`
+  await db`ALTER TABLE stockly_items ADD COLUMN IF NOT EXISTS list_price_carrefour NUMERIC DEFAULT 0`
+  await db`ALTER TABLE stockly_items ADD COLUMN IF NOT EXISTS list_price_dia NUMERIC DEFAULT 0`
   await db`ALTER TABLE stockly_items ALTER COLUMN quantity TYPE NUMERIC USING quantity::numeric`
   await db`ALTER TABLE stockly_items ALTER COLUMN min_stock TYPE NUMERIC USING min_stock::numeric`
   await db`CREATE INDEX IF NOT EXISTS stockly_items_user_id_idx ON stockly_items (user_id)`
@@ -104,6 +107,9 @@ export function rowToItem(row) {
     priceCoto: num(row.price_coto),
     priceCarrefour: num(row.price_carrefour),
     priceDia: num(row.price_dia),
+    listPriceCoto: num(row.list_price_coto),
+    listPriceCarrefour: num(row.list_price_carrefour),
+    listPriceDia: num(row.list_price_dia),
     urlCoto: row.url_coto || '',
     urlCarrefour: row.url_carrefour || '',
     urlDia: row.url_dia || '',
@@ -380,7 +386,9 @@ export async function upsertItem(item, userId) {
   await getSql()`
     INSERT INTO stockly_items (
       id, name, barcode, category, quantity, min_stock, qty_unit, price, price_source,
-      price_coto, price_carrefour, price_dia, url_coto, url_carrefour, url_dia,
+      price_coto, price_carrefour, price_dia,
+      list_price_coto, list_price_carrefour, list_price_dia,
+      url_coto, url_carrefour, url_dia,
       image, image_coto, image_carrefour, image_dia,
       discount_coto, discount_carrefour, discount_dia, user_id, updated_at
     )
@@ -397,6 +405,9 @@ export async function upsertItem(item, userId) {
       ${num(item.priceCoto)},
       ${num(item.priceCarrefour)},
       ${num(item.priceDia)},
+      ${num(item.listPriceCoto)},
+      ${num(item.listPriceCarrefour)},
+      ${num(item.listPriceDia)},
       ${item.urlCoto || ''},
       ${item.urlCarrefour || ''},
       ${item.urlDia || ''},
@@ -422,6 +433,9 @@ export async function upsertItem(item, userId) {
       price_coto = EXCLUDED.price_coto,
       price_carrefour = EXCLUDED.price_carrefour,
       price_dia = EXCLUDED.price_dia,
+      list_price_coto = EXCLUDED.list_price_coto,
+      list_price_carrefour = EXCLUDED.list_price_carrefour,
+      list_price_dia = EXCLUDED.list_price_dia,
       url_coto = EXCLUDED.url_coto,
       url_carrefour = EXCLUDED.url_carrefour,
       url_dia = EXCLUDED.url_dia,
