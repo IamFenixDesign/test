@@ -278,18 +278,7 @@ export const PAYMENT_PROMOS = [
   },
 
   // —— Carrefour · Finde ——
-  {
-    id: 'carrefour-cuenta-digital-finde',
-    label: 'Cuenta Digital Carrefour Banco',
-    store: 'carrefour',
-    percent: 10,
-    short: 'CF Digital',
-    days: [6, 0],
-    payment: 'Cuenta Digital Carrefour Banco',
-    channel: 'presencial',
-    excludeCarrefourBank: true,
-    note: 'Sábado/Domingo · 10% presencial con Cuenta Digital Carrefour Banco (Hiper/Market/Express). Sin tope. Excluye carnicería/electro.',
-  },
+  // Cuenta Digital queda fuera: es canal digital, no se lista en la semana de sucursal.
 
   // —— Carrefour · Lun a Vie (menor %) ——
   {
@@ -303,9 +292,7 @@ export const PAYMENT_PROMOS = [
     channel: 'presencial',
     excludeCarrefourBank: true,
     note: 'Lunes a viernes · 5% presencial con MODO Banco Nación (jubilados/pensionados según vigencia). Tope semanal aprox. $5.000.',
-  },
-
-  // —— Día · Martes ——
+  },  // —— Día · Martes ——
   {
     id: 'dia-naranja-x-mar',
     label: 'Naranja X · Día',
@@ -366,11 +353,24 @@ export function weekdayLabel(day) {
   return WEEKDAYS.find((entry) => entry.id === day)?.label || ''
 }
 
+/** Solo promos de pago en sucursal física (no digital/online). */
+export function isSucursalWeeklyPromo(promo) {
+  if (!promo) return false
+  if (promo.id === 'none') return true
+  if (promo.channel !== 'presencial') return false
+  const hay = fold(
+    [promo.id, promo.label, promo.short, promo.payment, promo.note].filter(Boolean).join(' | '),
+  )
+  // Canales digitales / solo online fuera de la semana de sucursal
+  if (/\bcuenta\s+digital\b/.test(hay)) return false
+  if (/\b(exclusivo online|solo online|solo digital|venta online)\b/.test(hay)) return false
+  if (/\bonline\b/.test(hay) && !/\b(no\s+valido\s+online|presencial)\b/.test(hay)) return false
+  return true
+}
+
 export function promosForDay(day) {
   return PAYMENT_PROMOS.filter((promo) => {
-    if (promo.id !== 'none' && promo.channel && promo.channel !== 'presencial') {
-      return false
-    }
+    if (!isSucursalWeeklyPromo(promo)) return false
     return promo.id === 'none' || !promo.days || promo.days.includes(day)
   })
 }
@@ -482,7 +482,8 @@ function exclusionReason(promo, item, unitPrice) {
  * @param {typeof PAYMENT_PROMOS[number]} promo
  */
 export function quoteCartPromo(cartLines, promo) {
-  const selected = PAYMENT_PROMOS.find((entry) => entry.id === promo?.id) || PAYMENT_PROMOS[0]
+  const raw = PAYMENT_PROMOS.find((entry) => entry.id === promo?.id) || PAYMENT_PROMOS[0]
+  const selected = isSucursalWeeklyPromo(raw) ? raw : PAYMENT_PROMOS[0]
   const eligible = []
   const excluded = []
 
