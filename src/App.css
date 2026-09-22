@@ -1807,7 +1807,7 @@ td:has(.item-cell) {
   left: 50%;
   bottom: 0;
   z-index: 45;
-  transform: translateX(-50%);
+  transform: translateX(-50%) translateY(0);
   width: min(560px, 100%);
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
@@ -1822,10 +1822,11 @@ td:has(.item-cell) {
     color-mix(in srgb, var(--bg-elev) 94%, transparent);
   border-top: 1px solid color-mix(in srgb, var(--line) 80%, transparent);
   backdrop-filter: blur(14px);
+  will-change: transform, opacity;
   transition:
-    opacity 180ms ease,
-    transform 180ms ease,
-    visibility 180ms ease;
+    opacity 220ms ease,
+    transform 220ms ease,
+    visibility 220ms ease;
 }
 
 .bottom-nav-btn {
@@ -1963,7 +1964,7 @@ td:has(.item-cell) {
   opacity: 0;
   visibility: hidden;
   pointer-events: none;
-  transform: translateX(-50%) translateY(24px);
+  transform: translateX(-50%) translateY(calc(100% + 20px));
 }
 
 @media (min-width: 761px) {
@@ -2016,7 +2017,10 @@ td:has(.item-cell) {
   }
 
   .app.chrome-hidden .bottom-nav {
-    transform: translateX(-50%) translateY(28px);
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transform: translateX(-50%) translateY(calc(100% + 28px));
   }
 
   .app {
@@ -3807,16 +3811,16 @@ html.is-pwa .cart-deal-check {
 
 html.is-pwa .bottom-nav {
   transition:
-    opacity 180ms ease,
-    transform 180ms ease,
-    visibility 180ms ease;
+    opacity 220ms ease,
+    transform 220ms ease,
+    visibility 220ms ease;
 }
 
 html.is-pwa .app.chrome-hidden .bottom-nav {
   opacity: 0;
   visibility: hidden;
   pointer-events: none;
-  transform: translateX(-50%) translateY(24px);
+  transform: translateX(-50%) translateY(calc(100% + 24px));
 }
 
 .item-row,
