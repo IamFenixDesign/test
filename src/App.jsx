@@ -218,31 +218,83 @@ function toCount(value) {
   return Number.isFinite(n) ? n : 0
 }
 
+function parseDecimal(raw) {
+  const n = Number(String(raw ?? '').trim().replace(',', '.'))
+  return Number.isFinite(n) ? n : NaN
+}
+
 function qtyUnitOf(item) {
   return item?.qtyUnit === 'kg' ? 'kg' : 'unit'
 }
 
 function qtyStep(unit) {
+  // Botones +/- y cantidad: 0,1 kg
   return unit === 'kg' ? 0.1 : 1
+}
+
+function minStockStep(unit) {
+  // Stock mínimo en por kilo se edita en gramos
+  return unit === 'kg' ? 0.1 : 1
+}
+
+function minStockUnitLabel(unit) {
+  return unit === 'kg' ? 'g' : 'u.'
+}
+
+/** Pasa gramos del formulario a kilos guardados (precisión 0,1 g). */
+function kgFromGrams(grams) {
+  const g = parseDecimal(grams)
+  if (!Number.isFinite(g) || g < 0) return 0
+  return Math.round(g * 10) / 10000
+}
+
+/** Pasa kilos guardados a gramos para el input de mínimo. */
+function gramsFromKg(kg) {
+  const n = Number(kg)
+  if (!Number.isFinite(n) || n < 0) return 0
+  return Math.round(n * 10000) / 10
 }
 
 function normalizeQty(value, unit = 'unit') {
   const n = Number(value)
   if (!Number.isFinite(n) || n < 0) return 0
-  if (unit === 'kg') return Math.round(n * 10) / 10
+  if (unit === 'kg') return Math.round(n * 10000) / 10000
   return Math.round(n)
 }
 
 function formatQty(value, unit = 'unit') {
   const n = normalizeQty(value, unit)
   if (unit === 'kg') {
-    return `${n.toLocaleString('es-AR', { minimumFractionDigits: 0, maximumFractionDigits: 1 })} kg`
+    if (n > 0 && n < 1) {
+      const grams = gramsFromKg(n)
+      return `${grams.toLocaleString('es-AR', {
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 1,
+      })} g`
+    }
+    return `${n.toLocaleString('es-AR', {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 4,
+    })} kg`
   }
   return String(n)
 }
 
 function qtyUnitLabel(unit) {
   return unit === 'kg' ? 'kg' : 'u.'
+}
+
+/** minStock en el form: en kg se edita en gramos; en unit es cantidad entera. */
+function formMinStockForUnit(minStock, fromUnit, toUnit) {
+  const from = fromUnit === 'kg' ? 'kg' : 'unit'
+  const to = toUnit === 'kg' ? 'kg' : 'unit'
+  if (from === to) {
+    return to === 'kg' ? parseDecimal(minStock) || 0 : normalizeQty(minStock, 'unit')
+  }
+  if (from === 'kg' && to === 'unit') {
+    return normalizeQty(kgFromGrams(minStock), 'unit')
+  }
+  return gramsFromKg(normalizeQty(minStock, 'kg'))
 }
 
 function statusOf(item) {
@@ -1757,7 +1809,7 @@ function App() {
         priceSource: store,
         qtyUnit: qtyUnit === 'kg' ? 'kg' : 'unit',
         quantity: normalizeQty(prev.quantity, qtyUnit === 'kg' ? 'kg' : 'unit'),
-        minStock: normalizeQty(prev.minStock, qtyUnit === 'kg' ? 'kg' : 'unit'),
+        minStock: formMinStockForUnit(prev.minStock, prev.qtyUnit, qtyUnit === 'kg' ? 'kg' : 'unit'),
         image:
           store === 'coto'
             ? prev.imageCoto || prev.image
@@ -1825,7 +1877,7 @@ function App() {
       barcode: barcodeOf(item),
       category: item.category,
       quantity: item.quantity,
-      minStock: item.minStock,
+      minStock: qtyUnitOf(item) === 'kg' ? gramsFromKg(item.minStock) : item.minStock,
       qtyUnit: qtyUnitOf(item),
       price: item.price ? String(item.price) : '',
       priceSource: item.priceSource || '',
@@ -1879,7 +1931,7 @@ function App() {
       category: guessCategory(product),
       qtyUnit,
       quantity: normalizeQty(prev.quantity, qtyUnit),
-      minStock: normalizeQty(prev.minStock, qtyUnit),
+      minStock: formMinStockForUnit(prev.minStock, prev.qtyUnit, qtyUnit),
       qtyUnitCoto: coto ? qtyUnitOfProduct(coto) : prev.qtyUnitCoto,
       qtyUnitCarrefour: carrefour ? qtyUnitOfProduct(carrefour) : prev.qtyUnitCarrefour,
       qtyUnitDia: dia ? qtyUnitOfProduct(dia) : prev.qtyUnitDia,
@@ -2128,18 +2180,26 @@ function App() {
       return
     }
     const unit = form.qtyUnit === 'kg' ? 'kg' : 'unit'
-    const quantity = normalizeQty(Number(String(form.quantity).replace(',', '.')), unit)
-    const minStock = normalizeQty(Number(String(form.minStock).replace(',', '.')), unit)
-    const price = Number(String(form.price || '').replace(',', '.'))
+    const quantity = normalizeQty(parseDecimal(form.quantity), unit)
+    const minStock =
+      unit === 'kg'
+        ? normalizeQty(kgFromGrams(form.minStock), 'kg')
+        : normalizeQty(parseDecimal(form.minStock), 'unit')
+    const price = parseDecimal(form.price || '')
     const source = form.priceSource
     const sourceOk =
       source === 'coto' || source === 'carrefour' || source === 'dia' || source === 'custom'
-    if (!Number.isFinite(Number(form.quantity)) || quantity < 0) {
+    if (!Number.isFinite(parseDecimal(form.quantity)) || quantity < 0) {
       setError('La cantidad no es válida.')
       return
     }
-    if (!Number.isFinite(Number(form.minStock)) || minStock < 0) {
+    const minRaw = parseDecimal(form.minStock)
+    if (!Number.isFinite(minRaw) || minRaw < 0) {
       setError('El stock mínimo no es válido.')
+      return
+    }
+    if (unit === 'kg' && minRaw > 0 && minRaw < 0.1) {
+      setError('El stock mínimo por kilo debe ser 0,1 g o más.')
       return
     }
     if (!sourceOk || !Number.isFinite(price) || price <= 0) {
@@ -3281,7 +3341,7 @@ function App() {
                         ...prev,
                         qtyUnit: 'unit',
                         quantity: normalizeQty(prev.quantity, 'unit'),
-                        minStock: normalizeQty(prev.minStock, 'unit'),
+                        minStock: formMinStockForUnit(prev.minStock, prev.qtyUnit, 'unit'),
                       }))
                     }
                   >
@@ -3295,7 +3355,7 @@ function App() {
                         ...prev,
                         qtyUnit: 'kg',
                         quantity: normalizeQty(prev.quantity, 'kg'),
-                        minStock: normalizeQty(prev.minStock, 'kg'),
+                        minStock: formMinStockForUnit(prev.minStock, prev.qtyUnit, 'kg'),
                       }))
                     }
                   >
@@ -3320,16 +3380,20 @@ function App() {
               <label className="field">
                 <span>
                   Stock mínimo
-                  <small className="field-unit">{qtyUnitLabel(form.qtyUnit)}</small>
+                  <small className="field-unit">{minStockUnitLabel(form.qtyUnit)}</small>
                 </span>
                 <input
                   type="number"
                   min="0"
-                  step={qtyStep(form.qtyUnit)}
+                  step={minStockStep(form.qtyUnit)}
                   inputMode="decimal"
+                  placeholder={form.qtyUnit === 'kg' ? 'Ej: 0,1' : undefined}
                   value={form.minStock}
                   onChange={(event) => setForm({ ...form, minStock: event.target.value })}
                 />
+                {form.qtyUnit === 'kg' ? (
+                  <small className="field-hint">Desde 0,1 g (ej: 100 = 100 g).</small>
+                ) : null}
               </label>
               <label className="field full">
                 <span>Precio</span>
