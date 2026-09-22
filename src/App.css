@@ -154,6 +154,7 @@
   flex-shrink: 0;
 }
 
+
 .cart-main {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr);
