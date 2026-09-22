@@ -1,52 +1,36 @@
-# Stockea — Android
+# Stockea — Android nativo
 
-App nativa Android (Capacitor) de Stockea: stock, comparar precios (Coto / Carrefour / Día), carrito, perfil, escáner y auth.
+App **nativa** en Kotlin + Jetpack Compose (sin WebView / sin Capacitor).
 
-## Qué incluye
+Package: `app.stockea.android`
 
-- Package ID: `app.stockea.android`
-- Carga la app web publicada en Vercel (`https://test-iota-two-49.vercel.app`)
-- Permisos de cámara (escáner de códigos) e internet
-- Icono y splash de Stockea
+## Pantallas
+
+- Login / registro / verificación
+- Stock (alertas, +/- cantidad, carrito, borrar)
+- Comparar precios (Coto / Carrefour / Día vía API)
+- Carrito (total + marcar comprados)
+- Perfil (editar + cerrar sesión)
+
+Habla con el backend de Vercel: `https://test-iota-two-49.vercel.app`
 
 ## Requisitos
 
-- Node.js 20+
 - JDK 21
-- Android SDK (API 35) / Android Studio Ladybug+
+- Android SDK 35
 
-## Comandos
+## Build
 
 ```bash
-# Instalar deps
-npm install
+cd android
+echo "sdk.dir=$ANDROID_HOME" > local.properties
+./gradlew assembleDebug
+```
 
-# Sync web → Android
-npm run android:sync
+APK: `android/app/build/outputs/apk/debug/app-debug.apk`
 
-# Abrir en Android Studio
-npm run android:open
+Desde la raíz del repo:
 
-# APK debug
+```bash
 npm run android:apk
 ```
-
-El APK queda en:
-
-`android/app/build/outputs/apk/debug/app-debug.apk`
-
-## Cambiar la URL del servidor
-
-En `capacitor.config.json`:
-
-```json
-"server": {
-  "url": "https://test-iota-two-49.vercel.app"
-}
-```
-
-Para empaquetar solo el `dist` local (sin URL remota), borrá la clave `server.url`, corré `npm run android:sync` y asegurate de que la API apunte a tu backend.
-
-## Firma release
-
-En Android Studio: **Build → Generate Signed Bundle / APK**.
