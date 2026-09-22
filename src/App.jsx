@@ -1215,6 +1215,31 @@ function App() {
   }, [searchOpen])
 
   useEffect(() => {
+    if (!cartOpen) return undefined
+    const html = document.documentElement
+    const { body } = document
+    const prevHtmlOverflow = html.style.overflow
+    const prevBodyOverflow = body.style.overflow
+    const prevBodyPosition = body.style.position
+    const prevBodyTop = body.style.top
+    const prevBodyWidth = body.style.width
+    const scrollY = window.scrollY || html.scrollTop || 0
+    html.style.overflow = 'hidden'
+    body.style.overflow = 'hidden'
+    body.style.position = 'fixed'
+    body.style.top = `-${scrollY}px`
+    body.style.width = '100%'
+    return () => {
+      html.style.overflow = prevHtmlOverflow
+      body.style.overflow = prevBodyOverflow
+      body.style.position = prevBodyPosition
+      body.style.top = prevBodyTop
+      body.style.width = prevBodyWidth
+      window.scrollTo(0, scrollY)
+    }
+  }, [cartOpen])
+
+  useEffect(() => {
     if (!toast) return undefined
     const t = setTimeout(() => setToast(''), 2200)
     return () => clearTimeout(t)
@@ -2962,7 +2987,7 @@ function App() {
               <p className="cart-empty">No hay productos en stock bajo o sin stock para comprar.</p>
             ) : (
               <>
-                <section className="cart-deals-panel" aria-label="Descuentos por día">
+                <section className="cart-deals-panel cart-scroll-hidden" aria-label="Descuentos por día">
                   <div className="cart-deals-head">
                     <div>
                       <p className="cart-deals-kicker">Sucursales</p>
@@ -3019,7 +3044,7 @@ function App() {
                   </div>
                 </section>
 
-                <ul className="cart-list">
+                <ul className="cart-list cart-scroll-hidden">
                   {cartDisplayLines.map((line) => (
                     <li
                       key={line.id}

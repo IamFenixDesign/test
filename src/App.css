@@ -139,12 +139,30 @@
   gap: 12px;
   max-height: min(92vh, 920px);
   overflow: hidden;
+  overscroll-behavior: none;
+  touch-action: manipulation;
+}
+
+.modal.cart-sheet {
+  overflow: hidden;
 }
 
 .cart-sheet .sheet-header,
 .cart-sheet .cart-empty,
-.cart-sheet .cart-split {
+.cart-sheet .cart-split,
+.cart-sheet .cart-summary {
   flex-shrink: 0;
+}
+
+.cart-scroll-hidden {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.cart-scroll-hidden::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+  display: none;
 }
 
 .cart-deals-panel {
@@ -403,8 +421,13 @@
   display: grid;
   gap: 10px;
   flex: 1 1 auto;
-  min-height: 140px;
-  overflow: auto;
+  min-height: 0;
+  max-height: 100%;
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  touch-action: pan-y;
   position: relative;
   z-index: 0;
 }
@@ -1612,6 +1635,17 @@ td:has(.item-cell) {
   padding: 20px;
   z-index: 80;
   animation: overlayIn 0.22s ease;
+}
+
+.overlay.overlay-dialog {
+  overflow: hidden;
+  overscroll-behavior: none;
+  touch-action: none;
+}
+
+.overlay.overlay-dialog .cart-deals-panel,
+.overlay.overlay-dialog .cart-list {
+  touch-action: pan-y;
 }
 
 .modal {
@@ -3137,6 +3171,7 @@ html[data-theme="light"] .store-col-title.dia {
     padding: 12px 16px 16px;
     border-radius: 22px;
     overflow: hidden;
+    overscroll-behavior: none;
     display: flex;
     flex-direction: column;
     gap: 10px;
@@ -3249,7 +3284,11 @@ html[data-theme="light"] .store-col-title.dia {
   .cart-list {
     max-height: none;
     flex: 1 1 auto;
-    min-height: 120px;
+    min-height: 0;
+    overflow-x: hidden;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
   }
 
   .cart-summary {
