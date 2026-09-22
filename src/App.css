@@ -1940,6 +1940,21 @@ html.cart-open body {
   overscroll-behavior: none;
 }
 
+html.cart-open body {
+  /* iOS Safari/PWA: no position:fixed acá — desalinea el overlay */
+  width: 100%;
+  touch-action: none;
+}
+
+html.cart-open .cart-sheet,
+html.cart-open .cart-sheet-body,
+html.cart-open .cart-deals-panel,
+html.cart-open .cart-list,
+html.cart-open .cart-days,
+html.cart-open .cart-sheet-footer {
+  touch-action: pan-y;
+}
+
 .modal {
   width: min(520px, 100%);
   background: var(--bg-card);
@@ -3589,11 +3604,15 @@ html[data-theme="light"] .store-col-title.dia {
     gap: 8px;
   }
 
-  /* Bottom sheet a pantalla completa: sin marco flotante */
+  /* Bottom sheet móvil / iOS: pegado a bordes, altura natural, contenido compacto */
   .cart-overlay.overlay-dialog {
     padding: 0;
     place-items: end stretch;
     align-items: end;
+    height: 100%;
+    height: 100dvh;
+    height: -webkit-fill-available;
+    max-height: -webkit-fill-available;
   }
 
   .cart-overlay .cart-sheet {
@@ -3603,53 +3622,204 @@ html[data-theme="light"] .store-col-title.dia {
     border-left: 0;
     border-right: 0;
     border-bottom: 0;
-    border-radius: 22px 22px 0 0;
-    height: min(90dvh, 100%);
-    max-height: calc(100dvh - env(safe-area-inset-top, 0px) - 10px);
+    border-radius: 20px 20px 0 0;
+    height: auto;
+    max-height: min(88dvh, calc(100dvh - env(safe-area-inset-top, 0px) - 8px));
+    max-height: min(88dvh, calc(100% - env(safe-area-inset-top, 0px) - 8px));
+    background: var(--bg-elev);
   }
 
   .cart-overlay .cart-sheet-header {
-    padding: 2px 14px 6px;
+    padding: 0 12px 4px;
     align-items: center;
   }
 
   .cart-overlay .cart-sheet-header h2 {
     margin: 0;
-    font-size: 1.25rem;
+    font-size: 1.15rem;
   }
 
   .cart-overlay .sheet-close {
-    width: 40px;
-    height: 40px;
-    min-width: 40px;
+    width: 36px;
+    height: 36px;
+    min-width: 36px;
     padding: 0;
     border-radius: 999px;
   }
 
   .cart-overlay .cart-sheet-body {
-    padding: 2px 12px 10px;
+    padding: 0 12px 8px;
+  }
+
+  .cart-overlay .cart-panel {
+    gap: 8px;
+  }
+
+  .cart-overlay .cart-deals-panel {
+    gap: 6px;
+    padding: 8px 10px;
+    border-radius: 14px;
+  }
+
+  .cart-overlay .cart-deals-panel.is-collapsed {
+    padding: 6px 8px;
+  }
+
+  .cart-overlay .cart-deals-title {
+    font-size: 1rem;
+  }
+
+  .cart-overlay .cart-list {
+    grid-template-columns: 1fr;
+    gap: 6px;
+  }
+
+  .cart-overlay .cart-line {
+    gap: 6px;
+    padding: 8px 10px;
+    border-radius: 14px;
+    background: var(--bg-card);
+  }
+
+  .cart-overlay .cart-line-head {
+    grid-template-columns: 36px minmax(0, 1fr) auto;
+    gap: 8px;
+  }
+
+  .cart-overlay .cart-line .item-thumb {
+    width: 36px;
+    height: 36px;
+  }
+
+  .cart-overlay .cart-line-copy strong {
+    font-size: 0.86rem;
+  }
+
+  .cart-overlay .cart-line-copy span {
+    font-size: 0.68rem;
+  }
+
+  .cart-overlay .cart-qty {
+    min-width: 32px;
+    height: 26px;
+    font-size: 0.74rem;
+  }
+
+  .cart-overlay .cart-line-side .icon-btn {
+    width: 32px;
+    height: 32px;
+  }
+
+  /* Stats como chips en una fila (legible en iPhone) */
+  .cart-overlay .cart-line-stats {
+    display: flex;
+    flex-wrap: nowrap;
+    gap: 5px;
+  }
+
+  .cart-overlay .cart-stat {
+    flex: 1 1 0;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    gap: 1px;
+    padding: 5px 4px;
+    border-radius: 9px;
+  }
+
+  .cart-overlay .cart-stat em {
+    font-size: 0.5rem;
+    letter-spacing: 0.03em;
+  }
+
+  .cart-overlay .cart-stat strong {
+    font-size: 0.68rem;
+    white-space: nowrap;
+  }
+
+  .cart-overlay .cart-line-save {
+    font-size: 0.68rem;
+  }
+
+  .cart-overlay .cart-split {
+    gap: 6px;
+  }
+
+  .cart-overlay .cart-split span {
+    min-height: 24px;
+    padding: 0 8px;
+    font-size: 0.68rem;
   }
 
   .cart-overlay .cart-sheet-footer {
-    padding: 0 12px calc(14px + env(safe-area-inset-bottom, 0px));
-    box-shadow: 0 -10px 24px color-mix(in srgb, var(--bg-card) 70%, transparent);
+    padding: 8px 12px calc(10px + env(safe-area-inset-bottom, 0px));
+    box-shadow: 0 -8px 20px color-mix(in srgb, #000 18%, transparent);
+  }
+
+  .cart-overlay .cart-sheet-footer .cart-summary {
+    padding: 0;
+    gap: 8px;
+  }
+
+  /* Footer compacto iOS: detalle + total grande */
+  .cart-overlay .cart-summary-top {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 6px;
   }
 
   .cart-overlay .cart-summary-meta {
-    font-size: 0.78rem;
+    font-size: 0.7rem;
+    margin: 0;
+    line-height: 1.25;
+  }
+
+  .cart-overlay .cart-summary-rows {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 4px 12px;
+  }
+
+  .cart-overlay .cart-summary-rows > div {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 6px;
+  }
+
+  .cart-overlay .cart-summary-rows > div span {
+    font-size: 0.7rem;
   }
 
   .cart-overlay .cart-summary-rows > div strong {
-    font-size: 0.95rem;
+    font-size: 0.78rem;
+  }
+
+  .cart-overlay .cart-summary-rows .is-pay {
+    width: 100%;
+    justify-content: space-between;
+    margin-top: 2px;
+    padding-top: 6px;
+    border-top: 1px solid var(--line);
+  }
+
+  .cart-overlay .cart-summary-rows .is-pay span {
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: var(--text);
   }
 
   .cart-overlay .cart-summary-rows .is-pay strong {
-    font-size: 1.15rem;
+    font-size: 1.22rem;
   }
 
   .cart-overlay .cart-actions .btn {
-    min-height: 48px;
-    font-size: 1rem;
+    min-height: 46px;
+    font-size: 0.95rem;
+    border-radius: 14px;
   }
 
   .cart-deals-panel {
@@ -4190,77 +4360,64 @@ html[data-theme="light"] .store-col-title.dia {
       max(16px, env(safe-area-inset-left, 0px));
   }
 
-  /* PWA: carrito como sheet nativo a borde, no diálogo con padding */
+  /* PWA iOS: sheet nativo, sin hueco negro arriba ni altura forzada */
   html.is-pwa:not(.is-desktop-site) .cart-overlay.overlay-dialog {
     padding: 0;
-    padding-top: env(safe-area-inset-top, 0px);
     place-items: end stretch;
+    height: 100%;
+    height: 100dvh;
+    height: -webkit-fill-available;
   }
 
   html.is-pwa:not(.is-desktop-site) .cart-sheet {
     width: 100%;
     max-width: none;
     height: auto;
-    max-height: calc(100dvh - env(safe-area-inset-top, 47px) - 6px);
+    max-height: min(90dvh, calc(100dvh - env(safe-area-inset-top, 0px)));
+    max-height: min(90dvh, calc(100% - env(safe-area-inset-top, 0px)));
     border-radius: 20px 20px 0 0;
     border-left: 0;
     border-right: 0;
     border-bottom: 0;
+    background: var(--bg-elev);
   }
 
   html.is-pwa:not(.is-desktop-site) .cart-sheet-header {
-    padding: 0 14px 8px;
+    padding: 0 12px 4px;
   }
 
   html.is-pwa:not(.is-desktop-site) .cart-sheet-body {
-    padding: 0 12px 10px;
+    padding: 0 12px 8px;
   }
 
   html.is-pwa:not(.is-desktop-site) .cart-sheet-footer {
-    padding: 0 12px calc(16px + env(safe-area-inset-bottom, 0px));
-  }
-
-  html.is-pwa:not(.is-desktop-site) .cart-sheet-footer .cart-summary {
-    padding-top: 10px;
-    gap: 10px;
-  }
-
-  html.is-pwa:not(.is-desktop-site) .cart-sheet-footer .cart-summary-top {
-    gap: 6px;
-  }
-
-  html.is-pwa:not(.is-desktop-site) .cart-sheet-footer .cart-summary-meta {
-    margin: 0;
-  }
-
-  html.is-pwa:not(.is-desktop-site) .cart-sheet-footer .cart-actions .btn {
-    min-height: 48px;
-    border-radius: 16px;
+    padding: 8px 12px calc(12px + env(safe-area-inset-bottom, 0px));
   }
 
   html.is-pwa:not(.is-desktop-site) .cart-line {
-    gap: 8px;
-    padding: 10px;
-    border-radius: 16px;
+    gap: 6px;
+    padding: 8px 10px;
+    border-radius: 14px;
   }
 
   html.is-pwa:not(.is-desktop-site) .cart-line-stats {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    display: flex;
+    flex-wrap: nowrap;
     gap: 5px;
   }
 
   html.is-pwa:not(.is-desktop-site) .cart-stat {
-    padding: 7px 5px;
+    padding: 5px 3px;
   }
 
   html.is-pwa:not(.is-desktop-site) .cart-stat strong {
-    font-size: 0.72rem;
+    font-size: 0.66rem;
   }
 
   html.is-pwa:not(.is-desktop-site) .cart-deals-panel {
-    gap: 8px;
-    padding: 10px;
-    border-radius: 16px;
+    gap: 6px;
+    padding: 8px 10px;
+    border-radius: 14px;
   }
 
   html.is-pwa:not(.is-desktop-site) .cart-deals-body {
@@ -4297,8 +4454,8 @@ html[data-theme="light"] .store-col-title.dia {
 
   html.is-pwa:not(.is-desktop-site) .cart-deal-pct {
     width: 100%;
-    min-height: 30px;
-    font-size: 0.82rem;
+    min-height: 28px;
+    font-size: 0.8rem;
     border-radius: 8px;
   }
 
