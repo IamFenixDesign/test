@@ -14,10 +14,10 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Close
+import androidx.compose.material.icons.outlined.DeleteOutline
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -56,7 +56,7 @@ fun CartSheet(
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
-        shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
+        shape = RoundedCornerShape(topStart = 22.dp, topEnd = 22.dp),
         dragHandle = {
             Surface(
                 modifier = Modifier.padding(vertical = 10.dp),
@@ -98,7 +98,8 @@ fun CartSheet(
 
             LazyColumn(
                 modifier = Modifier
-                    .weight(1f)
+                    .weight(1f, fill = true)
+                    .fillMaxWidth()
                     .padding(horizontal = 16.dp),
                 verticalArrangement = Arrangement.spacedBy(10.dp),
             ) {
@@ -106,32 +107,34 @@ fun CartSheet(
 
                 if (items.isEmpty()) {
                     item {
-                        Card(
+                        Surface(
                             shape = RoundedCornerShape(18.dp),
-                            colors = CardDefaults.cardColors(
-                                containerColor = MaterialTheme.colorScheme.surfaceVariant,
-                            ),
+                            color = MaterialTheme.colorScheme.surfaceVariant,
+                            modifier = Modifier.fillMaxWidth(),
                         ) {
-                            Text(
-                                "El carrito está vacío. Los productos bajo el mínimo aparecen solos acá.",
+                            Column(
                                 modifier = Modifier.padding(16.dp),
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
+                                verticalArrangement = Arrangement.spacedBy(4.dp),
+                            ) {
+                                Text("Carrito vacío", fontWeight = FontWeight.SemiBold)
+                                Text(
+                                    "No hay productos en stock bajo o sin stock para comprar.",
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
                         }
                     }
                 }
 
                 items(items, key = { it.id }) { item ->
-                    Card(
+                    Surface(
                         shape = RoundedCornerShape(18.dp),
-                        colors = CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.surfaceVariant,
-                        ),
+                        color = MaterialTheme.colorScheme.surfaceVariant,
                         modifier = Modifier.fillMaxWidth(),
                     ) {
                         Column(
                             modifier = Modifier.padding(14.dp),
-                            verticalArrangement = Arrangement.spacedBy(4.dp),
+                            verticalArrangement = Arrangement.spacedBy(6.dp),
                         ) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Text(
@@ -139,22 +142,39 @@ fun CartSheet(
                                     fontWeight = FontWeight.SemiBold,
                                     modifier = Modifier.weight(1f),
                                 )
+                                Surface(
+                                    shape = RoundedCornerShape(999.dp),
+                                    color = MaterialTheme.colorScheme.primary,
+                                ) {
+                                    Text(
+                                        cartQtyLabel(item),
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.onPrimary,
+                                        style = MaterialTheme.typography.labelMedium,
+                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                    )
+                                }
                                 IconButton(onClick = { onRemove(item.id) }) {
                                     Icon(
-                                        Icons.Outlined.Close,
+                                        Icons.Outlined.DeleteOutline,
                                         contentDescription = "Sacar del carrito",
+                                        tint = MaterialTheme.colorScheme.error,
                                     )
                                 }
                             }
                             Text(
-                                "Comprar ${cartQtyLabel(item)} · Tenés ${qtyLabel(item)}",
+                                "Tenés ${qtyLabel(item)} · comprar ${cartQtyLabel(item)}",
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                style = MaterialTheme.typography.bodySmall,
                             )
                             Row(
                                 horizontalArrangement = Arrangement.SpaceBetween,
                                 modifier = Modifier.fillMaxWidth(),
                             ) {
-                                Text(money(item.price))
+                                Text(
+                                    money(item.price),
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
                                 Text(
                                     money(item.price * item.neededToMin),
                                     fontWeight = FontWeight.Bold,
@@ -169,14 +189,18 @@ fun CartSheet(
             }
 
             if (items.isNotEmpty()) {
-                Surface(tonalElevation = 2.dp, shadowElevation = 8.dp) {
+                HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.35f))
+                Surface(tonalElevation = 1.dp) {
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(16.dp),
                         verticalArrangement = Arrangement.spacedBy(10.dp),
                     ) {
-                        Text("${items.size} productos")
+                        Text(
+                            "${items.size} producto${if (items.size == 1) "" else "s"}",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
                         Text(
                             "Total ${money(total)}",
                             style = MaterialTheme.typography.headlineSmall,
