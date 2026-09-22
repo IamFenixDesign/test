@@ -8,18 +8,18 @@ Importá el repo en [Vercel](https://vercel.com/new). El endpoint `/api/supers` 
 
 Sitio de ejemplo: conectá `IamFenixDesign/test`.
 
-## App Android
+## App Android (nativa)
 
-Proyecto Capacitor en `/android` (package `app.stockea.android`).
+Proyecto **Kotlin + Jetpack Compose** en `/android` (sin WebView).
 
 ```bash
-npm install
-npm run android:apk
+cd android
+./gradlew assembleDebug
 ```
 
-APK debug: `android/app/build/outputs/apk/debug/app-debug.apk`
+APK: `android/app/build/outputs/apk/debug/app-debug.apk`
 
-Más detalle en [`android/README.md`](android/README.md).
+Detalles: [`android/README.md`](android/README.md).
 
 ## GitHub Pages
 
