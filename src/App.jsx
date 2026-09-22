@@ -1141,6 +1141,7 @@ function App() {
   const [allowCustomPrice, setAllowCustomPrice] = useState(false)
   const [chromeHidden, setChromeHidden] = useState(false)
   const [mainView, setMainView] = useState('stock')
+  const [cartOpen, setCartOpen] = useState(false)
   const itemsRef = useRef(items)
   const searchInputRef = useRef(null)
   const storeResultsRef = useRef(null)
@@ -1159,8 +1160,8 @@ function App() {
   }, [theme])
 
   useEffect(() => {
-    if (mainView !== 'cart') setCartDealsOpen(false)
-  }, [mainView])
+    if (!cartOpen) setCartDealsOpen(false)
+  }, [cartOpen])
 
   useEffect(() => {
     if (mainView !== 'profile' || !user) return
@@ -1780,6 +1781,7 @@ function App() {
       }, 450)
     }
     setCartRemoved(new Set())
+    setCartOpen(false)
     setMainView('stock')
     setCartBusy(false)
     showToast(
@@ -2371,7 +2373,7 @@ function App() {
 
   return (
     <div
-      className={`app ${modal || scanning || passwordModal || pendingDelete ? 'is-overlay' : ''} ${
+      className={`app ${modal || scanning || passwordModal || pendingDelete || cartOpen ? 'is-overlay' : ''} ${
         chromeHidden ? 'chrome-hidden' : ''
       } view-${mainView}`}
     >
@@ -2381,19 +2383,39 @@ function App() {
           className="brand brand-btn"
           onClick={() => {
             setMainView('stock')
+            setCartOpen(false)
             setOpenMenu(null)
           }}
         >
           <h1>
             {mainView === 'compare'
               ? 'Comparar precios'
-              : mainView === 'cart'
-                ? 'Carrito'
-                : mainView === 'profile'
-                  ? 'Perfil'
-                  : 'Stockea'}
+              : mainView === 'profile'
+                ? 'Perfil'
+                : 'Stockea'}
           </h1>
         </button>
+        {mainView === 'stock' ? (
+          <div className="top-actions">
+            <button
+              type="button"
+              className={`btn btn-ghost cart-toggle ${cartTotals.count ? 'has-items' : ''}`}
+              onClick={() => {
+                setCartOpen(true)
+                setOpenMenu(null)
+                setSearchOpen(false)
+              }}
+              aria-label={
+                cartTotals.count
+                  ? `Abrir carrito, ${cartTotals.count} productos`
+                  : 'Abrir carrito'
+              }
+            >
+              <IconCart />
+              {cartTotals.count > 0 ? <em className="cart-badge">{cartTotals.count}</em> : null}
+            </button>
+          </div>
+        ) : null}
       </header>
 
       {mainView === 'stock' ? (
@@ -2751,8 +2773,98 @@ function App() {
             </>
           )}
         </section>
-      ) : mainView === 'cart' ? (
-        <section className="panel cart-panel">
+      ) : (
+        <section className="panel profile-panel">
+          <div className="profile-hero">
+            {user.picture ? (
+              <img className="profile-avatar" src={user.picture} alt="" referrerPolicy="no-referrer" />
+            ) : (
+              <span className="profile-avatar letter" aria-hidden="true">
+                {(user.name || user.email || 'S').slice(0, 1)}
+              </span>
+            )}
+            <div className="profile-hero-copy">
+              <strong>{user.name || 'Cuenta'}</strong>
+              {user.email ? <span>{user.email}</span> : null}
+            </div>
+          </div>
+
+          <form className="profile-form" onSubmit={handleSaveProfile}>
+            <label className="field full">
+              <span>Nombre</span>
+              <input
+                value={profileForm.firstName}
+                onChange={(event) => setProfileForm((prev) => ({ ...prev, firstName: event.target.value }))}
+                autoComplete="given-name"
+                required
+              />
+            </label>
+            <label className="field full">
+              <span>Apellido</span>
+              <input
+                value={profileForm.lastName}
+                onChange={(event) => setProfileForm((prev) => ({ ...prev, lastName: event.target.value }))}
+                autoComplete="family-name"
+                required
+              />
+            </label>
+            <label className="field full">
+              <span>Correo</span>
+              <input
+                type="email"
+                value={profileForm.email}
+                onChange={(event) => setProfileForm((prev) => ({ ...prev, email: event.target.value }))}
+                autoComplete="email"
+                required
+              />
+            </label>
+            {profileError ? <p className="error">{profileError}</p> : null}
+            <button className="btn btn-primary" type="submit" disabled={profileBusy}>
+              {profileBusy ? 'Guardando…' : 'Guardar cambios'}
+            </button>
+          </form>
+
+          <div className="profile-actions">
+            <button className="btn btn-ghost" type="button" onClick={openPasswordModal}>
+              Cambiar contraseña
+            </button>
+            <button className="btn btn-danger" type="button" onClick={handleLogout}>
+              <IconLogout />
+              Cerrar sesión
+            </button>
+          </div>
+        </section>
+      )}
+
+
+      {cartOpen ? (
+        <div
+          className="overlay overlay-dialog cart-overlay"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) {
+              event.preventDefault()
+              setCartOpen(false)
+            }
+          }}
+        >
+          <div className="cart-sheet" role="dialog" aria-modal="true" aria-label="Carrito">
+            <div className="sheet-handle" aria-hidden="true" />
+            <div className="sheet-header cart-sheet-header">
+              <div>
+                <h2>Carrito</h2>
+                <p className="lead">Productos en stock bajo listos para comprar.</p>
+              </div>
+              <button
+                className="btn btn-ghost sheet-close"
+                type="button"
+                aria-label="Cerrar carrito"
+                onClick={() => setCartOpen(false)}
+              >
+                <IconClose />
+              </button>
+            </div>
+            <div className="cart-sheet-body">
+              <section className="cart-panel cart-panel-embed">
           {cartLines.length === 0 ? (
             <div className="empty">
               <h3>Carrito vacío</h3>
@@ -2985,68 +3097,10 @@ function App() {
             </>
           )}
         </section>
-      ) : (
-        <section className="panel profile-panel">
-          <div className="profile-hero">
-            {user.picture ? (
-              <img className="profile-avatar" src={user.picture} alt="" referrerPolicy="no-referrer" />
-            ) : (
-              <span className="profile-avatar letter" aria-hidden="true">
-                {(user.name || user.email || 'S').slice(0, 1)}
-              </span>
-            )}
-            <div className="profile-hero-copy">
-              <strong>{user.name || 'Cuenta'}</strong>
-              {user.email ? <span>{user.email}</span> : null}
             </div>
           </div>
-
-          <form className="profile-form" onSubmit={handleSaveProfile}>
-            <label className="field full">
-              <span>Nombre</span>
-              <input
-                value={profileForm.firstName}
-                onChange={(event) => setProfileForm((prev) => ({ ...prev, firstName: event.target.value }))}
-                autoComplete="given-name"
-                required
-              />
-            </label>
-            <label className="field full">
-              <span>Apellido</span>
-              <input
-                value={profileForm.lastName}
-                onChange={(event) => setProfileForm((prev) => ({ ...prev, lastName: event.target.value }))}
-                autoComplete="family-name"
-                required
-              />
-            </label>
-            <label className="field full">
-              <span>Correo</span>
-              <input
-                type="email"
-                value={profileForm.email}
-                onChange={(event) => setProfileForm((prev) => ({ ...prev, email: event.target.value }))}
-                autoComplete="email"
-                required
-              />
-            </label>
-            {profileError ? <p className="error">{profileError}</p> : null}
-            <button className="btn btn-primary" type="submit" disabled={profileBusy}>
-              {profileBusy ? 'Guardando…' : 'Guardar cambios'}
-            </button>
-          </form>
-
-          <div className="profile-actions">
-            <button className="btn btn-ghost" type="button" onClick={openPasswordModal}>
-              Cambiar contraseña
-            </button>
-            <button className="btn btn-danger" type="button" onClick={handleLogout}>
-              <IconLogout />
-              Cerrar sesión
-            </button>
-          </div>
-        </section>
-      )}
+        </div>
+      ) : null}
 
       <nav className="bottom-nav" aria-label="Navegación principal">
         <button
@@ -3054,6 +3108,7 @@ function App() {
           className={`bottom-nav-btn ${mainView === 'compare' ? 'active' : ''}`}
           onClick={() => {
             setMainView(mainView === 'compare' ? 'stock' : 'compare')
+            setCartOpen(false)
             setOpenMenu(null)
             setSearchOpen(false)
           }}
@@ -3086,26 +3141,20 @@ function App() {
         </button>
         <button
           type="button"
-          className={`bottom-nav-btn ${mainView === 'cart' ? 'active' : ''} ${
-            cartTotals.count ? 'has-items' : ''
-          }`}
+          className={`bottom-nav-btn ${mainView === 'stock' ? 'active' : ''}`}
           onClick={() => {
-            setMainView(mainView === 'cart' ? 'stock' : 'cart')
+            setMainView('stock')
+            setCartOpen(false)
             setOpenMenu(null)
             setSearchOpen(false)
           }}
-          aria-label={
-            cartTotals.count
-              ? `Carrito de compras, ${cartTotals.count} productos`
-              : 'Carrito de compras'
-          }
-          aria-current={mainView === 'cart' ? 'page' : undefined}
+          aria-label="Stock"
+          aria-current={mainView === 'stock' ? 'page' : undefined}
         >
           <span className="bottom-nav-icon" aria-hidden="true">
-            <IconCart />
-            {cartTotals.count > 0 ? <em className="cart-badge">{cartTotals.count}</em> : null}
+            <IconMark />
           </span>
-          <span>Carrito</span>
+          <span>Stock</span>
         </button>
         <button
           type="button"
@@ -3114,6 +3163,7 @@ function App() {
           aria-current={mainView === 'profile' ? 'page' : undefined}
           onClick={() => {
             setMainView(mainView === 'profile' ? 'stock' : 'profile')
+            setCartOpen(false)
             setOpenMenu(null)
             setSearchOpen(false)
           }}

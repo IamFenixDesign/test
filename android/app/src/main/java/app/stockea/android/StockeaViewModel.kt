@@ -20,7 +20,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.util.UUID
 
-enum class MainTab { Stock, Compare, Cart, Profile }
+enum class MainTab { Stock, Compare, Profile }
 
 data class UiState(
     val booting: Boolean = true,
@@ -36,6 +36,7 @@ data class UiState(
     val compareResults: List<CompareRow> = emptyList(),
     val compareBusy: Boolean = false,
     val showNewItem: Boolean = false,
+    val showCart: Boolean = false,
     val showScanner: Boolean = false,
     val scannedEan: String? = null,
     val newItemLookupBusy: Boolean = false,
@@ -89,6 +90,7 @@ class StockeaViewModel(app: Application) : AndroidViewModel(app) {
                 error = "",
                 info = "",
                 showNewItem = false,
+                showCart = false,
                 showScanner = false,
                 scannedEan = null,
                 newItemLookupBusy = false,
@@ -96,7 +98,7 @@ class StockeaViewModel(app: Application) : AndroidViewModel(app) {
                 newItemLookupMatch = null,
             )
         }
-        if (tab == MainTab.Stock || tab == MainTab.Cart) {
+        if (tab == MainTab.Stock) {
             refreshItems()
         }
     }
@@ -109,6 +111,7 @@ class StockeaViewModel(app: Application) : AndroidViewModel(app) {
         _state.update {
             it.copy(
                 showNewItem = true,
+                showCart = false,
                 tab = MainTab.Stock,
                 showScanner = false,
                 scannedEan = null,
@@ -130,6 +133,22 @@ class StockeaViewModel(app: Application) : AndroidViewModel(app) {
                 newItemLookupMatch = null,
             )
         }
+    }
+
+    fun openCart() {
+        refreshItems()
+        _state.update {
+            it.copy(
+                showCart = true,
+                showNewItem = false,
+                showScanner = false,
+                tab = MainTab.Stock,
+            )
+        }
+    }
+
+    fun closeCart() {
+        _state.update { it.copy(showCart = false) }
     }
 
     fun openScanner() {
@@ -502,6 +521,7 @@ class StockeaViewModel(app: Application) : AndroidViewModel(app) {
             it.copy(
                 info = if (cart.size == 1) "Compra aplicada al stock" else "${cart.size} productos actualizados",
                 tab = MainTab.Stock,
+                showCart = false,
                 cartRemoved = emptySet(),
             )
         }
