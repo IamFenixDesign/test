@@ -2035,7 +2035,17 @@ td:has(.item-cell) {
 }
 
 .compare-search {
+  display: block;
   width: 100%;
+  min-width: 0;
+  flex: none;
+}
+
+.compare-meta {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 650;
 }
 
 .compare-list {
@@ -2044,6 +2054,34 @@ td:has(.item-cell) {
   padding: 0;
   display: grid;
   gap: 10px;
+}
+
+.compare-pager {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  gap: 10px;
+  align-items: center;
+  margin-top: 4px;
+}
+
+.compare-pager .btn {
+  min-height: 42px;
+  border-radius: 14px;
+}
+
+.compare-pager .btn:first-child {
+  justify-self: start;
+}
+
+.compare-pager .btn:last-child {
+  justify-self: end;
+}
+
+.compare-pager-status {
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
 }
 
 .compare-card {
@@ -2989,6 +3027,30 @@ html[data-theme="light"] .store-col-title.dia {
   .toolbar.is-searching .search-toggle,
   .toolbar.is-searching [data-menu="filter-category"] {
     display: none;
+  }
+
+  .compare-toolbar .compare-search,
+  .compare-search {
+    display: block !important;
+    width: 100%;
+    min-width: 0;
+    flex: none;
+    position: relative;
+  }
+
+  .compare-search input {
+    min-height: 48px;
+    font-size: 16px;
+  }
+
+  .compare-pager {
+    gap: 8px;
+  }
+
+  .compare-pager .btn {
+    min-height: 44px;
+    padding-inline: 12px;
+    font-size: 0.88rem;
   }
 
   .menu-select {
