@@ -2004,10 +2004,6 @@ td:has(.item-cell) {
     min-height: 44px;
   }
 
-  .compare-meta {
-    font-size: 0.88rem;
-  }
-
   .bottom-nav-btn {
     min-height: 58px;
     padding: 8px 6px;
@@ -2066,13 +2062,6 @@ td:has(.item-cell) {
   width: 100%;
   min-width: 0;
   flex: none;
-}
-
-.compare-meta {
-  margin: 0;
-  color: var(--muted);
-  font-size: 0.82rem;
-  font-weight: 650;
 }
 
 .compare-list {

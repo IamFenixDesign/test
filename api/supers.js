@@ -15,9 +15,12 @@ export default async function handler(req, res) {
     return
   }
 
+  const limitRaw = Number(req.query?.limit)
+  const limit = Number.isFinite(limitRaw) && limitRaw > 0 ? limitRaw : undefined
+
   try {
     res.statusCode = 200
-    res.end(JSON.stringify(await searchSupermarketsServer(q)))
+    res.end(JSON.stringify(await searchSupermarketsServer(q, { limit })))
   } catch {
     res.statusCode = 502
     res.end(JSON.stringify({ error: 'No se pudieron consultar los supermercados' }))
