@@ -3043,11 +3043,12 @@ function App() {
         >
           <div className="modal cart-sheet" role="dialog" aria-modal="true" aria-labelledby="cart-title">
             <div className="sheet-handle" aria-hidden="true" />
-            <div className="sheet-header">
+            <div className="sheet-header cart-sheet-header">
               <div>
-                <h2 id="cart-title">Carrito de compras</h2>
+                <p className="cart-kicker">Carrito</p>
+                <h2 id="cart-title">Compras pendientes</h2>
                 <p className="lead">
-                  Solo lo faltante al mínimo. Calculá el total con descuentos de sucursal según el día.
+                  Solo lo faltante al mínimo. Descuentos de sucursal según el día.
                 </p>
               </div>
               <button
@@ -3127,54 +3128,68 @@ function App() {
                       key={line.id}
                       className={`cart-line ${line.eligible ? 'is-eligible' : 'is-excluded'}`}
                     >
-                      <ItemThumb item={line.item} />
-                      <div className="cart-line-copy">
-                        <strong>{line.item.name}</strong>
-                        <span>
-                          Tenés {formatQty(line.have, qtyUnitOf(line.item))} · mínimo{' '}
-                          {formatQty(line.min, qtyUnitOf(line.item))} · comprar{' '}
-                          {formatQty(line.need, qtyUnitOf(line.item))}
-                        </span>
-                        <em>
-                          {line.unitPrice
-                            ? `${money(line.unitPrice)} ${
-                                qtyUnitOf(line.item) === 'kg' ? 'c/kg' : 'c/u'
-                              } · ${money(line.lineTotal)}`
-                            : 'Sin precio'}
-                          {line.eligible && line.discount > 0
-                            ? ` · ahorro ${money(line.discount)}`
-                            : ''}
-                        </em>
-                        <div className="cart-line-tags">
-                          <span className={`cart-web ${line.webDiscount ? 'yes' : 'no'}`}>
-                            {line.webDiscount ? `Web: ${line.webDiscount}` : 'Web: sin dto'}
-                          </span>
-                          <span className={`cart-elig ${line.eligible ? 'yes' : 'no'}`}>
-                            {line.eligible
-                              ? cartQuote.promo.percent > 0
-                                ? `Aplica ${cartQuote.promo.short}`
-                                : 'Sin dto de pago'
-                              : line.reason || 'No aplica'}
+                      <div className="cart-line-head">
+                        <ItemThumb item={line.item} />
+                        <div className="cart-line-copy">
+                          <strong>{line.item.name}</strong>
+                          <span>
+                            Tenés {formatQty(line.have, qtyUnitOf(line.item))} · mínimo{' '}
+                            {formatQty(line.min, qtyUnitOf(line.item))}
                           </span>
                         </div>
+                        <div className="cart-line-side">
+                          <output
+                            className="cart-qty"
+                            aria-label={`Comprar ${formatQty(line.need, qtyUnitOf(line.item))}`}
+                          >
+                            ×{formatQty(line.need, qtyUnitOf(line.item))}
+                          </output>
+                          <button
+                            className="icon-btn danger"
+                            type="button"
+                            title="Quitar del carrito"
+                            aria-label={`Quitar ${line.item.name} del carrito`}
+                            onClick={() => removeFromCart(line.id)}
+                          >
+                            <IconTrash />
+                          </button>
+                        </div>
                       </div>
-                      <div className="cart-line-side">
-                        <output
-                          className="cart-qty"
-                          aria-label={`Comprar ${formatQty(line.need, qtyUnitOf(line.item))}`}
+                      <div className="cart-line-stats">
+                        <div className="cart-stat">
+                          <em>Precio</em>
+                          <strong>
+                            {line.unitPrice
+                              ? `${money(line.unitPrice)}${qtyUnitOf(line.item) === 'kg' ? '/kg' : '/u'}`
+                              : '—'}
+                          </strong>
+                        </div>
+                        <div className="cart-stat">
+                          <em>Total</em>
+                          <strong>{line.unitPrice ? money(line.lineTotal) : '—'}</strong>
+                        </div>
+                        <div className={`cart-stat ${line.webDiscount ? 'is-web' : ''}`}>
+                          <em>Web</em>
+                          <strong>{line.webDiscount || 'Sin dto'}</strong>
+                        </div>
+                        <div
+                          className={`cart-stat ${
+                            line.eligible && cartQuote.promo.percent > 0 ? 'is-best' : ''
+                          }`}
                         >
-                          ×{formatQty(line.need, qtyUnitOf(line.item))}
-                        </output>
-                        <button
-                          className="icon-btn danger"
-                          type="button"
-                          title="Quitar del carrito"
-                          aria-label={`Quitar ${line.item.name} del carrito`}
-                          onClick={() => removeFromCart(line.id)}
-                        >
-                          <IconTrash />
-                        </button>
+                          <em>Pago</em>
+                          <strong>
+                            {line.eligible
+                              ? cartQuote.promo.percent > 0
+                                ? cartQuote.promo.short
+                                : 'Sin dto'
+                              : line.reason || 'No aplica'}
+                          </strong>
+                        </div>
                       </div>
+                      {line.eligible && line.discount > 0 ? (
+                        <p className="cart-line-save">Ahorro {money(line.discount)}</p>
+                      ) : null}
                     </li>
                   ))}
                 </ul>
@@ -3209,29 +3224,32 @@ function App() {
             )}
 
             <div className="cart-summary">
-              <p className="cart-summary-meta">
-                {cartTotals.count} producto{cartTotals.count === 1 ? '' : 's'} · {cartTotals.units.toLocaleString('es-AR', { maximumFractionDigits: 1 })} a comprar
-              </p>
-              <div className="cart-summary-rows">
-                <div>
-                  <span>Subtotal (sin descuento de pago)</span>
-                  <strong>{money(cartQuote.subtotal || cartTotals.total)}</strong>
-                </div>
-                <div className={cartQuote.discountTotal > 0 ? 'is-save' : ''}>
-                  <span>
-                    {cartQuote.promo.percent > 0
-                      ? `Descuento ${cartQuote.promo.short}`
-                      : 'Descuento de pago'}
-                  </span>
-                  <strong>
-                    {cartQuote.discountTotal > 0 ? `-${money(cartQuote.discountTotal)}` : money(0)}
-                  </strong>
-                </div>
-                <div className="is-pay">
-                  <span>
-                    {cartQuote.promo.percent > 0 ? 'Total con descuento' : 'Total de la compra'}
-                  </span>
-                  <strong>{money(cartQuote.payable || cartQuote.subtotal || cartTotals.total)}</strong>
+              <div className="cart-summary-top">
+                <p className="cart-summary-meta">
+                  {cartTotals.count} producto{cartTotals.count === 1 ? '' : 's'} ·{' '}
+                  {cartTotals.units.toLocaleString('es-AR', { maximumFractionDigits: 1 })} a comprar
+                </p>
+                <div className="cart-summary-rows">
+                  <div>
+                    <span>Subtotal</span>
+                    <strong>{money(cartQuote.subtotal || cartTotals.total)}</strong>
+                  </div>
+                  <div className={cartQuote.discountTotal > 0 ? 'is-save' : ''}>
+                    <span>
+                      {cartQuote.promo.percent > 0
+                        ? `Dto ${cartQuote.promo.short}`
+                        : 'Descuento de pago'}
+                    </span>
+                    <strong>
+                      {cartQuote.discountTotal > 0 ? `-${money(cartQuote.discountTotal)}` : money(0)}
+                    </strong>
+                  </div>
+                  <div className="is-pay">
+                    <span>
+                      {cartQuote.promo.percent > 0 ? 'Total con descuento' : 'Total'}
+                    </span>
+                    <strong>{money(cartQuote.payable || cartQuote.subtotal || cartTotals.total)}</strong>
+                  </div>
                 </div>
               </div>
               <div className="modal-actions">
