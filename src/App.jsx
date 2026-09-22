@@ -20,9 +20,9 @@ const CATEGORIES = ['Alimentos', 'Bebidas', 'Limpieza', 'Papelería', 'Insumos']
 const FILTER_CATEGORIES = ['Todo', ...CATEGORIES]
 const SYNC_MS = 2500
 const DIRTY_MS = 2500
-/** Cada ítem se vuelve a consultar en supers como máximo cada 15 min. */
-const PRICE_REFRESH_MS = 15 * 60 * 1000
-/** Revisa ítems vencidos cada minuto mientras la app está visible. */
+/** Evita disparos duplicados (focus + visibility); el refresh es al instante al usar la app. */
+const PRICE_REFRESH_MS = 2 * 1000
+/** Mientras la app está visible, vuelve a consultar supers cada minuto. */
 const PRICE_REFRESH_TICK_MS = 60 * 1000
 const COMPARE_PAGE_SIZE = 10
 const syncChannel = typeof BroadcastChannel === 'function' ? new BroadcastChannel('stockly-inventory') : null
@@ -1439,10 +1439,10 @@ function App() {
       }
     }
 
-    // Tras hidratar: actualizar precios/descuentos de Coto, Carrefour y Día
+    // Al cargar: actualizar precios/descuentos de Coto, Carrefour y Día al instante
     const bootTimer = window.setTimeout(() => {
       refreshStale()
-    }, 1200)
+    }, 200)
     const tick = window.setInterval(() => {
       refreshStale()
     }, PRICE_REFRESH_TICK_MS)
