@@ -2521,7 +2521,6 @@ function App() {
                 placeholder="Buscar producto para comparar"
               />
             </label>
-            <p className="compare-hint">Coto · Carrefour · Día · precios de lista (sin promociones)</p>
           </div>
 
           {compareRows.length === 0 ? (
