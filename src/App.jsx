@@ -3109,10 +3109,17 @@ function App() {
               <>
                 <p>Vinculá Google a esta cuenta. Se conserva el mismo inventario en la nube.</p>
                 {linkBusy ? <p className="login-info">Vinculando…</p> : null}
-                <div ref={googleLinkBtnRef} className="login-google-btn" />
-                {!googleClientId ? (
+                {googleClientId ? (
+                  <GoogleSignInButton
+                    clientId={googleClientId}
+                    theme={theme}
+                    disabled={linkBusy}
+                    label={linkBusy ? 'Vinculando…' : 'Vincular con Google'}
+                    onCredential={handleLinkGoogleCredential}
+                  />
+                ) : (
                   <p className="error">Falta GOOGLE_CLIENT_ID en el servidor.</p>
-                ) : null}
+                )}
               </>
             )}
             <button
