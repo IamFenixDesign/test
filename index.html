@@ -23,6 +23,16 @@
       document.documentElement.dataset.theme =
         localStorage.getItem('stockly-theme') === 'light' ? 'light' : 'dark'
 
+      function syncAppHeight() {
+        var h =
+          (window.visualViewport && window.visualViewport.height) ||
+          window.innerHeight ||
+          document.documentElement.clientHeight
+        if (h > 0) {
+          document.documentElement.style.setProperty('--app-height', h + 'px')
+        }
+      }
+
       function syncSiteMode() {
         var ua = navigator.userAgent || ''
         var touch = navigator.maxTouchPoints > 0 || 'ontouchend' in document
@@ -61,12 +71,21 @@
           else root.classList.remove('is-pwa')
           if (meta) meta.setAttribute('content', mobileViewport)
         }
+
+        syncAppHeight()
       }
 
       syncSiteMode()
+      syncAppHeight()
       window.addEventListener('pageshow', syncSiteMode)
       document.addEventListener('DOMContentLoaded', syncSiteMode)
       window.addEventListener('capacitorReady', syncSiteMode)
+      window.addEventListener('resize', syncAppHeight)
+      window.addEventListener('orientationchange', syncAppHeight)
+      if (window.visualViewport) {
+        window.visualViewport.addEventListener('resize', syncAppHeight)
+        window.visualViewport.addEventListener('scroll', syncAppHeight)
+      }
     </script>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
