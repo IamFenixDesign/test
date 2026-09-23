@@ -1238,9 +1238,10 @@ html[data-theme='dark'] #credential_picker_container {
 }
 
 .login-screen {
+  min-height: -webkit-fill-available;
   min-height: 100vh;
   min-height: 100dvh;
-  min-height: -webkit-fill-available;
+  min-height: 100svh;
   width: 100%;
   display: grid;
   place-items: center;
@@ -1252,6 +1253,7 @@ html[data-theme='dark'] #credential_picker_container {
   position: relative;
   overflow: hidden;
   isolation: isolate;
+  box-sizing: border-box;
   background:
     radial-gradient(120% 70% at 50% -10%, color-mix(in srgb, var(--accent) 18%, transparent), transparent 58%),
     radial-gradient(90% 55% at 100% 100%, color-mix(in srgb, var(--ok) 12%, transparent), transparent 50%),
@@ -4905,11 +4907,6 @@ html[data-theme="light"] .store-col-title.dia {
 }
 
 @media (max-width: 760px) {
-  .login-screen {
-    min-height: 100svh;
-    min-height: -webkit-fill-available;
-  }
-
   .login-hero {
     width: min(440px, 100%);
     padding-inline: 4px;
