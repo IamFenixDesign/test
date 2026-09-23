@@ -1238,6 +1238,15 @@ html[data-theme='dark'] #credential_picker_container {
 }
 
 .login-screen {
+  /* Login siempre oscuro: brand Stockea en blanco (paridad Android / PWA). */
+  --login-bg: #0b0d0c;
+  --login-bg-elev: #171c19;
+  --login-accent: #d4f562;
+  --login-ok: #7ee2b8;
+  --login-text: #ffffff;
+  --login-muted: #8b9688;
+  --login-faint: #6b7568;
+  --login-accent-ink: #14190b;
   min-height: -webkit-fill-available;
   min-height: 100vh;
   min-height: 100dvh;
@@ -1254,10 +1263,11 @@ html[data-theme='dark'] #credential_picker_container {
   overflow: hidden;
   isolation: isolate;
   box-sizing: border-box;
+  color: var(--login-text);
   background:
-    radial-gradient(120% 70% at 50% -10%, color-mix(in srgb, var(--accent) 18%, transparent), transparent 58%),
-    radial-gradient(90% 55% at 100% 100%, color-mix(in srgb, var(--ok) 12%, transparent), transparent 50%),
-    linear-gradient(165deg, var(--bg) 0%, color-mix(in srgb, var(--bg-elev) 70%, var(--bg)) 100%);
+    radial-gradient(120% 70% at 50% -10%, color-mix(in srgb, var(--login-accent) 18%, transparent), transparent 58%),
+    radial-gradient(90% 55% at 100% 100%, color-mix(in srgb, var(--login-ok) 12%, transparent), transparent 50%),
+    linear-gradient(165deg, var(--login-bg) 0%, color-mix(in srgb, var(--login-bg-elev) 70%, var(--login-bg)) 100%);
 }
 
 .login-atmosphere {
@@ -1280,7 +1290,7 @@ html[data-theme='dark'] #credential_picker_container {
   height: min(52vw, 340px);
   top: -8%;
   left: -12%;
-  background: radial-gradient(circle at 40% 40%, color-mix(in srgb, var(--accent) 45%, transparent), transparent 68%);
+  background: radial-gradient(circle at 40% 40%, color-mix(in srgb, var(--login-accent) 45%, transparent), transparent 68%);
 }
 
 .login-orb-b {
@@ -1288,7 +1298,7 @@ html[data-theme='dark'] #credential_picker_container {
   height: min(48vw, 300px);
   right: -10%;
   bottom: 8%;
-  background: radial-gradient(circle at 50% 50%, color-mix(in srgb, var(--ok) 35%, transparent), transparent 70%);
+  background: radial-gradient(circle at 50% 50%, color-mix(in srgb, var(--login-ok) 35%, transparent), transparent 70%);
   animation-delay: -4s;
 }
 
@@ -1297,8 +1307,8 @@ html[data-theme='dark'] #credential_picker_container {
   inset: 0;
   opacity: 0.22;
   background-image:
-    linear-gradient(color-mix(in srgb, var(--accent-text) 14%, transparent) 1px, transparent 1px),
-    linear-gradient(90deg, color-mix(in srgb, var(--accent-text) 14%, transparent) 1px, transparent 1px);
+    linear-gradient(color-mix(in srgb, var(--login-text) 14%, transparent) 1px, transparent 1px),
+    linear-gradient(90deg, color-mix(in srgb, var(--login-text) 14%, transparent) 1px, transparent 1px);
   background-size: 42px 42px;
   mask-image: radial-gradient(ellipse at 50% 35%, #000 20%, transparent 72%);
   animation: login-grid-fade 8s ease-in-out infinite;
@@ -1379,6 +1389,14 @@ html[data-theme='dark'] #credential_picker_container {
   top: calc(env(safe-area-inset-top, 0px) + 16px);
   right: max(16px, env(safe-area-inset-right, 0px));
   z-index: 2;
+  color: #ffffff;
+  border-color: rgba(232, 240, 228, 0.18);
+  background: rgba(23, 28, 25, 0.55);
+}
+
+.login-theme:hover {
+  background: rgba(23, 28, 25, 0.8);
+  color: #ffffff;
 }
 
 .login-hero {
@@ -1399,11 +1417,11 @@ html[data-theme='dark'] #credential_picker_container {
   border-radius: 28px;
   display: grid;
   place-items: center;
-  color: var(--accent-ink);
+  color: var(--login-accent-ink);
   background:
-    linear-gradient(145deg, var(--accent) 0%, color-mix(in srgb, var(--accent) 70%, var(--ok)) 100%);
+    linear-gradient(145deg, var(--login-accent) 0%, color-mix(in srgb, var(--login-accent) 70%, var(--login-ok)) 100%);
   box-shadow:
-    0 18px 40px color-mix(in srgb, var(--accent) 28%, transparent),
+    0 18px 40px color-mix(in srgb, var(--login-accent) 28%, transparent),
     inset 0 1px 0 rgba(255, 255, 255, 0.35);
   animation: login-rise 0.75s ease-out both, login-drift 10s ease-in-out 0.8s infinite;
 }
@@ -1420,12 +1438,8 @@ html[data-theme='dark'] #credential_picker_container {
   font-weight: 800;
   letter-spacing: -0.06em;
   line-height: 0.95;
-  color: var(--text);
-  animation: login-rise 0.8s ease-out 0.08s both;
-}
-
-html[data-theme='dark'] .login-brand-name {
   color: #ffffff;
+  animation: login-rise 0.8s ease-out 0.08s both;
 }
 
 .login-headline {
@@ -1434,14 +1448,14 @@ html[data-theme='dark'] .login-brand-name {
   font-size: clamp(1.2rem, 4.2vw, 1.45rem);
   font-weight: 700;
   letter-spacing: -0.03em;
-  color: var(--muted);
+  color: var(--login-muted);
   animation: login-rise 0.8s ease-out 0.14s both;
 }
 
 .login-support {
   margin: 0;
   max-width: 28ch;
-  color: var(--faint);
+  color: var(--login-faint);
   font-size: 0.98rem;
   line-height: 1.45;
   animation: login-rise 0.8s ease-out 0.2s both;
