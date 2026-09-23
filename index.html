@@ -57,17 +57,22 @@
         })
       }
 
+      function isIosBrowser() {
+        var ua = navigator.userAgent || ''
+        return /iPad|iPhone|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
+      }
+
       function syncAppHeight() {
-        // iOS standalone often reports a short viewport on the first frames
-        // and never fires resize. Take the tallest signal, including screen
-        // height when the gap is the home-indicator strip.
+        // Safari (pestaña) y la PWA reportan un viewport corto al abrir y a veces
+        // no disparan resize. En el teléfono estiramos hasta screen.height cuando
+        // la diferencia es la barra de Safari o el home indicator.
         var vv = window.visualViewport
         var vvH = vv ? vv.height + (vv.offsetTop || 0) : 0
         var h = Math.max(window.innerHeight || 0, document.documentElement.clientHeight || 0, vvH || 0)
-        var standalone =
-          document.documentElement.classList.contains('is-pwa') || window.navigator.standalone === true
+        var ua = navigator.userAgent || ''
+        var phone = isIosBrowser() || (/Android/i.test(ua) && /Mobile/i.test(ua))
         var screenH = window.screen && window.screen.height ? window.screen.height : 0
-        if (standalone && screenH > h && screenH - h < 160) h = screenH
+        if (phone && screenH > h && screenH - h < 280) h = screenH
         if (h > 0) {
           var px = Math.round(h) + 'px'
           document.documentElement.style.setProperty('--app-height', px)
@@ -80,10 +85,7 @@
       }
 
       function kickIOSViewport() {
-        var ua = navigator.userAgent || ''
-        var ios =
-          /iPad|iPhone|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
-        if (!ios) return
+        if (!isIosBrowser()) return
         var se = document.scrollingElement || document.documentElement
         var y = se.scrollTop || 0
         se.scrollTop = y + 1
@@ -115,6 +117,8 @@
           window.matchMedia('(display-mode: fullscreen)').matches
 
         var root = document.documentElement
+        if (isIosBrowser()) root.classList.add('is-ios')
+        else root.classList.remove('is-ios')
         var meta = document.getElementById('viewport')
         var mobileViewport = 'width=device-width, initial-scale=1.0, viewport-fit=cover'
         var desktopViewport = 'width=1280, initial-scale=1, viewport-fit=cover'
