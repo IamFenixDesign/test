@@ -2,13 +2,28 @@ import { useCallback, useEffect, useState } from 'react'
 import { fetchAuthConfig, loginWithGoogle } from './auth'
 import GoogleSignInButton from './GoogleSignInButton.jsx'
 
-/** Cubo monocromo para el mark lima (marca Stockea). */
+/** Mismo mark que el favicon: cubo a color sobre baldosa oscura. */
 function IconMark() {
   return (
-    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-      <path d="M12 3.1 21.2 8 12 12.9 2.8 8 12 3.1Z" />
-      <path d="M2.8 8 12 12.9V21L2.8 16.1V8Z" opacity="0.55" />
-      <path d="M21.2 8 12 12.9V21l9.2-4.9V8Z" opacity="0.38" />
+    <svg viewBox="0 0 32 32" aria-hidden="true">
+      <defs>
+        <radialGradient id="loginGlowLime" cx="18%" cy="8%" r="72%">
+          <stop offset="0%" stopColor="#d4f562" stopOpacity="0.28" />
+          <stop offset="100%" stopColor="#d4f562" stopOpacity="0" />
+        </radialGradient>
+        <radialGradient id="loginGlowMint" cx="96%" cy="12%" r="68%">
+          <stop offset="0%" stopColor="#7ee2b8" stopOpacity="0.22" />
+          <stop offset="100%" stopColor="#7ee2b8" stopOpacity="0" />
+        </radialGradient>
+      </defs>
+      <rect width="32" height="32" rx="8" fill="#0b0d0c" />
+      <rect width="32" height="32" rx="8" fill="url(#loginGlowLime)" />
+      <rect width="32" height="32" rx="8" fill="url(#loginGlowMint)" />
+      <g transform="translate(16 16) scale(1.16) translate(-16 -16)">
+        <path fill="#d4f562" d="M16 6.1 25.4 11.1 16 16.1 6.6 11.1Z" />
+        <path fill="#7a9c24" d="M6.6 11.1 16 16.1v9.8L6.6 20.9Z" />
+        <path fill="#7ee2b8" d="M25.4 11.1 16 16.1v9.8l9.4-5Z" />
+      </g>
     </svg>
   )
 }
