@@ -60,7 +60,10 @@ export default function GoogleSignInButton({
   const [ready, setReady] = useState(false)
   const [error, setError] = useState('')
   const onCredentialRef = useRef(onCredential)
-  onCredentialRef.current = onCredential
+
+  useEffect(() => {
+    onCredentialRef.current = onCredential
+  }, [onCredential])
 
   useEffect(() => {
     if (!clientId || !hitRef.current || disabled) return undefined
