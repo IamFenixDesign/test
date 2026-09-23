@@ -279,9 +279,79 @@
   text-transform: uppercase;
 }
 
-.profile-legacy-form {
-  display: grid;
-  gap: 10px;
+.profile-google-sync .profile-gsi {
+  width: 100%;
+  max-width: none;
+}
+
+.gsi-shell {
+  position: relative;
+  width: 100%;
+  min-height: 48px;
+  border-radius: 999px;
+  overflow: hidden;
+  isolation: isolate;
+}
+
+.gsi-shell[data-disabled='1'] {
+  opacity: 0.55;
+  pointer-events: none;
+}
+
+.gsi-face {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 48px;
+  padding: 0 18px;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--line-strong) 80%, #dadce0);
+  background: #fff;
+  color: #1f1f1f;
+  font: inherit;
+  font-size: 0.95rem;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+  box-shadow: 0 1px 2px rgba(15, 23, 18, 0.06);
+  pointer-events: none;
+  user-select: none;
+}
+
+.gsi-shell-dark .gsi-face {
+  border-color: rgba(232, 240, 228, 0.16);
+  background: #131314;
+  color: #e8f0e4;
+  box-shadow: inset 0 0 0 1px rgba(232, 240, 228, 0.06);
+}
+
+.gsi-glyph {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+}
+
+.gsi-hit {
+  position: absolute;
+  inset: 0;
+  opacity: 0.011;
+  overflow: hidden;
+  z-index: 2;
+}
+
+.gsi-hit > div,
+.gsi-hit iframe {
+  width: 100% !important;
+  height: 100% !important;
+  min-height: 48px !important;
+}
+
+.gsi-status {
+  margin: 8px 0 0;
+  text-align: center;
+  color: var(--muted);
+  font-size: 0.85rem;
 }
 
 .profile-form {
