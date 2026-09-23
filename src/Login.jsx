@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
-import { fetchAuthConfig, loginWithApple, loginWithGoogle } from './auth'
+import { fetchAuthConfig, loginWithGoogle } from './auth'
 import GoogleSignInButton from './GoogleSignInButton.jsx'
-import AppleSignInButton from './AppleSignInButton.jsx'
 
 function IconMark() {
   return (
@@ -34,8 +33,6 @@ export default function Login({ theme, setTheme, onLoggedIn }) {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [googleClientId, setGoogleClientId] = useState('')
-  const [appleClientId, setAppleClientId] = useState('')
-  const [appleRedirectUri, setAppleRedirectUri] = useState('')
 
   useEffect(() => {
     let cancelled = false
@@ -48,8 +45,6 @@ export default function Login({ theme, setTheme, onLoggedIn }) {
           return
         }
         setGoogleClientId(config.googleClientId || '')
-        setAppleClientId(config.appleClientId || '')
-        setAppleRedirectUri(config.appleRedirectUri || '')
       } catch {
         if (!cancelled) setError('No se pudo cargar el inicio de sesión')
       }
@@ -59,7 +54,7 @@ export default function Login({ theme, setTheme, onLoggedIn }) {
     }
   }, [onLoggedIn])
 
-  const handleGoogle = useCallback(
+  const handleCredential = useCallback(
     async (credential) => {
       setBusy(true)
       setError('')
@@ -74,24 +69,6 @@ export default function Login({ theme, setTheme, onLoggedIn }) {
     },
     [onLoggedIn],
   )
-
-  const handleApple = useCallback(
-    async (payload) => {
-      setBusy(true)
-      setError('')
-      try {
-        const data = await loginWithApple(payload)
-        onLoggedIn(data.user, data)
-      } catch (err) {
-        setError(err?.message || 'No se pudo iniciar sesión con Apple')
-      } finally {
-        setBusy(false)
-      }
-    },
-    [onLoggedIn],
-  )
-
-  const hasAnyProvider = Boolean(googleClientId || appleClientId)
 
   return (
     <div className="login-screen">
@@ -119,40 +96,21 @@ export default function Login({ theme, setTheme, onLoggedIn }) {
         <p className="login-support">Precios de súper y alertas en un solo lugar.</p>
 
         <div className="login-cta">
-          {!hasAnyProvider ? (
+          {!googleClientId ? (
             <p className="login-error">
-              Falta configurar <code>GOOGLE_CLIENT_ID</code> o <code>APPLE_CLIENT_ID</code>.
+              Falta configurar <code>GOOGLE_CLIENT_ID</code> en el servidor.
             </p>
           ) : (
-            <div className="login-auth-stack">
-              {googleClientId ? (
-                <GoogleSignInButton
-                  className="login-gsi"
-                  clientId={googleClientId}
-                  theme={theme}
-                  label="Continuar con Google"
-                  disabled={busy}
-                  onCredential={handleGoogle}
-                />
-              ) : null}
-              {appleClientId ? (
-                <AppleSignInButton
-                  className="login-apple"
-                  clientId={appleClientId}
-                  redirectUri={appleRedirectUri}
-                  theme={theme}
-                  label="Continuar con Apple"
-                  disabled={busy}
-                  onSuccess={handleApple}
-                />
-              ) : null}
-              <p className="login-sync-hint">
-                Si ya tenías Stockea con Google, al entrar con Apple (mismo correo) unimos el stock
-                automáticamente. También podés unir Google desde Perfil.
-              </p>
-            </div>
+            <GoogleSignInButton
+              className="login-gsi-icon"
+              clientId={googleClientId}
+              theme={theme}
+              variant="icon"
+              label="Iniciar sesión con Google"
+              disabled={busy}
+              onCredential={handleCredential}
+            />
           )}
-          {busy ? <p className="login-info">Conectando…</p> : null}
           {error ? <p className="login-error">{error}</p> : null}
         </div>
       </section>
