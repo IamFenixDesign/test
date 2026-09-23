@@ -1228,6 +1228,18 @@ function App() {
   useEffect(() => {
     document.documentElement.dataset.theme = theme
     localStorage.setItem(THEME_KEY, theme)
+
+    // iOS PWA status bar: theme-color debe seguir el tema de la app
+    const color = theme === 'dark' ? '#0b0d0c' : '#f2f5ee'
+    document.querySelectorAll('meta[name="theme-color"]').forEach((el) => {
+      el.removeAttribute('media')
+      el.setAttribute('content', color)
+    })
+
+    const appleBar = document.querySelector('meta[name="apple-mobile-web-app-status-bar-style"]')
+    if (appleBar) {
+      appleBar.setAttribute('content', 'black-translucent')
+    }
   }, [theme])
 
   useEffect(() => {
