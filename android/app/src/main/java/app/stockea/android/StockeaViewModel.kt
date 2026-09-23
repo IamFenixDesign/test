@@ -10,10 +10,13 @@ import app.stockea.android.data.StockeaApi
 import app.stockea.android.data.StoreProduct
 import app.stockea.android.data.StoreSearchResults
 import app.stockea.android.data.User
+import app.stockea.android.data.buildStockExportJson
 import app.stockea.android.data.extractEan13
 import app.stockea.android.data.kgFromGrams
 import app.stockea.android.data.listPriceOfProduct
+import app.stockea.android.data.mergeStockLists
 import app.stockea.android.data.normalizeQty
+import app.stockea.android.data.parseStockExportJson
 import app.stockea.android.data.qtyUnitOfProduct
 import app.stockea.android.ui.screens.NewItemDraft
 import kotlinx.coroutines.Dispatchers
@@ -713,6 +716,33 @@ class StockeaViewModel(app: Application) : AndroidViewModel(app) {
                 _state.update { it.copy(busy = false, user = user, info = "Perfil guardado") }
             } catch (e: Exception) {
                 _state.update { it.copy(busy = false, error = e.message ?: "No se pudo guardar") }
+            }
+        }
+    }
+
+    fun exportStockJson(): String = buildStockExportJson(_state.value.items)
+
+    fun importStockJson(raw: String) {
+        viewModelScope.launch {
+            _state.update { it.copy(busy = true, error = "", info = "") }
+            try {
+                val parsed = parseStockExportJson(raw)
+                val merged = mergeStockLists(_state.value.items, parsed.items)
+                withContext(Dispatchers.IO) {
+                    parsed.items.forEach { api.upsertItem(it) }
+                }
+                _state.update {
+                    it.copy(
+                        busy = false,
+                        items = merged.items,
+                        info = "Importado: ${merged.added} nuevos, ${merged.updated} actualizados",
+                        error = "",
+                    )
+                }
+            } catch (e: Exception) {
+                _state.update {
+                    it.copy(busy = false, error = e.message ?: "No se pudo importar la lista")
+                }
             }
         }
     }
