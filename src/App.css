@@ -5100,6 +5100,34 @@ html[data-theme="light"] .store-col-title.dia {
     overflow: hidden;
   }
 
+  @media (max-height: 560px) and (orientation: landscape) {
+    .login-body {
+      padding-top: 28px;
+      justify-content: flex-start;
+    }
+
+    .login-mark {
+      width: 64px;
+      height: 64px;
+      border-radius: 20px;
+    }
+
+    .login-mark svg {
+      width: 32px;
+      height: 32px;
+    }
+
+    .login-brand-name {
+      margin-top: 6px;
+      font-size: clamp(2rem, 8vw, 2.4rem);
+    }
+
+    .login-cta {
+      margin-top: 16px;
+      min-height: 0;
+    }
+  }
+
   html.is-pwa:not(.is-desktop-site) .scanner-topbar {
     padding-top: max(16px, env(safe-area-inset-top, 47px));
   }
