@@ -1229,8 +1229,15 @@ function App() {
     document.documentElement.dataset.theme = theme
     localStorage.setItem(THEME_KEY, theme)
 
-    // iOS PWA status bar: theme-color debe seguir el tema de la app
-    const color = theme === 'dark' ? '#0b0d0c' : '#f2f5ee'
+    // En login el borde del sistema es negro/blanco puro; dentro de la app, el fondo Stockea.
+    const onLogin = document.documentElement.classList.contains('is-login')
+    const color = onLogin
+      ? theme === 'dark'
+        ? '#000000'
+        : '#ffffff'
+      : theme === 'dark'
+        ? '#0b0d0c'
+        : '#f2f5ee'
     document.querySelectorAll('meta[name="theme-color"]').forEach((el) => {
       el.removeAttribute('media')
       el.setAttribute('content', color)
@@ -1347,9 +1354,16 @@ function App() {
   // remounts with the class already correct — matching the “works after logout” case.
   useLayoutEffect(() => {
     const root = document.documentElement
-    if (user) root.classList.remove('is-login')
-    else root.classList.add('is-login')
-  }, [user])
+    if (user) {
+      root.classList.remove('is-login')
+      root.style.minHeight = ''
+      document.body.style.minHeight = ''
+    } else {
+      root.classList.add('is-login')
+    }
+    window.syncThemeChrome?.()
+    window.syncAppHeight?.()
+  }, [user, theme])
 
   useEffect(() => {
     let cancelled = false

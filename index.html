@@ -6,8 +6,8 @@
     <link rel="icon" type="image/png" sizes="32x32" href="./favicon-32.png?v=1.1.0" />
     <link rel="apple-touch-icon" sizes="180x180" href="./apple-touch-icon.png?v=1.1.0" />
     <link rel="manifest" href="./manifest.webmanifest?v=1.1.0" />
-    <meta name="theme-color" content="#0b0d0c" media="(prefers-color-scheme: dark)" />
-    <meta name="theme-color" content="#f2f5ee" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)" />
+    <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
@@ -20,23 +20,24 @@
     />
     <title>Stockea — Control de stock</title>
     <style>
-      /* First paint before CSS bundles: avoid solid black/white under the home indicator */
+      /* Cold start: the iOS/Android system strip is pure black or white.
+         Match it so there is no contrasting bar under the home indicator. */
       html.is-login,
       html.is-login body,
       html.is-login #root {
         margin: 0;
         min-height: 100%;
         min-height: 100dvh;
-        background-color: #0b0d0c;
-        background-image: linear-gradient(158deg, #1a1f14 0%, #0b0d0c 48%, #101412 100%);
+        background-color: #000000;
+        background-image: linear-gradient(180deg, #1c2414 0%, #0b0d0c 92%, #000000 100%);
         background-repeat: no-repeat;
         background-size: 100% 100%;
       }
       html.is-login[data-theme='light'],
       html.is-login[data-theme='light'] body,
       html.is-login[data-theme='light'] #root {
-        background-color: #f2f5ee;
-        background-image: linear-gradient(158deg, #e8efe3 0%, #f2f5ee 46%, #eef4ea 100%);
+        background-color: #ffffff;
+        background-image: linear-gradient(180deg, #e7f0c8 0%, #f3f6ee 92%, #ffffff 100%);
       }
     </style>
     <script>
@@ -46,18 +47,52 @@
       // App removes `is-login` once a session user is confirmed.
       document.documentElement.classList.add('is-login')
 
-      function syncAppHeight() {
-        // iOS/Android PWA: visualViewport can be shorter than the layout
-        // viewport (home-indicator / system chrome). Always take the max so
-        // full-bleed layers never leave a black/white gap at the bottom.
-        var vv = window.visualViewport ? window.visualViewport.height : 0
-        var ih = window.innerHeight || 0
-        var ch = document.documentElement.clientHeight || 0
-        var h = Math.max(vv || 0, ih, ch)
-        if (h > 0) {
-          document.documentElement.style.setProperty('--app-height', Math.round(h) + 'px')
-        }
+      function syncThemeChrome() {
+        var root = document.documentElement
+        var login = root.classList.contains('is-login')
+        var light = root.dataset.theme === 'light'
+        var color = login ? (light ? '#ffffff' : '#000000') : light ? '#f2f5ee' : '#0b0d0c'
+        document.querySelectorAll('meta[name="theme-color"]').forEach(function (el) {
+          el.setAttribute('content', color)
+        })
       }
+
+      function syncAppHeight() {
+        // iOS standalone often reports a short viewport on the first frames
+        // and never fires resize. Take the tallest signal, including screen
+        // height when the gap is the home-indicator strip.
+        var vv = window.visualViewport
+        var vvH = vv ? vv.height + (vv.offsetTop || 0) : 0
+        var h = Math.max(window.innerHeight || 0, document.documentElement.clientHeight || 0, vvH || 0)
+        var standalone =
+          document.documentElement.classList.contains('is-pwa') || window.navigator.standalone === true
+        var screenH = window.screen && window.screen.height ? window.screen.height : 0
+        if (standalone && screenH > h && screenH - h < 160) h = screenH
+        if (h > 0) {
+          var px = Math.round(h) + 'px'
+          document.documentElement.style.setProperty('--app-height', px)
+          if (document.documentElement.classList.contains('is-login')) {
+            document.documentElement.style.minHeight = px
+            document.body.style.minHeight = px
+          }
+        }
+        syncThemeChrome()
+      }
+
+      function kickIOSViewport() {
+        var ua = navigator.userAgent || ''
+        var ios =
+          /iPad|iPhone|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
+        if (!ios) return
+        var se = document.scrollingElement || document.documentElement
+        var y = se.scrollTop || 0
+        se.scrollTop = y + 1
+        se.scrollTop = y
+        syncAppHeight()
+      }
+
+      window.syncAppHeight = syncAppHeight
+      window.syncThemeChrome = syncThemeChrome
 
       function syncSiteMode() {
         var ua = navigator.userAgent || ''
@@ -112,6 +147,21 @@
         window.visualViewport.addEventListener('resize', syncAppHeight)
         window.visualViewport.addEventListener('scroll', syncAppHeight)
       }
+      window.addEventListener('load', function () {
+        kickIOSViewport()
+        var n = 0
+        var id = setInterval(function () {
+          syncAppHeight()
+          if (n === 2 || n === 8) kickIOSViewport()
+          if (++n > 24) clearInterval(id)
+        }, 120)
+      })
+      document.addEventListener('visibilitychange', function () {
+        if (document.visibilityState === 'visible') {
+          kickIOSViewport()
+          syncAppHeight()
+        }
+      })
     </script>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
