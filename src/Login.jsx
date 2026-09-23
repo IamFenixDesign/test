@@ -1,5 +1,6 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { fetchAuthConfig, loginWithGoogle } from './auth'
+import GoogleSignInButton from './GoogleSignInButton.jsx'
 
 function IconMark() {
   return (
@@ -28,32 +29,10 @@ function IconMoon() {
   )
 }
 
-function loadGisScript() {
-  if (window.google?.accounts?.id) return Promise.resolve()
-  return new Promise((resolve, reject) => {
-    const existing = document.querySelector('script[data-google-gis="1"]')
-    if (existing) {
-      existing.addEventListener('load', () => resolve(), { once: true })
-      existing.addEventListener('error', () => reject(new Error('No se pudo cargar Google')), { once: true })
-      return
-    }
-    const script = document.createElement('script')
-    script.src = 'https://accounts.google.com/gsi/client'
-    script.async = true
-    script.defer = true
-    script.dataset.googleGis = '1'
-    script.onload = () => resolve()
-    script.onerror = () => reject(new Error('No se pudo cargar Google'))
-    document.head.appendChild(script)
-  })
-}
-
 export default function Login({ theme, setTheme, onLoggedIn }) {
-  const buttonRef = useRef(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [googleClientId, setGoogleClientId] = useState('')
-  const [ready, setReady] = useState(false)
 
   useEffect(() => {
     let cancelled = false
@@ -75,53 +54,21 @@ export default function Login({ theme, setTheme, onLoggedIn }) {
     }
   }, [onLoggedIn])
 
-  useEffect(() => {
-    if (!googleClientId || !buttonRef.current) return undefined
-    let cancelled = false
-
-    async function mountGoogle() {
+  const handleCredential = useCallback(
+    async (credential) => {
+      setBusy(true)
+      setError('')
       try {
-        await loadGisScript()
-        if (cancelled || !window.google?.accounts?.id || !buttonRef.current) return
-
-        window.google.accounts.id.initialize({
-          client_id: googleClientId,
-          callback: async (response) => {
-            setBusy(true)
-            setError('')
-            try {
-              const data = await loginWithGoogle(response.credential)
-              onLoggedIn(data.user, data)
-            } catch (err) {
-              setError(err?.message || 'No se pudo iniciar sesión con Google')
-            } finally {
-              setBusy(false)
-            }
-          },
-          auto_select: false,
-          cancel_on_tap_outside: true,
-        })
-
-        buttonRef.current.innerHTML = ''
-        window.google.accounts.id.renderButton(buttonRef.current, {
-          theme: theme === 'dark' ? 'filled_black' : 'outline',
-          size: 'large',
-          shape: 'pill',
-          text: 'continue_with',
-          width: Math.min(320, Math.floor(buttonRef.current.getBoundingClientRect().width) || 280),
-          locale: 'es',
-        })
-        setReady(true)
+        const data = await loginWithGoogle(credential)
+        onLoggedIn(data.user, data)
       } catch (err) {
-        if (!cancelled) setError(err?.message || 'No se pudo cargar Google')
+        setError(err?.message || 'No se pudo iniciar sesión con Google')
+      } finally {
+        setBusy(false)
       }
-    }
-
-    mountGoogle()
-    return () => {
-      cancelled = true
-    }
-  }, [googleClientId, theme, onLoggedIn])
+    },
+    [onLoggedIn],
+  )
 
   return (
     <div className="login-screen">
@@ -154,10 +101,16 @@ export default function Login({ theme, setTheme, onLoggedIn }) {
               Falta configurar <code>GOOGLE_CLIENT_ID</code> en el servidor.
             </p>
           ) : (
-            <>
-              <div ref={buttonRef} className="login-google-btn" aria-label="Continuar con Google" />
-              {!ready && !error ? <p className="login-copy">Cargando Google…</p> : null}
-            </>
+            <GoogleSignInButton
+              className="login-gsi"
+              clientId={googleClientId}
+              theme={theme}
+              variant="native"
+              showPrompt
+              label="Continuar con Google"
+              disabled={busy}
+              onCredential={handleCredential}
+            />
           )}
           {busy ? <p className="login-info">Conectando…</p> : null}
           {error ? <p className="login-error">{error}</p> : null}
