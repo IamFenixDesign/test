@@ -71,7 +71,7 @@ export default function GoogleSignInButton({
   }, [onCredential])
 
   useEffect(() => {
-    if (!clientId || !hitRef.current || disabled) return undefined
+    if (!clientId || !hitRef.current) return undefined
     let cancelled = false
 
     async function mount() {
@@ -141,7 +141,9 @@ export default function GoogleSignInButton({
         /* ignore */
       }
     }
-  }, [clientId, theme, disabled, showPrompt, isIcon])
+    // No depender de `disabled`: si se remonta al poner busy=true se cancela el flujo
+    // justo después de elegir la cuenta y la app no llega a entrar.
+  }, [clientId, theme, showPrompt, isIcon])
 
   if (!clientId) {
     return <p className="error">Falta GOOGLE_CLIENT_ID en el servidor.</p>
