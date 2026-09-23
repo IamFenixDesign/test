@@ -447,11 +447,11 @@ function IconMoon() {
 
 function IconLogout() {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       <path d="M10 7V5a2 2 0 0 1 2-2h7v18h-7a2 2 0 0 1-2-2v-2" />
       <path d="M4 12h11" />
       <path d="m8 8-4 4 4 4" />
-                </svg>
+    </svg>
   )
 }
 
@@ -3106,7 +3106,7 @@ function App() {
             </button>
           </form>
 
-          <div className="profile-transfer">
+          <div className="profile-transfer profile-stock-io">
             <h3>Lista de stock</h3>
             <p>Exportá un JSON de respaldo o importá una lista para sumar/actualizar productos.</p>
             <div className="profile-transfer-actions">
@@ -3139,9 +3139,9 @@ function App() {
           </div>
 
           <div className="profile-actions">
-            <button className="btn btn-danger" type="button" onClick={handleLogout}>
+            <button className="profile-logout-btn" type="button" onClick={handleLogout}>
               <IconLogout />
-              Cerrar sesión
+              <span>Cerrar sesión</span>
             </button>
           </div>
         </section>
