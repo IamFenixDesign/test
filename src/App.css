@@ -1238,17 +1238,22 @@ html[data-theme='dark'] #credential_picker_container {
 }
 
 .login-screen {
+  min-height: -webkit-fill-available;
   min-height: 100vh;
   min-height: 100dvh;
+  min-height: 100svh;
+  width: 100%;
   display: grid;
   place-items: center;
   padding:
     max(28px, env(safe-area-inset-top, 0px))
-    20px
-    max(28px, env(safe-area-inset-bottom, 0px));
+    max(20px, env(safe-area-inset-right, 0px))
+    max(28px, env(safe-area-inset-bottom, 0px))
+    max(20px, env(safe-area-inset-left, 0px));
   position: relative;
   overflow: hidden;
   isolation: isolate;
+  box-sizing: border-box;
   background:
     radial-gradient(120% 70% at 50% -10%, color-mix(in srgb, var(--accent) 18%, transparent), transparent 58%),
     radial-gradient(90% 55% at 100% 100%, color-mix(in srgb, var(--ok) 12%, transparent), transparent 50%),
@@ -1417,6 +1422,10 @@ html[data-theme='dark'] #credential_picker_container {
   line-height: 0.95;
   color: var(--text);
   animation: login-rise 0.8s ease-out 0.08s both;
+}
+
+html[data-theme='dark'] .login-brand-name {
+  color: #ffffff;
 }
 
 .login-headline {
@@ -4898,6 +4907,11 @@ html[data-theme="light"] .store-col-title.dia {
 }
 
 @media (max-width: 760px) {
+  .login-hero {
+    width: min(440px, 100%);
+    padding-inline: 4px;
+  }
+
   html.is-pwa:not(.is-desktop-site) .login-theme {
     top: calc(env(safe-area-inset-top, 47px) + 16px);
   }
