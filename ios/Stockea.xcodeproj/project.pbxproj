@@ -1,0 +1,358 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 56;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		A10000000000000000000064 /* StockeaApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000001 /* StockeaApp.swift */; };
+		A10000000000000000000065 /* AppConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000002 /* AppConfig.swift */; };
+		A10000000000000000000066 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000003 /* Theme.swift */; };
+		A10000000000000000000067 /* GoogleAuth.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000004 /* GoogleAuth.swift */; };
+		A10000000000000000000068 /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000005 /* Models.swift */; };
+		A10000000000000000000069 /* CompareMatch.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000006 /* CompareMatch.swift */; };
+		A1000000000000000000006A /* APIClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000007 /* APIClient.swift */; };
+		A1000000000000000000006B /* AppModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000008 /* AppModel.swift */; };
+		A1000000000000000000006C /* RootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000009 /* RootView.swift */; };
+		A1000000000000000000006D /* LoginView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000000A /* LoginView.swift */; };
+		A1000000000000000000006E /* StockView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000000B /* StockView.swift */; };
+		A1000000000000000000006F /* CompareView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000000C /* CompareView.swift */; };
+		A10000000000000000000070 /* NewItemView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000000D /* NewItemView.swift */; };
+		A10000000000000000000071 /* CartView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000000E /* CartView.swift */; };
+		A10000000000000000000072 /* ProfileView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000000F /* ProfileView.swift */; };
+		A10000000000000000000073 /* ScannerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000010 /* ScannerView.swift */; };
+		A100000000000000000000C9 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A100000000000000000000C8 /* Assets.xcassets */; };
+		A10000000000000000000191 /* GoogleSignIn in Frameworks */ = {isa = PBXBuildFile; productRef = A10000000000000000000190 /* GoogleSignIn */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		A10000000000000000000001 /* StockeaApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StockeaApp.swift; sourceTree = "<group>"; };
+		A10000000000000000000002 /* AppConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppConfig.swift; sourceTree = "<group>"; };
+		A10000000000000000000003 /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
+		A10000000000000000000004 /* GoogleAuth.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GoogleAuth.swift; sourceTree = "<group>"; };
+		A10000000000000000000005 /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
+		A10000000000000000000006 /* CompareMatch.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CompareMatch.swift; sourceTree = "<group>"; };
+		A10000000000000000000007 /* APIClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIClient.swift; sourceTree = "<group>"; };
+		A10000000000000000000008 /* AppModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppModel.swift; sourceTree = "<group>"; };
+		A10000000000000000000009 /* RootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootView.swift; sourceTree = "<group>"; };
+		A1000000000000000000000A /* LoginView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoginView.swift; sourceTree = "<group>"; };
+		A1000000000000000000000B /* StockView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StockView.swift; sourceTree = "<group>"; };
+		A1000000000000000000000C /* CompareView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CompareView.swift; sourceTree = "<group>"; };
+		A1000000000000000000000D /* NewItemView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NewItemView.swift; sourceTree = "<group>"; };
+		A1000000000000000000000E /* CartView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CartView.swift; sourceTree = "<group>"; };
+		A1000000000000000000000F /* ProfileView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileView.swift; sourceTree = "<group>"; };
+		A10000000000000000000010 /* ScannerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScannerView.swift; sourceTree = "<group>"; };
+		A100000000000000000000C8 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		A100000000000000000000CA /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		A1000000000000000000012C /* Stockea.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Stockea.app; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		A100000000000000000001F8 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A10000000000000000000191 /* GoogleSignIn in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		A10000000000000000000258 /* App */ = {
+			isa = PBXGroup;
+			children = (
+				A10000000000000000000001 /* StockeaApp.swift */,,
+				A10000000000000000000002 /* AppConfig.swift */,,
+				A10000000000000000000003 /* Theme.swift */,,
+				A10000000000000000000004 /* GoogleAuth.swift */,
+			);
+			path = App;
+			name = App;
+			sourceTree = "<group>";
+		};
+		A10000000000000000000259 /* Data */ = {
+			isa = PBXGroup;
+			children = (
+				A10000000000000000000005 /* Models.swift */,,
+				A10000000000000000000006 /* CompareMatch.swift */,,
+				A10000000000000000000007 /* APIClient.swift */,,
+				A10000000000000000000008 /* AppModel.swift */,
+			);
+			path = Data;
+			name = Data;
+			sourceTree = "<group>";
+		};
+		A1000000000000000000025A /* Views */ = {
+			isa = PBXGroup;
+			children = (
+				A10000000000000000000009 /* RootView.swift */,,
+				A1000000000000000000000A /* LoginView.swift */,,
+				A1000000000000000000000B /* StockView.swift */,,
+				A1000000000000000000000C /* CompareView.swift */,,
+				A1000000000000000000000D /* NewItemView.swift */,,
+				A1000000000000000000000E /* CartView.swift */,,
+				A1000000000000000000000F /* ProfileView.swift */,,
+				A10000000000000000000010 /* ScannerView.swift */,
+			);
+			path = Views;
+			name = Views;
+			sourceTree = "<group>";
+		};
+		A1000000000000000000025B /* Stockea */ = {
+			isa = PBXGroup;
+			children = (
+				A10000000000000000000258 /* App */,,
+				A10000000000000000000259 /* Data */,,
+				A1000000000000000000025A /* Views */,,
+				A100000000000000000000C8 /* Assets.xcassets */,
+				A100000000000000000000CA /* Info.plist */,
+			);
+			path = Stockea;
+			name = Stockea;
+			sourceTree = "<group>";
+		};
+		A10000000000000000000320 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				A1000000000000000000012C /* Stockea.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		A1000000000000000000025C = {
+			isa = PBXGroup;
+			children = (
+				A1000000000000000000025B /* Stockea */,
+				A10000000000000000000320 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		A100000000000000000001F4 /* Stockea */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A100000000000000000002BD /* Build configuration list for PBXNativeTarget "Stockea" */;
+			buildPhases = (
+				A100000000000000000001F6 /* Sources */,
+				A100000000000000000001F8 /* Frameworks */,
+				A100000000000000000001F7 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = Stockea;
+			packageProductDependencies = (
+				A10000000000000000000190 /* GoogleSignIn */,
+			);
+			productName = Stockea;
+			productReference = A1000000000000000000012C /* Stockea.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		A100000000000000000001F5 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 1600;
+				LastUpgradeCheck = 1600;
+				TargetAttributes = {
+					A100000000000000000001F4 = {
+						CreatedOnToolsVersion = 16.0;
+					};
+				};
+			};
+			buildConfigurationList = A100000000000000000002BC /* Build configuration list for PBXProject "Stockea" */;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = es;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				es,
+				Base,
+			);
+			mainGroup = A1000000000000000000025C;
+			packageReferences = (
+				A10000000000000000000192 /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */,
+			);
+			productRefGroup = A10000000000000000000320 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				A100000000000000000001F4 /* Stockea */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		A100000000000000000001F7 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A100000000000000000000C9 /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		A100000000000000000001F6 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A10000000000000000000064 /* StockeaApp.swift in Sources */,
+				A10000000000000000000065 /* AppConfig.swift in Sources */,
+				A10000000000000000000066 /* Theme.swift in Sources */,
+				A10000000000000000000067 /* GoogleAuth.swift in Sources */,
+				A10000000000000000000068 /* Models.swift in Sources */,
+				A10000000000000000000069 /* CompareMatch.swift in Sources */,
+				A1000000000000000000006A /* APIClient.swift in Sources */,
+				A1000000000000000000006B /* AppModel.swift in Sources */,
+				A1000000000000000000006C /* RootView.swift in Sources */,
+				A1000000000000000000006D /* LoginView.swift in Sources */,
+				A1000000000000000000006E /* StockView.swift in Sources */,
+				A1000000000000000000006F /* CompareView.swift in Sources */,
+				A10000000000000000000070 /* NewItemView.swift in Sources */,
+				A10000000000000000000071 /* CartView.swift in Sources */,
+				A10000000000000000000072 /* ProfileView.swift in Sources */,
+				A10000000000000000000073 /* ScannerView.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		A100000000000000000002C6 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ENABLE_MODULES = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_TESTABILITY = YES;
+				GCC_DYNAMIC_NO_PIC = NO;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = Debug;
+		};
+		A100000000000000000002C7 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ENABLE_MODULES = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		A100000000000000000002C8 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = "";
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = Stockea/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0.0;
+				PRODUCT_BUNDLE_IDENTIFIER = app.stockea.ios;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+
+			};
+			name = Debug;
+		};
+		A100000000000000000002C9 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = "";
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = Stockea/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0.0;
+				PRODUCT_BUNDLE_IDENTIFIER = app.stockea.ios;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		A100000000000000000002BC /* Build configuration list for PBXProject "Stockea" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A100000000000000000002C6 /* Debug */,
+				A100000000000000000002C7 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		A100000000000000000002BD /* Build configuration list for PBXNativeTarget "Stockea" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A100000000000000000002C8 /* Debug */,
+				A100000000000000000002C9 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		A10000000000000000000192 /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/google/GoogleSignIn-iOS";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 7.1.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		A10000000000000000000190 /* GoogleSignIn */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A10000000000000000000192 /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */;
+			productName = GoogleSignIn;
+		};
+/* End XCSwiftPackageProductDependency section */
+	};
+	rootObject = A100000000000000000001F5 /* Project object */;
+}
