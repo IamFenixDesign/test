@@ -4,12 +4,12 @@
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <!-- Cubo Stockea centrado en la safe zone (~66dp), sin fondo -->
+    <!-- Solo el cubo, más grande, sin baldosa -->
     <group
         android:translateX="54"
         android:translateY="54"
-        android:scaleX="2.35"
-        android:scaleY="2.35">
+        android:scaleX="3.55"
+        android:scaleY="3.55">
         <group
             android:translateX="-16"
             android:translateY="-16">
