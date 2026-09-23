@@ -4,10 +4,10 @@ import GoogleSignInButton from './GoogleSignInButton.jsx'
 
 function IconMark() {
   return (
-    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-      <path d="M12 3.1 21.2 8 12 12.9 2.8 8 12 3.1Z" />
-      <path d="M2.8 8 12 12.9V21L2.8 16.1V8Z" opacity="0.55" />
-      <path d="M21.2 8 12 12.9V21l9.2-4.9V8Z" opacity="0.38" />
+    <svg viewBox="0 0 32 32" fill="none" aria-hidden="true">
+      <path fill="#d4f562" d="M16 6.1 25.4 11.1 16 16.1 6.6 11.1Z" />
+      <path fill="#7a9c24" d="M6.6 11.1 16 16.1v9.8L6.6 20.9Z" />
+      <path fill="#7ee2b8" d="M25.4 11.1 16 16.1v9.8l9.4-5Z" />
     </svg>
   )
 }

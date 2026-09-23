@@ -31,10 +31,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.drawscope.Fill
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
@@ -44,38 +44,103 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.credentials.CredentialManager
-import androidx.credentials.CustomCredential
-import androidx.credentials.GetCredentialRequest
-import androidx.credentials.exceptions.GetCredentialCancellationException
-import androidx.credentials.exceptions.GetCredentialException
-import com.google.android.libraries.identity.googleid.GetGoogleIdOption
-import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
-import com.google.android.libraries.identity.googleid.GoogleIdTokenParsingException
+import app.stockea.android.auth.GoogleSignInResult
+import app.stockea.android.auth.requestGoogleIdToken
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
+/** Cubo Stockea a color (mismo que favicon / app icon). */
+@Composable
+private fun StockeaLogoMark(modifier: Modifier = Modifier) {
+    Canvas(modifier = modifier) {
+        val s = size.minDimension / 32f
+        val top = Path().apply {
+            moveTo(16f * s, 6.1f * s)
+            lineTo(25.4f * s, 11.1f * s)
+            lineTo(16f * s, 16.1f * s)
+            lineTo(6.6f * s, 11.1f * s)
+            close()
+        }
+        val left = Path().apply {
+            moveTo(6.6f * s, 11.1f * s)
+            lineTo(16f * s, 16.1f * s)
+            lineTo(16f * s, 25.9f * s)
+            lineTo(6.6f * s, 20.9f * s)
+            close()
+        }
+        val right = Path().apply {
+            moveTo(25.4f * s, 11.1f * s)
+            lineTo(16f * s, 16.1f * s)
+            lineTo(16f * s, 25.9f * s)
+            lineTo(25.4f * s, 20.9f * s)
+            close()
+        }
+        drawPath(top, Color(0xFFD4F562), style = Fill)
+        drawPath(left, Color(0xFF7A9C24), style = Fill)
+        drawPath(right, Color(0xFF7EE2B8), style = Fill)
+    }
+}
+
+/** G oficial de Google. */
 @Composable
 private fun GoogleMark(modifier: Modifier = Modifier) {
     Canvas(modifier = modifier) {
-        val w = size.minDimension
-        val blue = Color(0xFF4285F4)
-        val red = Color(0xFFEA4335)
-        val yellow = Color(0xFFFBBC05)
-        val green = Color(0xFF34A853)
-        val box = Size(w * 0.84f, w * 0.84f)
-        val origin = Offset(w * 0.08f, w * 0.08f)
+        val s = size.minDimension / 48f
+        fun p(block: Path.() -> Unit) = Path().apply(block)
 
-        drawArc(color = blue, startAngle = -35f, sweepAngle = 80f, useCenter = true, topLeft = origin, size = box)
-        drawArc(color = green, startAngle = 45f, sweepAngle = 80f, useCenter = true, topLeft = origin, size = box)
-        drawArc(color = yellow, startAngle = 125f, sweepAngle = 70f, useCenter = true, topLeft = origin, size = box)
-        drawArc(color = red, startAngle = 195f, sweepAngle = 100f, useCenter = true, topLeft = origin, size = box)
-        drawCircle(color = Color.White, radius = w * 0.26f, center = Offset(w / 2f, w / 2f))
-        drawRect(
-            color = blue,
-            topLeft = Offset(w * 0.48f, w * 0.42f),
-            size = Size(w * 0.42f, w * 0.16f),
+        drawPath(
+            p {
+                moveTo(24f * s, 9.5f * s)
+                cubicTo(27.54f * s, 9.5f * s, 30.71f * s, 10.72f * s, 33.21f * s, 13.1f * s)
+                lineTo(40.06f * s, 6.25f * s)
+                cubicTo(35.9f * s, 2.38f * s, 30.47f * s, 0f, 24f * s, 0f)
+                cubicTo(14.62f * s, 0f, 6.51f * s, 5.38f * s, 2.56f * s, 13.22f * s)
+                lineTo(10.54f * s, 19.41f * s)
+                cubicTo(12.43f * s, 13.72f * s, 17.74f * s, 9.5f * s, 24f * s, 9.5f * s)
+                close()
+            },
+            Color(0xFFEA4335),
+        )
+        drawPath(
+            p {
+                moveTo(46.98f * s, 24.55f * s)
+                cubicTo(46.98f * s, 22.98f * s, 46.83f * s, 21.46f * s, 46.6f * s, 20f * s)
+                lineTo(24f * s, 20f * s)
+                lineTo(24f * s, 29.02f * s)
+                lineTo(36.94f * s, 29.02f * s)
+                cubicTo(36.36f * s, 31.98f * s, 34.68f * s, 34.5f * s, 32.16f * s, 36.2f * s)
+                lineTo(39.89f * s, 42.2f * s)
+                cubicTo(44.4f * s, 38.02f * s, 46.98f * s, 31.84f * s, 46.98f * s, 24.55f * s)
+                close()
+            },
+            Color(0xFF4285F4),
+        )
+        drawPath(
+            p {
+                moveTo(10.53f * s, 28.59f * s)
+                cubicTo(10.05f * s, 27.14f * s, 9.77f * s, 25.6f * s, 9.77f * s, 24f * s)
+                cubicTo(9.77f * s, 22.4f * s, 10.04f * s, 20.86f * s, 10.53f * s, 19.41f * s)
+                lineTo(2.55f * s, 13.22f * s)
+                cubicTo(0.92f * s, 16.46f * s, 0f, 20.12f * s, 0f, 24f * s)
+                cubicTo(0f, 27.88f * s, 0.92f * s, 31.54f * s, 2.56f * s, 34.78f * s)
+                lineTo(10.53f * s, 28.59f * s)
+                close()
+            },
+            Color(0xFFFBBC05),
+        )
+        drawPath(
+            p {
+                moveTo(24f * s, 48f * s)
+                cubicTo(30.48f * s, 48f * s, 35.93f * s, 45.87f * s, 39.89f * s, 42.19f * s)
+                lineTo(32.16f * s, 36.19f * s)
+                cubicTo(30.01f * s, 37.64f * s, 27.24f * s, 38.49f * s, 24f * s, 38.49f * s)
+                cubicTo(17.74f * s, 38.49f * s, 12.43f * s, 34.27f * s, 10.53f * s, 28.58f * s)
+                lineTo(2.55f * s, 34.77f * s)
+                cubicTo(6.51f * s, 42.62f * s, 14.62f * s, 48f * s, 24f * s, 48f * s)
+                close()
+            },
+            Color(0xFF34A853),
         )
     }
 }
@@ -118,34 +183,10 @@ fun LoginScreen(
         }
         scope.launch {
             localError = ""
-            try {
-                val googleIdOption = GetGoogleIdOption.Builder()
-                    .setFilterByAuthorizedAccounts(false)
-                    .setServerClientId(clientId)
-                    .setAutoSelectEnabled(false)
-                    .build()
-                val request = GetCredentialRequest.Builder()
-                    .addCredentialOption(googleIdOption)
-                    .build()
-                val credentialManager = CredentialManager.create(context)
-                val result = credentialManager.getCredential(activity, request)
-                val credential = result.credential
-                if (credential is CustomCredential &&
-                    credential.type == GoogleIdTokenCredential.TYPE_GOOGLE_ID_TOKEN_CREDENTIAL
-                ) {
-                    val google = GoogleIdTokenCredential.createFrom(credential.data)
-                    onGoogleCredential(google.idToken)
-                } else {
-                    localError = "Google no devolvió un token válido"
-                }
-            } catch (_: GetCredentialCancellationException) {
-                localError = ""
-            } catch (_: GoogleIdTokenParsingException) {
-                localError = "No se pudo leer el token de Google"
-            } catch (e: GetCredentialException) {
-                localError = e.message ?: "No se pudo iniciar sesión con Google"
-            } catch (e: Exception) {
-                localError = e.message ?: "No se pudo iniciar sesión con Google"
+            when (val result = requestGoogleIdToken(context, activity, clientId)) {
+                is GoogleSignInResult.Success -> onGoogleCredential(result.idToken)
+                GoogleSignInResult.Cancelled -> localError = ""
+                is GoogleSignInResult.Error -> localError = result.message
             }
         }
     }
@@ -196,7 +237,7 @@ fun LoginScreen(
         ) {
             Icon(
                 if (darkTheme) Icons.Outlined.LightMode else Icons.Outlined.DarkMode,
-                contentDescription = "Cambiar tema",
+                contentDescription = if (darkTheme) "Cambiar a tema claro" else "Cambiar a tema oscuro",
                 tint = brandColor,
             )
         }
@@ -209,19 +250,16 @@ fun LoginScreen(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
+            // Logo solo: cubo a color sobre fondo oscuro (como favicon / .logo web)
             Box(
                 modifier = Modifier
                     .size(88.dp)
-                    .clip(RoundedCornerShape(28.dp))
-                    .background(scheme.primary),
+                    .shadow(18.dp, RoundedCornerShape(22.dp), clip = false)
+                    .clip(RoundedCornerShape(22.dp))
+                    .background(Color(0xFF0B0D0C)),
                 contentAlignment = Alignment.Center,
             ) {
-                Text(
-                    "S",
-                    color = scheme.onPrimary,
-                    fontWeight = FontWeight.Black,
-                    fontSize = 40.sp,
-                )
+                StockeaLogoMark(modifier = Modifier.size(52.dp))
             }
             Text(
                 "Stockea",

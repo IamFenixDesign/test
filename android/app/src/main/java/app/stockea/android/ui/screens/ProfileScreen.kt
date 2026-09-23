@@ -37,15 +37,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
-import androidx.credentials.CredentialManager
-import androidx.credentials.CustomCredential
-import androidx.credentials.GetCredentialRequest
-import androidx.credentials.exceptions.GetCredentialCancellationException
-import androidx.credentials.exceptions.GetCredentialException
+import app.stockea.android.auth.GoogleSignInResult
+import app.stockea.android.auth.requestGoogleIdToken
 import app.stockea.android.data.User
-import com.google.android.libraries.identity.googleid.GetGoogleIdOption
-import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
-import com.google.android.libraries.identity.googleid.GoogleIdTokenParsingException
 import java.time.LocalDate
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -115,32 +109,10 @@ fun ProfileScreen(
         }
         scope.launch {
             localError = ""
-            try {
-                val googleIdOption = GetGoogleIdOption.Builder()
-                    .setFilterByAuthorizedAccounts(false)
-                    .setServerClientId(googleClientId)
-                    .setAutoSelectEnabled(false)
-                    .build()
-                val request = GetCredentialRequest.Builder()
-                    .addCredentialOption(googleIdOption)
-                    .build()
-                val result = CredentialManager.create(context).getCredential(activity, request)
-                val credential = result.credential
-                if (credential is CustomCredential &&
-                    credential.type == GoogleIdTokenCredential.TYPE_GOOGLE_ID_TOKEN_CREDENTIAL
-                ) {
-                    onLinkGoogle(GoogleIdTokenCredential.createFrom(credential.data).idToken)
-                } else {
-                    localError = "Google no devolvió un token válido"
-                }
-            } catch (_: GetCredentialCancellationException) {
-                localError = ""
-            } catch (_: GoogleIdTokenParsingException) {
-                localError = "No se pudo leer el token de Google"
-            } catch (e: GetCredentialException) {
-                localError = e.message ?: "No se pudo vincular Google"
-            } catch (e: Exception) {
-                localError = e.message ?: "No se pudo vincular Google"
+            when (val result = requestGoogleIdToken(context, activity, googleClientId)) {
+                is GoogleSignInResult.Success -> onLinkGoogle(result.idToken)
+                GoogleSignInResult.Cancelled -> localError = ""
+                is GoogleSignInResult.Error -> localError = result.message
             }
         }
     }
