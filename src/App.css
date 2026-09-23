@@ -1398,6 +1398,11 @@ html[data-theme='dark'] .login-bleed {
     login-drift 11s ease-in-out 0.75s infinite;
 }
 
+html[data-theme='light'] .login-mark {
+  background: #f2f5ee;
+  box-shadow: 0 16px 36px rgba(20, 32, 22, 0.12);
+}
+
 .login-mark svg {
   width: 100%;
   height: 100%;
