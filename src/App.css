@@ -1253,7 +1253,7 @@ html[data-theme='dark'] #credential_picker_container {
     max(24px, env(safe-area-inset-bottom, 0px))
     max(20px, env(safe-area-inset-left, 0px));
   position: relative;
-  overflow: hidden;
+  overflow-x: hidden;
   isolation: isolate;
   box-sizing: border-box;
   background:
@@ -1377,10 +1377,10 @@ html[data-theme='dark'] #credential_picker_container {
 }
 
 .login-theme {
-  position: absolute;
-  top: calc(env(safe-area-inset-top, 0px) + 16px);
-  right: max(16px, env(safe-area-inset-right, 0px));
-  z-index: 2;
+  position: fixed;
+  top: max(12px, calc(env(safe-area-inset-top, 0px) + 10px));
+  right: max(14px, env(safe-area-inset-right, 0px));
+  z-index: 30;
 }
 
 .login-body {
@@ -1753,6 +1753,13 @@ html[data-theme="dark"] .login-google-btn > div {
 .login-error {
   margin: 0;
   color: var(--danger);
+  font-size: 0.88rem;
+  text-align: center;
+}
+
+.login-status {
+  margin: 0;
+  color: var(--muted);
   font-size: 0.88rem;
   text-align: center;
 }
@@ -4802,8 +4809,8 @@ html[data-theme="light"] .store-col-title.dia {
     }
 
     .login-theme {
-      top: calc(env(safe-area-inset-top, 47px) + 12px);
-      right: max(16px, env(safe-area-inset-right, 0px));
+      top: max(12px, calc(env(safe-area-inset-top, 47px) + 8px));
+      right: max(14px, env(safe-area-inset-right, 0px));
     }
 
     .scanner-topbar {
@@ -4969,7 +4976,7 @@ html[data-theme="light"] .store-col-title.dia {
   }
 
   html.is-pwa:not(.is-desktop-site) .login-theme {
-    top: calc(env(safe-area-inset-top, 47px) + 10px);
+    top: max(12px, calc(env(safe-area-inset-top, 47px) + 8px));
     right: max(14px, env(safe-area-inset-right, 0px));
   }
 
