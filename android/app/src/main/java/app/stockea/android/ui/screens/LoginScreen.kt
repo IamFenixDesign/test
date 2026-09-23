@@ -277,7 +277,7 @@ fun LoginScreen(
                     .size(92.dp)
                     .shadow(22.dp, RoundedCornerShape(23.dp), clip = false)
                     .clip(RoundedCornerShape(23.dp))
-                    .background(Color(0xFF0B0D0C)),
+                    .background(if (darkTheme) Color(0xFF0B0D0C) else Color(0xFFF2F5EE)),
                 contentAlignment = Alignment.Center,
             ) {
                 StockeaLogoMark(modifier = Modifier.size(72.dp))
