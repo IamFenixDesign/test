@@ -1,20 +1,21 @@
 package app.stockea.android.ui.screens
 
 import android.app.Activity
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.DarkMode
 import androidx.compose.material.icons.outlined.LightMode
-import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -29,9 +30,16 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -47,6 +55,30 @@ import com.google.android.libraries.identity.googleid.GoogleIdTokenParsingExcept
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+
+@Composable
+private fun GoogleMark(modifier: Modifier = Modifier) {
+    Canvas(modifier = modifier) {
+        val w = size.minDimension
+        val blue = Color(0xFF4285F4)
+        val red = Color(0xFFEA4335)
+        val yellow = Color(0xFFFBBC05)
+        val green = Color(0xFF34A853)
+        val box = Size(w * 0.84f, w * 0.84f)
+        val origin = Offset(w * 0.08f, w * 0.08f)
+
+        drawArc(color = blue, startAngle = -35f, sweepAngle = 80f, useCenter = true, topLeft = origin, size = box)
+        drawArc(color = green, startAngle = 45f, sweepAngle = 80f, useCenter = true, topLeft = origin, size = box)
+        drawArc(color = yellow, startAngle = 125f, sweepAngle = 70f, useCenter = true, topLeft = origin, size = box)
+        drawArc(color = red, startAngle = 195f, sweepAngle = 100f, useCenter = true, topLeft = origin, size = box)
+        drawCircle(color = Color.White, radius = w * 0.26f, center = Offset(w / 2f, w / 2f))
+        drawRect(
+            color = blue,
+            topLeft = Offset(w * 0.48f, w * 0.42f),
+            size = Size(w * 0.42f, w * 0.16f),
+        )
+    }
+}
 
 @Composable
 fun LoginScreen(
@@ -119,6 +151,9 @@ fun LoginScreen(
     }
 
     val scheme = MaterialTheme.colorScheme
+    val brandColor = if (darkTheme) Color.White else scheme.onBackground
+    val canSignIn = !busy && !loadingClient && clientId.isNotBlank()
+
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -148,7 +183,7 @@ fun LoginScreen(
                 .padding(bottom = 80.dp)
                 .size(200.dp)
                 .background(
-                    Brush.radialGradient(listOf(scheme.tertiary.copy(alpha = 0.22f), Color.Transparent)),
+                    Brush.radialGradient(listOf(scheme.secondary.copy(alpha = 0.22f), Color.Transparent)),
                     RoundedCornerShape(999.dp),
                 ),
         )
@@ -162,6 +197,7 @@ fun LoginScreen(
             Icon(
                 if (darkTheme) Icons.Outlined.LightMode else Icons.Outlined.DarkMode,
                 contentDescription = "Cambiar tema",
+                tint = brandColor,
             )
         }
 
@@ -189,6 +225,7 @@ fun LoginScreen(
             }
             Text(
                 "Stockea",
+                color = brandColor,
                 style = MaterialTheme.typography.displaySmall,
                 fontWeight = FontWeight.ExtraBold,
                 letterSpacing = (-1.5).sp,
@@ -214,23 +251,30 @@ fun LoginScreen(
                 Text(shownError, color = scheme.error, textAlign = TextAlign.Center)
             }
 
-            Button(
-                onClick = { signIn() },
-                enabled = !busy && !loadingClient && clientId.isNotBlank(),
+            Box(
                 modifier = Modifier
-                    .fillMaxWidth()
                     .padding(top = 16.dp)
-                    .height(54.dp),
-                shape = RoundedCornerShape(999.dp),
+                    .size(64.dp)
+                    .shadow(10.dp, CircleShape, clip = false)
+                    .clip(CircleShape)
+                    .background(Color.White)
+                    .semantics {
+                        role = Role.Button
+                        contentDescription = "Iniciar sesión con Google"
+                    }
+                    .clickable(enabled = canSignIn, onClick = { signIn() }),
+                contentAlignment = Alignment.Center,
             ) {
-                Text(
-                    when {
-                        busy -> "Entrando…"
-                        loadingClient -> "Cargando…"
-                        else -> "Continuar con Google"
-                    },
-                    fontWeight = FontWeight.Bold,
-                )
+                if (busy || loadingClient) {
+                    Text(
+                        "…",
+                        color = Color(0xFF4285F4),
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 22.sp,
+                    )
+                } else {
+                    GoogleMark(modifier = Modifier.size(28.dp))
+                }
             }
         }
     }
