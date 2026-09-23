@@ -1229,12 +1229,12 @@ function App() {
     document.documentElement.dataset.theme = theme
     localStorage.setItem(THEME_KEY, theme)
 
-    // En login el borde del sistema es negro/blanco puro; dentro de la app, el fondo Stockea.
+    // Safari pinta hora/batería con theme-color. En login usa el verde de arriba.
     const onLogin = document.documentElement.classList.contains('is-login')
     const color = onLogin
       ? theme === 'dark'
-        ? '#000000'
-        : '#ffffff'
+        ? '#243018'
+        : '#d7e7a4'
       : theme === 'dark'
         ? '#0b0d0c'
         : '#f2f5ee'
