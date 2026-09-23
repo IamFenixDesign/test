@@ -375,10 +375,46 @@
   gap: 10px;
 }
 
-.profile-actions .btn {
+.profile-logout-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
   width: 100%;
   min-height: 48px;
-  justify-content: center;
+  padding: 0 16px;
+  border-radius: 14px;
+  border: 1px solid color-mix(in srgb, var(--danger) 28%, var(--line-strong));
+  background: color-mix(in srgb, var(--danger-soft) 72%, transparent);
+  color: var(--danger);
+  font: inherit;
+  font-size: 0.92rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  cursor: pointer;
+  transition:
+    transform 0.15s ease,
+    background 0.15s ease,
+    border-color 0.15s ease,
+    color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.profile-logout-btn svg {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}
+
+.profile-logout-btn:hover {
+  background: var(--danger);
+  border-color: color-mix(in srgb, var(--danger) 80%, #000 10%);
+  color: #fff;
+  box-shadow: 0 10px 22px color-mix(in srgb, var(--danger) 22%, transparent);
+}
+
+.profile-logout-btn:active {
+  transform: translateY(1px);
 }
 
 @media (min-width: 761px) {
@@ -406,7 +442,9 @@
     grid-template-columns: 1fr 1fr;
     grid-template-areas:
       "hero form"
-      "actions actions";
+      "google google"
+      "stock stock"
+      "logout logout";
     align-items: stretch;
     padding: 0;
   }
@@ -476,35 +514,29 @@
     margin-top: 8px;
   }
 
-  .profile-actions {
-    grid-area: actions;
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 20px;
-    width: 100%;
+  .profile-google-sync {
+    grid-area: google;
   }
 
-  .profile-actions .btn {
+  .profile-stock-io {
+    grid-area: stock;
+  }
+
+  .profile-actions {
+    grid-area: logout;
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 12px;
     width: 100%;
+    max-width: 360px;
+    justify-self: center;
+  }
+
+  .profile-logout-btn {
     min-height: 52px;
-    justify-content: center;
     border-radius: 16px;
     font-size: 0.95rem;
     padding: 12px 18px;
-  }
-
-  .profile-actions .btn-ghost {
-    background: var(--bg-card);
-    border-color: var(--line);
-  }
-
-  .profile-actions .btn-ghost:hover {
-    background: var(--bg-hover);
-    border-color: var(--line-strong);
-  }
-
-  .profile-actions .btn-danger {
-    border: 1px solid color-mix(in srgb, var(--danger) 28%, var(--line));
   }
 }
 
@@ -523,7 +555,7 @@
   }
 
   .profile-actions {
-    gap: 24px;
+    max-width: 380px;
   }
 }
 
