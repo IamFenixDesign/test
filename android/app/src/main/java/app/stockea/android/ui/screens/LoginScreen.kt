@@ -12,16 +12,10 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.DarkMode
-import androidx.compose.material.icons.outlined.LightMode
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -156,7 +150,6 @@ fun LoginScreen(
     error: String,
     info: String,
     darkTheme: Boolean,
-    onToggleTheme: () -> Unit,
     resolveGoogleClientId: suspend () -> String,
     onGoogleCredential: (idToken: String) -> Unit,
 ) {
@@ -247,20 +240,6 @@ fun LoginScreen(
                     RoundedCornerShape(999.dp),
                 ),
         )
-
-        IconButton(
-            onClick = onToggleTheme,
-            modifier = Modifier
-                .align(Alignment.TopEnd)
-                .statusBarsPadding()
-                .padding(top = 4.dp, end = 8.dp),
-        ) {
-            Icon(
-                if (darkTheme) Icons.Outlined.LightMode else Icons.Outlined.DarkMode,
-                contentDescription = if (darkTheme) "Cambiar a tema claro" else "Cambiar a tema oscuro",
-                tint = brandColor,
-            )
-        }
 
         Column(
             modifier = Modifier
