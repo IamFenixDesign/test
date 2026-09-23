@@ -298,6 +298,52 @@
   pointer-events: none;
 }
 
+.gsi-shell-native {
+  min-height: 52px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  background: #fff;
+  border: 1px solid color-mix(in srgb, var(--line-strong) 70%, #dadce0);
+  box-shadow:
+    0 1px 2px rgba(15, 23, 18, 0.05),
+    0 10px 28px color-mix(in srgb, var(--accent) 8%, transparent);
+}
+
+.gsi-shell-native.gsi-shell-dark {
+  background: #131314;
+  border-color: rgba(232, 240, 228, 0.16);
+  box-shadow:
+    inset 0 0 0 1px rgba(232, 240, 228, 0.04),
+    0 12px 28px rgba(0, 0, 0, 0.28);
+}
+
+.gsi-shell-native .gsi-native-hit {
+  width: 100%;
+  min-height: 52px;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  border-radius: inherit;
+}
+
+.gsi-shell-native .gsi-native-hit > div,
+.gsi-shell-native .gsi-native-hit iframe {
+  margin: 0 auto !important;
+  border: 0 !important;
+  outline: 0 !important;
+  max-width: 100%;
+}
+
+.gsi-shell-native.gsi-shell-dark .gsi-native-hit iframe,
+.gsi-shell-native.gsi-shell-dark .gsi-native-hit > div {
+  color-scheme: dark;
+}
+
+.login-gsi {
+  width: min(100%, 320px);
+}
+
 .gsi-face {
   display: flex;
   align-items: center;
@@ -319,7 +365,8 @@
   user-select: none;
 }
 
-.gsi-shell-dark .gsi-face {
+.gsi-shell-dark .gsi-face,
+.gsi-shell-custom.gsi-shell-dark .gsi-face {
   border-color: rgba(232, 240, 228, 0.16);
   background: #131314;
   color: #e8f0e4;
@@ -352,6 +399,15 @@
   text-align: center;
   color: var(--muted);
   font-size: 0.85rem;
+}
+
+/* One Tap / Continuar como — frame around Google’s picker when present */
+#credential_picker_container {
+  z-index: 10000 !important;
+}
+
+html[data-theme='dark'] #credential_picker_container {
+  color-scheme: dark;
 }
 
 .profile-form {
