@@ -6,7 +6,18 @@ Bundle ID: `app.stockea.ios`
 
 Habla con el backend de Vercel: `https://test-iota-two-49.vercel.app`
 
-## Qué necesitás
+## Instalar desde Windows
+
+Hace falta un iPhone con iOS 17 o más nuevo y un Apple ID (el gratuito alcanza).
+
+1. Descargá `ios/release/Stockea.ipa` cuando termine la compilación en GitHub Actions.
+2. Instalá [Sideloadly](https://sideloadly.io) y conectá el iPhone por USB. Aceptá “Confiar” en el teléfono.
+3. Abrí Sideloadly, arrastrá el IPA y poné tu Apple ID. Sideloadly lo firma y lo instala.
+4. En el iPhone: Ajustes → General → VPN y gestión de dispositivos → confiar en el certificado.
+
+Con un Apple ID gratuito la app caduca a los 7 días; volvé a instalar el mismo IPA para renovarla. El login de Google sigue pidiendo el Client ID de iOS en `Info.plist` antes de compilar.
+
+## Qué necesitás para compilar en una Mac
 
 - Mac con Xcode 16 o más nuevo
 - Un iPhone (o el simulador) con iOS 17+
