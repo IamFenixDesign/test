@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import './App.css'
 import { barcodeDigits, extractEan13, guessCategory, matchByEan, qtyUnitOfProduct, searchSupermarkets, cheaperOf, findCompareMatchIndex } from './supermarkets'
 import {
@@ -1365,54 +1365,62 @@ function App() {
     }
     let cancelled = false
     async function hydrate() {
-      const remote = await fetchRemoteItems()
-      if (cancelled) return
-      const notDeleted = (item) => !deletedIdsRef.current.has(item.id)
-      if (Array.isArray(remote)) {
-        const alive = remote.filter(notDeleted)
-        const deviceItems = collectDeviceStockItems().map(normalizeItemCounts)
-        const seed = alive.length ? alive : []
-        const { items: merged, added } = mergeStockLists(seed, deviceItems)
-        const { kept, removedIds, absorbedIds } = coalesceDuplicates(merged)
-        setItems(kept)
-        removedIds.forEach((id) => {
-          deletedIdsRef.current.add(id)
-          deleteRemoteItem(id)
-        })
-        absorbedIds.forEach((id) => {
-          const item = kept.find((entry) => entry.id === id)
-          if (item) persistItem(item)
-        })
-        if (deviceItems.length) {
-          await Promise.all(deviceItems.map((item) => upsertRemoteItem(item)))
-          clearDeviceStockCaches(user.id)
-          if (added > 0 || (!alive.length && deviceItems.length)) {
-            showToast(`Sincronizamos ${deviceItems.length} productos de este dispositivo`)
-          }
-        } else if (!alive.length) {
-          const legacy = loadLegacyItems().filter(notDeleted)
-          if (legacy.length && !loadItems(user.id).length) {
-            await Promise.all(legacy.map((item) => upsertRemoteItem(item)))
-            if (cancelled) return
-            setItems(legacy)
-            try {
-              localStorage.removeItem(STORAGE_KEY)
-            } catch {
-              /* ignore */
+      try {
+        const remote = await fetchRemoteItems()
+        if (cancelled) return
+        const notDeleted = (item) => !deletedIdsRef.current.has(item.id)
+        if (Array.isArray(remote)) {
+          const alive = remote.filter(notDeleted)
+          const deviceItems = collectDeviceStockItems().map(normalizeItemCounts)
+          const seed = alive.length ? alive : []
+          const { items: merged, added } = mergeStockLists(seed, deviceItems)
+          const { kept, removedIds, absorbedIds } = coalesceDuplicates(merged)
+          setItems(kept)
+          removedIds.forEach((id) => {
+            deletedIdsRef.current.add(id)
+            deleteRemoteItem(id)
+          })
+          absorbedIds.forEach((id) => {
+            const item = kept.find((entry) => entry.id === id)
+            if (item) persistItem(item)
+          })
+          if (deviceItems.length) {
+            await Promise.all(deviceItems.map((item) => upsertRemoteItem(item)))
+            clearDeviceStockCaches(user.id)
+            if (added > 0 || (!alive.length && deviceItems.length)) {
+              showToast(`Sincronizamos ${deviceItems.length} productos de este dispositivo`)
+            }
+          } else if (!alive.length) {
+            const legacy = loadLegacyItems().filter(notDeleted)
+            if (legacy.length && !loadItems(user.id).length) {
+              await Promise.all(legacy.map((item) => upsertRemoteItem(item)))
+              if (cancelled) return
+              setItems(legacy)
+              try {
+                localStorage.removeItem(STORAGE_KEY)
+              } catch {
+                /* ignore */
+              }
             }
           }
+        } else {
+          const deviceItems = collectDeviceStockItems().map(normalizeItemCounts)
+          const local = loadItems(user.id).filter(notDeleted)
+          const { items: merged } = mergeStockLists(local, deviceItems)
+          setItems(merged)
+          if (deviceItems.length) {
+            await Promise.all(deviceItems.map((item) => upsertRemoteItem(item)))
+            clearDeviceStockCaches(user.id)
+          }
         }
-      } else {
-        const deviceItems = collectDeviceStockItems().map(normalizeItemCounts)
-        const local = loadItems(user.id).filter(notDeleted)
-        const { items: merged } = mergeStockLists(local, deviceItems)
-        setItems(merged)
-        if (deviceItems.length) {
-          await Promise.all(deviceItems.map((item) => upsertRemoteItem(item)))
-          clearDeviceStockCaches(user.id)
+      } catch {
+        if (!cancelled) {
+          const local = loadItems(user.id)
+          setItems(local)
         }
+      } finally {
+        if (!cancelled) setHydrated(true)
       }
-      setHydrated(true)
     }
     hydrate()
     return () => {
@@ -1918,14 +1926,15 @@ function App() {
     return { uploaded: deviceItems.length, added, updated }
   }
 
-  function handleLoggedIn(nextUser, meta = {}) {
+  const handleLoggedIn = useCallback((nextUser, meta = {}) => {
+    if (!nextUser) return
     setUser(nextUser)
     if (meta?.linked) {
       showToast(`Cuenta unida a Google · ${meta.itemCount ?? 0} productos sincronizados`)
     } else if (meta?.itemCount > 0) {
       showToast(`Bienvenido · ${meta.itemCount} productos sincronizados`)
     }
-  }
+  }, [])
 
   async function handleUnifyGoogleCredential(credential) {
     setLinkBusy(true)

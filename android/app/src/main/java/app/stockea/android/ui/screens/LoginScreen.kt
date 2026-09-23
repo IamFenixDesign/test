@@ -4,6 +4,7 @@ import android.app.Activity
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -233,7 +234,8 @@ fun LoginScreen(
             onClick = onToggleTheme,
             modifier = Modifier
                 .align(Alignment.TopEnd)
-                .padding(top = 20.dp, end = 12.dp),
+                .statusBarsPadding()
+                .padding(top = 8.dp, end = 12.dp),
         ) {
             Icon(
                 if (darkTheme) Icons.Outlined.LightMode else Icons.Outlined.DarkMode,
