@@ -91,9 +91,12 @@ html.is-pwa,
 html.is-pwa body,
 html.is-pwa #root {
   height: 100%;
+  height: var(--app-height, 100%);
   min-height: 100%;
+  min-height: var(--app-height, 100%);
   min-height: -webkit-fill-available;
   overscroll-behavior: none;
+  background-color: var(--bg);
 }
 
 body {

@@ -1238,10 +1238,11 @@ html[data-theme='dark'] #credential_picker_container {
 }
 
 .login-screen {
-  /* fixed + inset + --app-height: evita la barra negra inferior en iOS PWA */
+  /* fixed + inset + --app-height: evita la barra negra inferior en iOS/Android PWA */
   position: fixed;
   inset: 0;
   width: 100%;
+  max-width: 100vw;
   height: 100%;
   height: -webkit-fill-available;
   height: 100dvh;
@@ -1255,22 +1256,45 @@ html[data-theme='dark'] #credential_picker_container {
   align-items: stretch;
   justify-content: stretch;
   padding:
-    max(20px, env(safe-area-inset-top, 0px))
-    max(20px, env(safe-area-inset-right, 0px))
-    max(24px, env(safe-area-inset-bottom, 0px))
-    max(20px, env(safe-area-inset-left, 0px));
-  overflow-x: hidden;
-  overflow-y: auto;
-  -webkit-overflow-scrolling: touch;
+    max(16px, env(safe-area-inset-top, 0px))
+    max(18px, env(safe-area-inset-right, 0px))
+    max(20px, env(safe-area-inset-bottom, 0px))
+    max(18px, env(safe-area-inset-left, 0px));
+  overflow: hidden;
+  overscroll-behavior: none;
+  touch-action: manipulation;
   isolation: isolate;
   box-sizing: border-box;
   background-color: var(--bg);
   background-image:
-    radial-gradient(120% 70% at 50% -10%, color-mix(in srgb, var(--accent) 18%, transparent), transparent 58%),
-    radial-gradient(90% 55% at 100% 100%, color-mix(in srgb, var(--ok) 12%, transparent), transparent 50%),
-    linear-gradient(165deg, var(--bg) 0%, color-mix(in srgb, var(--bg-elev) 70%, var(--bg)) 100%);
+    linear-gradient(
+      158deg,
+      color-mix(in srgb, var(--accent) 14%, var(--bg)) 0%,
+      var(--bg) 42%,
+      color-mix(in srgb, var(--ok) 8%, var(--bg)) 100%
+    );
   background-repeat: no-repeat;
   background-size: 100% 100%;
+}
+
+html[data-theme='light'] .login-screen {
+  background-image:
+    linear-gradient(
+      158deg,
+      color-mix(in srgb, var(--accent) 22%, #e8efe3) 0%,
+      #f2f5ee 46%,
+      color-mix(in srgb, var(--ok) 10%, #eef4ea) 100%
+    );
+}
+
+html[data-theme='dark'] .login-screen {
+  background-image:
+    linear-gradient(
+      158deg,
+      color-mix(in srgb, var(--accent) 10%, #0b0d0c) 0%,
+      #0b0d0c 48%,
+      color-mix(in srgb, var(--ok) 7%, #101412) 100%
+    );
 }
 
 .login-atmosphere {
@@ -1278,43 +1302,73 @@ html[data-theme='dark'] #credential_picker_container {
   inset: 0;
   pointer-events: none;
   z-index: 0;
+  overflow: hidden;
 }
 
-.login-orb {
+.login-wash {
   position: absolute;
-  border-radius: 999px;
-  filter: blur(8px);
-  opacity: 0.9;
-  animation: login-drift 12s ease-in-out infinite;
+  border-radius: 50%;
+  filter: blur(2px);
+  will-change: transform;
+  animation: login-drift 14s ease-in-out infinite;
 }
 
-.login-orb-a {
-  width: min(52vw, 340px);
-  height: min(52vw, 340px);
-  top: -8%;
-  left: -12%;
-  background: radial-gradient(circle at 40% 40%, color-mix(in srgb, var(--accent) 45%, transparent), transparent 68%);
+.login-wash-a {
+  width: min(70vw, 420px);
+  height: min(70vw, 420px);
+  top: -18%;
+  left: -22%;
+  background: radial-gradient(
+    circle at 42% 40%,
+    color-mix(in srgb, var(--accent) 38%, transparent),
+    transparent 70%
+  );
+  opacity: 0.85;
 }
 
-.login-orb-b {
-  width: min(48vw, 300px);
-  height: min(48vw, 300px);
-  right: -10%;
-  bottom: 8%;
-  background: radial-gradient(circle at 50% 50%, color-mix(in srgb, var(--ok) 35%, transparent), transparent 70%);
-  animation-delay: -4s;
+.login-wash-b {
+  width: min(58vw, 360px);
+  height: min(58vw, 360px);
+  right: -18%;
+  bottom: -6%;
+  background: radial-gradient(
+    circle at 50% 50%,
+    color-mix(in srgb, var(--ok) 28%, transparent),
+    transparent 72%
+  );
+  opacity: 0.75;
+  animation-delay: -5s;
 }
 
-.login-grid {
+.login-shelf {
   position: absolute;
   inset: 0;
-  opacity: 0.22;
+  opacity: 0.18;
   background-image:
-    linear-gradient(color-mix(in srgb, var(--accent-text) 14%, transparent) 1px, transparent 1px),
-    linear-gradient(90deg, color-mix(in srgb, var(--accent-text) 14%, transparent) 1px, transparent 1px);
-  background-size: 42px 42px;
-  mask-image: radial-gradient(ellipse at 50% 35%, #000 20%, transparent 72%);
-  animation: login-grid-fade 8s ease-in-out infinite;
+    repeating-linear-gradient(
+      -18deg,
+      transparent 0,
+      transparent 18px,
+      color-mix(in srgb, var(--accent-text) 16%, transparent) 18px,
+      color-mix(in srgb, var(--accent-text) 16%, transparent) 19px
+    );
+  mask-image: radial-gradient(ellipse 90% 70% at 50% 38%, #000 12%, transparent 78%);
+  animation: login-shelf-breathe 9s ease-in-out infinite;
+}
+
+.login-bloom {
+  position: absolute;
+  left: 50%;
+  top: 34%;
+  width: min(56vw, 280px);
+  height: min(56vw, 280px);
+  transform: translate(-50%, -50%);
+  background: radial-gradient(
+    circle,
+    color-mix(in srgb, var(--accent) 26%, transparent) 0%,
+    transparent 68%
+  );
+  animation: login-bloom-pulse 7s ease-in-out infinite;
 }
 
 @keyframes login-drift {
@@ -1323,24 +1377,36 @@ html[data-theme='dark'] #credential_picker_container {
     transform: translate3d(0, 0, 0) scale(1);
   }
   50% {
-    transform: translate3d(12px, -18px, 0) scale(1.06);
+    transform: translate3d(10px, -14px, 0) scale(1.05);
   }
 }
 
-@keyframes login-grid-fade {
+@keyframes login-shelf-breathe {
   0%,
   100% {
-    opacity: 0.16;
+    opacity: 0.12;
   }
   50% {
-    opacity: 0.28;
+    opacity: 0.22;
+  }
+}
+
+@keyframes login-bloom-pulse {
+  0%,
+  100% {
+    opacity: 0.55;
+    transform: translate(-50%, -50%) scale(1);
+  }
+  50% {
+    opacity: 0.85;
+    transform: translate(-50%, -50%) scale(1.08);
   }
 }
 
 @keyframes login-rise {
   from {
     opacity: 0;
-    transform: translateY(18px);
+    transform: translateY(16px);
   }
   to {
     opacity: 1;
@@ -1349,9 +1415,11 @@ html[data-theme='dark'] #credential_picker_container {
 }
 
 .boot-screen {
-  min-height: 100vh;
-  min-height: 100dvh;
-  min-height: -webkit-fill-available;
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: var(--app-height, 100dvh);
+  min-height: var(--app-height, 100dvh);
   display: grid;
   place-items: center;
   padding:
@@ -1359,7 +1427,9 @@ html[data-theme='dark'] #credential_picker_container {
     env(safe-area-inset-right, 0px)
     env(safe-area-inset-bottom, 0px)
     env(safe-area-inset-left, 0px);
+  overflow: hidden;
   background: var(--bg);
+  box-sizing: border-box;
 }
 
 .boot-logo {
@@ -1389,9 +1459,12 @@ html[data-theme='dark'] #credential_picker_container {
 
 .login-theme {
   position: fixed;
-  top: max(12px, calc(env(safe-area-inset-top, 0px) + 10px));
-  right: max(14px, env(safe-area-inset-right, 0px));
+  top: max(10px, calc(env(safe-area-inset-top, 0px) + 8px));
+  right: max(12px, calc(env(safe-area-inset-right, 0px) + 4px));
   z-index: 30;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  background: color-mix(in srgb, var(--bg-elev) 72%, transparent);
 }
 
 .login-body {
@@ -1405,8 +1478,9 @@ html[data-theme='dark'] #credential_picker_container {
   align-items: center;
   justify-content: center;
   gap: 0;
-  padding: 56px 8px 12px;
+  padding: 48px 6px 8px;
   box-sizing: border-box;
+  min-height: 0;
 }
 
 .login-hero {
@@ -1414,40 +1488,44 @@ html[data-theme='dark'] #credential_picker_container {
   display: grid;
   justify-items: center;
   text-align: center;
-  gap: 10px;
-  animation: login-rise 0.7s ease-out both;
+  gap: 8px;
 }
 
 .login-mark {
-  width: 88px;
-  height: 88px;
-  border-radius: 28px;
+  width: 96px;
+  height: 96px;
+  border-radius: 30px;
   display: grid;
   place-items: center;
   color: var(--accent-ink);
-  background:
-    linear-gradient(145deg, var(--accent) 0%, color-mix(in srgb, var(--accent) 72%, var(--ok)) 100%);
+  background: linear-gradient(
+    152deg,
+    var(--accent) 0%,
+    color-mix(in srgb, var(--accent) 78%, var(--ok)) 100%
+  );
   box-shadow:
-    0 18px 40px color-mix(in srgb, var(--accent) 28%, transparent),
-    inset 0 1px 0 rgba(255, 255, 255, 0.35);
-  animation: login-rise 0.75s ease-out both, login-drift 10s ease-in-out 0.8s infinite;
+    0 14px 32px color-mix(in srgb, var(--accent) 22%, transparent),
+    inset 0 1px 0 rgba(255, 255, 255, 0.32);
+  animation:
+    login-rise 0.72s ease-out both,
+    login-drift 11s ease-in-out 0.75s infinite;
 }
 
 .login-mark svg {
-  width: 44px;
-  height: 44px;
+  width: 48px;
+  height: 48px;
   display: block;
 }
 
 .login-brand-name {
-  margin: 10px 0 0;
+  margin: 14px 0 0;
   font-family: var(--display);
-  font-size: clamp(2.75rem, 11vw, 3.6rem);
+  font-size: clamp(3rem, 13vw, 4rem);
   font-weight: 800;
-  letter-spacing: -0.06em;
-  line-height: 0.92;
+  letter-spacing: -0.07em;
+  line-height: 0.9;
   color: var(--text);
-  animation: login-rise 0.8s ease-out 0.08s both;
+  animation: login-rise 0.78s ease-out 0.06s both;
 }
 
 html[data-theme='dark'] .login-brand-name {
@@ -1455,31 +1533,33 @@ html[data-theme='dark'] .login-brand-name {
 }
 
 .login-headline {
-  margin: 0;
+  margin: 6px 0 0;
   font-family: var(--display);
-  font-size: clamp(1.15rem, 4.2vw, 1.4rem);
+  font-size: clamp(1.05rem, 3.8vw, 1.28rem);
   font-weight: 700;
   letter-spacing: -0.03em;
   color: var(--muted);
-  animation: login-rise 0.8s ease-out 0.14s both;
+  animation: login-rise 0.8s ease-out 0.12s both;
 }
 
 .login-support {
   margin: 0;
-  max-width: 26ch;
+  max-width: 24ch;
   color: var(--faint);
-  font-size: 0.95rem;
+  font-size: 0.92rem;
   line-height: 1.45;
-  animation: login-rise 0.8s ease-out 0.2s both;
+  animation: login-rise 0.8s ease-out 0.18s both;
 }
 
 .login-cta {
-  width: min(100%, 320px);
-  margin-top: clamp(28px, 6vh, 48px);
+  width: min(100%, 280px);
+  margin-top: clamp(28px, 5.5vh, 44px);
   display: grid;
-  gap: 12px;
+  gap: 10px;
   justify-items: center;
-  animation: login-rise 0.85s ease-out 0.28s both;
+  animation: login-rise 0.85s ease-out 0.26s both;
+  min-height: 88px;
+  align-content: start;
 }
 
 .login-card {
@@ -1763,9 +1843,16 @@ html[data-theme="dark"] .login-google-btn > div {
 
 .login-error {
   margin: 0;
+  max-width: 28ch;
   color: var(--danger);
-  font-size: 0.88rem;
+  font-size: 0.86rem;
+  line-height: 1.4;
   text-align: center;
+}
+
+.login-error code {
+  font-size: 0.8em;
+  word-break: break-all;
 }
 
 .login-status {
@@ -1773,6 +1860,7 @@ html[data-theme="dark"] .login-google-btn > div {
   color: var(--muted);
   font-size: 0.88rem;
   text-align: center;
+  letter-spacing: -0.01em;
 }
 
 .btn-new-item .new-item-plus {
@@ -4820,8 +4908,8 @@ html[data-theme="light"] .store-col-title.dia {
     }
 
     .login-theme {
-      top: max(12px, calc(env(safe-area-inset-top, 47px) + 8px));
-      right: max(14px, env(safe-area-inset-right, 0px));
+      top: max(10px, calc(env(safe-area-inset-top, 47px) + 6px));
+      right: max(12px, calc(env(safe-area-inset-right, 0px) + 2px));
     }
 
     .scanner-topbar {
@@ -4942,63 +5030,102 @@ html[data-theme="light"] .store-col-title.dia {
 @media (max-width: 760px) {
   .login-screen {
     padding:
-      max(16px, env(safe-area-inset-top, 0px))
-      max(18px, env(safe-area-inset-right, 0px))
-      max(20px, env(safe-area-inset-bottom, 0px))
-      max(18px, env(safe-area-inset-left, 0px));
+      max(12px, env(safe-area-inset-top, 0px))
+      max(16px, env(safe-area-inset-right, 0px))
+      max(18px, env(safe-area-inset-bottom, 0px))
+      max(16px, env(safe-area-inset-left, 0px));
   }
 
   .login-body {
-    padding: 52px 4px 8px;
+    padding: 44px 2px 4px;
     gap: 0;
   }
 
   .login-hero {
     width: 100%;
-    gap: 8px;
+    gap: 6px;
   }
 
   .login-mark {
-    width: 84px;
-    height: 84px;
-    border-radius: 26px;
+    width: 88px;
+    height: 88px;
+    border-radius: 28px;
   }
 
   .login-mark svg {
-    width: 42px;
-    height: 42px;
+    width: 44px;
+    height: 44px;
   }
 
   .login-brand-name {
-    margin-top: 8px;
-    font-size: clamp(2.6rem, 12vw, 3.25rem);
+    margin-top: 12px;
+    font-size: clamp(2.85rem, 13.5vw, 3.5rem);
   }
 
   .login-cta {
-    margin-top: clamp(32px, 7vh, 56px);
+    margin-top: clamp(26px, 6vh, 48px);
   }
 
   html.is-pwa:not(.is-desktop-site) .login-screen {
     position: fixed;
     inset: 0;
     width: 100%;
+    max-width: 100vw;
     height: var(--app-height, 100%);
     min-height: var(--app-height, 100%);
     min-height: -webkit-fill-available;
-    min-height: 100lvh;
-    padding-top: max(12px, env(safe-area-inset-top, 47px));
-    padding-bottom: max(24px, env(safe-area-inset-bottom, 0px));
+    overflow: hidden;
+    overscroll-behavior: none;
+    padding-top: max(10px, env(safe-area-inset-top, 47px));
+    padding-bottom: max(20px, env(safe-area-inset-bottom, 0px));
     background-color: var(--bg);
     background-size: 100% 100%;
   }
 
   html.is-pwa:not(.is-desktop-site) .login-theme {
-    top: max(12px, calc(env(safe-area-inset-top, 47px) + 8px));
-    right: max(14px, env(safe-area-inset-right, 0px));
+    top: max(10px, calc(env(safe-area-inset-top, 47px) + 6px));
+    right: max(12px, calc(env(safe-area-inset-right, 0px) + 2px));
   }
 
   html.is-pwa:not(.is-desktop-site) .login-body {
-    padding-top: 28px;
+    padding-top: 24px;
+    justify-content: center;
+  }
+
+  html.is-pwa:not(.is-desktop-site) .boot-screen {
+    position: fixed;
+    inset: 0;
+    height: var(--app-height, 100%);
+    min-height: var(--app-height, 100%);
+    overflow: hidden;
+  }
+
+  @media (max-height: 560px) and (orientation: landscape) {
+    .login-body {
+      padding-top: 28px;
+      justify-content: flex-start;
+    }
+
+    .login-mark {
+      width: 64px;
+      height: 64px;
+      border-radius: 20px;
+    }
+
+    .login-mark svg {
+      width: 32px;
+      height: 32px;
+    }
+
+    .login-brand-name {
+      margin-top: 6px;
+      font-size: clamp(2rem, 8vw, 2.4rem);
+    }
+
+    .login-cta {
+      margin-top: 16px;
+      min-height: 0;
+    }
   }
 
   html.is-pwa:not(.is-desktop-site) .scanner-topbar {
@@ -5304,7 +5431,16 @@ html[data-theme="light"] .store-col-title.dia {
   .menu,
   .cart-deals-body,
   .cart-day-chip,
-  .cart-deal {
+  .cart-deal,
+  .login-wash,
+  .login-shelf,
+  .login-bloom,
+  .login-mark,
+  .login-brand-name,
+  .login-headline,
+  .login-support,
+  .login-cta,
+  .boot-logo {
     animation: none !important;
     transition: none !important;
   }

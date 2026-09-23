@@ -1,6 +1,5 @@
 package app.stockea.android.ui.screens
 
-import android.app.Activity
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -38,6 +37,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import app.stockea.android.auth.GoogleSignInResult
+import app.stockea.android.auth.findActivity
 import app.stockea.android.auth.requestGoogleIdToken
 import app.stockea.android.data.User
 import java.time.LocalDate
@@ -102,7 +102,11 @@ fun ProfileScreen(
     }
 
     fun linkGoogle() {
-        val activity = context as? Activity ?: return
+        val activity = context.findActivity()
+        if (activity == null) {
+            localError = "No se pudo abrir Google Sign-In"
+            return
+        }
         if (googleClientId.isBlank()) {
             localError = "Falta configurar GOOGLE_CLIENT_ID"
             return
@@ -111,7 +115,7 @@ fun ProfileScreen(
             localError = ""
             when (val result = requestGoogleIdToken(context, activity, googleClientId)) {
                 is GoogleSignInResult.Success -> onLinkGoogle(result.idToken)
-                GoogleSignInResult.Cancelled -> localError = ""
+                GoogleSignInResult.Cancelled -> localError = "Inicio de sesión cancelado"
                 is GoogleSignInResult.Error -> localError = result.message
             }
         }
