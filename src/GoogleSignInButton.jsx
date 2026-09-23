@@ -44,8 +44,9 @@ function loadGisScript() {
 }
 
 /**
- * Styled Google button face with an invisible GIS hit target on top.
- * Click opens Google; onCredential receives the ID token string.
+ * Google Sign-In control.
+ * - variant="custom": branded face + invisible GIS hit (Profile / Unir).
+ * - variant="native": visible GIS button so "Continuar como…" + logo adapt with theme.
  */
 export default function GoogleSignInButton({
   clientId,
@@ -54,6 +55,8 @@ export default function GoogleSignInButton({
   disabled = false,
   onCredential,
   className = '',
+  variant = 'custom',
+  showPrompt = false,
 }) {
   const hitRef = useRef(null)
   const wrapRef = useRef(null)
@@ -81,11 +84,14 @@ export default function GoogleSignInButton({
           },
           auto_select: false,
           cancel_on_tap_outside: true,
+          context: 'signin',
+          itp_support: true,
+          use_fedcm_for_prompt: true,
         })
 
         const width = Math.min(
           400,
-          Math.max(240, Math.floor(wrapRef.current?.getBoundingClientRect().width || 320)),
+          Math.max(260, Math.floor(wrapRef.current?.getBoundingClientRect().width || 320)),
         )
         hitRef.current.innerHTML = ''
         window.google.accounts.id.renderButton(hitRef.current, {
@@ -93,9 +99,19 @@ export default function GoogleSignInButton({
           size: 'large',
           shape: 'pill',
           text: 'continue_with',
+          logo_alignment: 'left',
           width,
           locale: 'es',
         })
+
+        if (showPrompt && !cancelled) {
+          try {
+            window.google.accounts.id.prompt()
+          } catch {
+            /* One Tap optional */
+          }
+        }
+
         if (!cancelled) {
           setReady(true)
           setError('')
@@ -108,25 +124,46 @@ export default function GoogleSignInButton({
     mount()
     return () => {
       cancelled = true
+      try {
+        window.google?.accounts?.id?.cancel?.()
+      } catch {
+        /* ignore */
+      }
     }
-  }, [clientId, theme, disabled])
+  }, [clientId, theme, disabled, showPrompt])
 
   if (!clientId) {
     return <p className="error">Falta GOOGLE_CLIENT_ID en el servidor.</p>
   }
 
+  const shellClass = [
+    'gsi-shell',
+    variant === 'native' ? 'gsi-shell-native' : 'gsi-shell-custom',
+    theme === 'dark' ? 'gsi-shell-dark' : 'gsi-shell-light',
+    className,
+  ]
+    .filter(Boolean)
+    .join(' ')
+
   return (
     <div
       ref={wrapRef}
-      className={`gsi-shell ${theme === 'dark' ? 'gsi-shell-dark' : ''} ${className}`.trim()}
+      className={shellClass}
       data-ready={ready ? '1' : '0'}
       data-disabled={disabled ? '1' : '0'}
+      data-variant={variant}
     >
-      <div className="gsi-face" aria-hidden="true">
-        <GoogleGlyph />
-        <span>{label}</span>
-      </div>
-      <div ref={hitRef} className="gsi-hit" aria-label={label} />
+      {variant === 'custom' ? (
+        <div className="gsi-face" aria-hidden="true">
+          <GoogleGlyph />
+          <span>{label}</span>
+        </div>
+      ) : null}
+      <div
+        ref={hitRef}
+        className={variant === 'native' ? 'gsi-native-hit' : 'gsi-hit'}
+        aria-label={label}
+      />
       {!ready && !error ? <p className="gsi-status">Cargando Google…</p> : null}
       {error ? <p className="error">{error}</p> : null}
     </div>
