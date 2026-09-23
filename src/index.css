@@ -117,7 +117,7 @@ body {
   transition: background 0.25s ease, color 0.25s ease;
 }
 
-/* Login/boot: el borde inferior coincide con el negro/blanco del sistema (iOS PWA/Safari). */
+/* Login: Safari iPhone pinta hora/batería con background-color del html. */
 html.is-login,
 html.is-login body,
 html.is-login #root {
@@ -128,8 +128,8 @@ html.is-login #root {
   min-height: 100dvh;
   min-height: 100lvh;
   min-height: max(100lvh, var(--app-height, 100lvh));
-  background-color: #000000;
-  background-image: linear-gradient(180deg, #243018 0%, #243018 16%, #0b0d0c 92%, #000000 100%);
+  background-color: #243018;
+  background-image: linear-gradient(180deg, #243018 0%, #243018 28%, #0b0d0c 78%, #000000 100%);
   background-repeat: no-repeat;
   background-size: 100% 100%;
 }
@@ -137,8 +137,8 @@ html.is-login #root {
 html.is-login[data-theme='light'],
 html.is-login[data-theme='light'] body,
 html.is-login[data-theme='light'] #root {
-  background-color: #ffffff;
-  background-image: linear-gradient(180deg, #d7e7a4 0%, #d7e7a4 16%, #f3f6ee 92%, #ffffff 100%);
+  background-color: #d7e7a4;
+  background-image: linear-gradient(180deg, #d7e7a4 0%, #d7e7a4 28%, #f3f6ee 78%, #ffffff 100%);
   background-repeat: no-repeat;
   background-size: 100% 100%;
 }
@@ -146,8 +146,8 @@ html.is-login[data-theme='light'] #root {
 html.is-login[data-theme='dark'],
 html.is-login[data-theme='dark'] body,
 html.is-login[data-theme='dark'] #root {
-  background-color: #000000;
-  background-image: linear-gradient(180deg, #243018 0%, #243018 16%, #0b0d0c 92%, #000000 100%);
+  background-color: #243018;
+  background-image: linear-gradient(180deg, #243018 0%, #243018 28%, #0b0d0c 78%, #000000 100%);
   background-repeat: no-repeat;
   background-size: 100% 100%;
 }
