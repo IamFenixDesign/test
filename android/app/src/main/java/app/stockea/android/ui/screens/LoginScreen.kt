@@ -3,16 +3,14 @@ package app.stockea.android.ui.screens
 import android.app.Activity
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.DarkMode
 import androidx.compose.material.icons.outlined.LightMode
@@ -30,9 +28,14 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.credentials.CredentialManager
 import androidx.credentials.CustomCredential
 import androidx.credentials.GetCredentialRequest
@@ -115,47 +118,110 @@ fun LoginScreen(
         }
     }
 
-    Column(
+    val scheme = MaterialTheme.colorScheme
+    Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
-            .verticalScroll(rememberScrollState())
-            .padding(20.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp),
+            .background(
+                Brush.verticalGradient(
+                    listOf(
+                        scheme.background,
+                        scheme.surface.copy(alpha = 0.55f),
+                        scheme.background,
+                    ),
+                ),
+            ),
     ) {
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-            IconButton(onClick = onToggleTheme) {
-                Icon(
-                    if (darkTheme) Icons.Outlined.LightMode else Icons.Outlined.DarkMode,
-                    contentDescription = "Cambiar tema",
-                )
-            }
+        Box(
+            modifier = Modifier
+                .align(Alignment.TopStart)
+                .padding(top = 48.dp)
+                .size(220.dp)
+                .background(
+                    Brush.radialGradient(listOf(scheme.primary.copy(alpha = 0.28f), Color.Transparent)),
+                    RoundedCornerShape(999.dp),
+                ),
+        )
+        Box(
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .padding(bottom = 80.dp)
+                .size(200.dp)
+                .background(
+                    Brush.radialGradient(listOf(scheme.tertiary.copy(alpha = 0.22f), Color.Transparent)),
+                    RoundedCornerShape(999.dp),
+                ),
+        )
+
+        IconButton(
+            onClick = onToggleTheme,
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .padding(top = 20.dp, end = 12.dp),
+        ) {
+            Icon(
+                if (darkTheme) Icons.Outlined.LightMode else Icons.Outlined.DarkMode,
+                contentDescription = "Cambiar tema",
+            )
         }
 
         Column(
             modifier = Modifier
+                .align(Alignment.Center)
                 .fillMaxWidth()
-                .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(28.dp))
-                .padding(22.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp),
+                .padding(horizontal = 28.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Text("Stockea", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
+            Box(
+                modifier = Modifier
+                    .size(88.dp)
+                    .clip(RoundedCornerShape(28.dp))
+                    .background(scheme.primary),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(
+                    "S",
+                    color = scheme.onPrimary,
+                    fontWeight = FontWeight.Black,
+                    fontSize = 40.sp,
+                )
+            }
             Text(
-                "Entrá con Google para guardar tu inventario",
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                "Stockea",
+                style = MaterialTheme.typography.displaySmall,
+                fontWeight = FontWeight.ExtraBold,
+                letterSpacing = (-1.5).sp,
+            )
+            Text(
+                "Tu stock, al día",
+                color = scheme.onSurfaceVariant,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold,
+            )
+            Text(
+                "Precios de súper y alertas en un solo lugar.",
+                color = scheme.onSurfaceVariant.copy(alpha = 0.8f),
+                textAlign = TextAlign.Center,
+                style = MaterialTheme.typography.bodyMedium,
             )
 
-            if (info.isNotBlank()) Text(info, color = MaterialTheme.colorScheme.secondary)
+            if (info.isNotBlank()) {
+                Text(info, color = scheme.secondary, textAlign = TextAlign.Center)
+            }
             val shownError = localError.ifBlank { error }
             if (shownError.isNotBlank()) {
-                Text(shownError, color = MaterialTheme.colorScheme.error)
+                Text(shownError, color = scheme.error, textAlign = TextAlign.Center)
             }
 
             Button(
                 onClick = { signIn() },
                 enabled = !busy && !loadingClient && clientId.isNotBlank(),
-                modifier = Modifier.fillMaxWidth().height(52.dp),
-                shape = RoundedCornerShape(14.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 16.dp)
+                    .height(54.dp),
+                shape = RoundedCornerShape(999.dp),
             ) {
                 Text(
                     when {
@@ -167,6 +233,5 @@ fun LoginScreen(
                 )
             }
         }
-        Spacer(modifier = Modifier.height(24.dp))
     }
 }

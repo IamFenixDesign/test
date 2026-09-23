@@ -28,29 +28,6 @@ function IconMoon() {
   )
 }
 
-function IconGoogle() {
-  return (
-    <svg viewBox="0 0 24 24" aria-hidden="true">
-      <path
-        fill="#EA4335"
-        d="M12 10.2v3.6h5.1c-.2 1.2-.9 2.3-1.9 3l3.1 2.4c1.8-1.7 2.9-4.1 2.9-7 0-.7-.1-1.3-.2-1.9H12z"
-      />
-      <path
-        fill="#34A853"
-        d="M6.6 14.3 5.8 14.9l-2.6 2c1.7 3.3 5.1 5.5 8.8 5.5 2.7 0 4.9-.9 6.5-2.4l-3.1-2.4c-.9.6-2 .9-3.4.9-2.6 0-4.8-1.7-5.6-4.1z"
-      />
-      <path
-        fill="#4A90E2"
-        d="M3.2 7.1C2.4 8.7 2 10.3 2 12s.4 3.3 1.2 4.9l3.4-2.6C6.2 13.4 6 12.7 6 12s.2-1.4.6-2L3.2 7.1z"
-      />
-      <path
-        fill="#FBBC05"
-        d="M12 5.8c1.4 0 2.7.5 3.7 1.4l2.8-2.8C16.9 2.9 14.7 2 12 2 8.3 2 4.9 4.2 3.2 7.1L6.6 9.7C7.4 7.3 9.6 5.8 12 5.8z"
-      />
-    </svg>
-  )
-}
-
 function loadGisScript() {
   if (window.google?.accounts?.id) return Promise.resolve()
   return new Promise((resolve, reject) => {
@@ -131,7 +108,7 @@ export default function Login({ theme, setTheme, onLoggedIn }) {
           size: 'large',
           shape: 'pill',
           text: 'continue_with',
-          width: 320,
+          width: Math.min(320, Math.floor(buttonRef.current.getBoundingClientRect().width) || 280),
           locale: 'es',
         })
         setReady(true)
@@ -148,6 +125,12 @@ export default function Login({ theme, setTheme, onLoggedIn }) {
 
   return (
     <div className="login-screen">
+      <div className="login-atmosphere" aria-hidden="true">
+        <span className="login-orb login-orb-a" />
+        <span className="login-orb login-orb-b" />
+        <span className="login-grid" />
+      </div>
+
       <button
         className="btn btn-ghost theme-toggle login-theme"
         type="button"
@@ -156,18 +139,16 @@ export default function Login({ theme, setTheme, onLoggedIn }) {
       >
         {theme === 'dark' ? <IconSun /> : <IconMoon />}
       </button>
-      <section className="login-card">
-        <div className="login-brand">
-          <div className="logo">
-            <IconMark />
-          </div>
-          <div>
-            <h1>Stockea</h1>
-            <p>Entrá con Google para guardar tu inventario</p>
-          </div>
-        </div>
 
-        <div className="login-google-wrap">
+      <section className="login-hero">
+        <div className="login-mark" aria-hidden="true">
+          <IconMark />
+        </div>
+        <p className="login-brand-name">Stockea</p>
+        <h1 className="login-headline">Tu stock, al día</h1>
+        <p className="login-support">Precios de súper y alertas en un solo lugar.</p>
+
+        <div className="login-cta">
           {!googleClientId ? (
             <p className="login-error">
               Falta configurar <code>GOOGLE_CLIENT_ID</code> en el servidor.
@@ -176,16 +157,11 @@ export default function Login({ theme, setTheme, onLoggedIn }) {
             <>
               <div ref={buttonRef} className="login-google-btn" aria-label="Continuar con Google" />
               {!ready && !error ? <p className="login-copy">Cargando Google…</p> : null}
-              <button className="login-btn login-google-fallback" type="button" disabled={!ready || busy} hidden>
-                <IconGoogle />
-                {busy ? 'Entrando…' : 'Continuar con Google'}
-              </button>
             </>
           )}
+          {busy ? <p className="login-info">Conectando…</p> : null}
+          {error ? <p className="login-error">{error}</p> : null}
         </div>
-
-        {busy ? <p className="login-info">Conectando con Google…</p> : null}
-        {error ? <p className="login-error">{error}</p> : null}
       </section>
     </div>
   )

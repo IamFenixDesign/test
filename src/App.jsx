@@ -12,6 +12,7 @@ import {
 import { deleteRemoteItem, fetchRemoteItems, upsertRemoteItem } from './itemsApi'
 import { fetchMe, logout as logoutRequest, updateProfile as saveProfile } from './auth'
 import { getCameraStream, releaseCameraStream } from './camera'
+import { mergeStockLists, parseStockExport, serializeStockExport } from './stockTransfer'
 import Login from './Login.jsx'
 
 const STORAGE_KEY = 'stockly-items-v2'
@@ -1162,6 +1163,8 @@ function App() {
   const [profileForm, setProfileForm] = useState({ firstName: '', lastName: '', email: '' })
   const [profileError, setProfileError] = useState('')
   const [profileBusy, setProfileBusy] = useState(false)
+  const [transferBusy, setTransferBusy] = useState(false)
+  const importInputRef = useRef(null)
   const [storeQuery, setStoreQuery] = useState('')
   const [storeResults, setStoreResults] = useState({ coto: [], carrefour: [], dia: [], errors: {} })
   const [storeTab, setStoreTab] = useState('coto')
@@ -1844,6 +1847,46 @@ function App() {
       setProfileError(err?.message || 'No se pudo guardar el perfil')
     } finally {
       setProfileBusy(false)
+    }
+  }
+
+  function handleExportStock() {
+    try {
+      const payload = serializeStockExport(items)
+      const blob = new Blob([payload], { type: 'application/json;charset=utf-8' })
+      const url = URL.createObjectURL(blob)
+      const stamp = new Date().toISOString().slice(0, 10)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `stockea-stock-${stamp}.json`
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+      URL.revokeObjectURL(url)
+      showToast(`Exportaste ${items.length} producto${items.length === 1 ? '' : 's'}`)
+    } catch (err) {
+      showToast(err?.message || 'No se pudo exportar')
+    }
+  }
+
+  async function handleImportStockFile(event) {
+    const file = event.target.files?.[0]
+    event.target.value = ''
+    if (!file) return
+    setTransferBusy(true)
+    try {
+      const text = await file.text()
+      const { items: incoming } = parseStockExport(text)
+      const normalized = incoming.map(normalizeItemCounts)
+      const { items: next, added, updated } = mergeStockLists(items, normalized)
+      setItems(next)
+      writeLocalItems(user?.id, next)
+      await Promise.all(normalized.map((item) => upsertRemoteItem(item)))
+      showToast(`Importado: ${added} nuevos, ${updated} actualizados`)
+    } catch (err) {
+      showToast(err?.message || 'No se pudo importar la lista')
+    } finally {
+      setTransferBusy(false)
     }
   }
 
@@ -2939,6 +2982,36 @@ function App() {
               {profileBusy ? 'Guardando…' : 'Guardar cambios'}
             </button>
           </form>
+
+          <div className="profile-transfer">
+            <h3>Lista de stock</h3>
+            <p>Exportá un JSON de respaldo o importá una lista para sumar/actualizar productos.</p>
+            <div className="profile-transfer-actions">
+              <button
+                className="btn btn-ghost"
+                type="button"
+                onClick={handleExportStock}
+                disabled={transferBusy || items.length === 0}
+              >
+                Exportar
+              </button>
+              <button
+                className="btn btn-ghost"
+                type="button"
+                onClick={() => importInputRef.current?.click()}
+                disabled={transferBusy}
+              >
+                {transferBusy ? 'Importando…' : 'Importar'}
+              </button>
+            </div>
+            <input
+              ref={importInputRef}
+              type="file"
+              accept="application/json,.json"
+              hidden
+              onChange={handleImportStockFile}
+            />
+          </div>
 
           <div className="profile-actions">
             <button className="btn btn-danger" type="button" onClick={handleLogout}>
