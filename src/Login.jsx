@@ -79,12 +79,7 @@ export default function Login({ theme, setTheme, onLoggedIn }) {
 
   return (
     <div className="login-screen">
-      <div className="login-atmosphere" aria-hidden="true">
-        <span className="login-wash login-wash-a" />
-        <span className="login-wash login-wash-b" />
-        <span className="login-shelf" />
-        <span className="login-bloom" />
-      </div>
+      <div className="login-bleed" aria-hidden="true" />
 
       <button
         className="btn btn-ghost theme-toggle login-theme"
@@ -100,8 +95,9 @@ export default function Login({ theme, setTheme, onLoggedIn }) {
           <div className="login-mark" aria-hidden="true">
             <IconMark />
           </div>
-          <p className="login-brand-name">Stockea</p>
-          <h1 className="login-headline">Tu stock, al día</h1>
+          <p className="login-kicker">Inventario</p>
+          <h1 className="login-brand-name">Stockea</h1>
+          <p className="login-headline">Tu stock, al día</p>
           <p className="login-support">Precios de súper y alertas en un solo lugar.</p>
         </section>
 
