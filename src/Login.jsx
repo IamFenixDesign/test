@@ -2,12 +2,13 @@ import { useCallback, useEffect, useState } from 'react'
 import { fetchAuthConfig, loginWithGoogle } from './auth'
 import GoogleSignInButton from './GoogleSignInButton.jsx'
 
+/** Cubo monocromo para el badge lima (como en la PWA de referencia). */
 function IconMark() {
   return (
-    <svg viewBox="0 0 32 32" fill="none" aria-hidden="true">
-      <path fill="#d4f562" d="M16 6.1 25.4 11.1 16 16.1 6.6 11.1Z" />
-      <path fill="#7a9c24" d="M6.6 11.1 16 16.1v9.8L6.6 20.9Z" />
-      <path fill="#7ee2b8" d="M25.4 11.1 16 16.1v9.8l9.4-5Z" />
+    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <path d="M12 3.1 21.2 8 12 12.9 2.8 8 12 3.1Z" />
+      <path d="M2.8 8 12 12.9V21L2.8 16.1V8Z" opacity="0.55" />
+      <path d="M21.2 8 12 12.9V21l9.2-4.9V8Z" opacity="0.38" />
     </svg>
   )
 }
@@ -87,13 +88,15 @@ export default function Login({ theme, setTheme, onLoggedIn }) {
         {theme === 'dark' ? <IconSun /> : <IconMoon />}
       </button>
 
-      <section className="login-hero">
-        <div className="login-mark" aria-hidden="true">
-          <IconMark />
-        </div>
-        <p className="login-brand-name">Stockea</p>
-        <h1 className="login-headline">Tu stock, al día</h1>
-        <p className="login-support">Precios de súper y alertas en un solo lugar.</p>
+      <div className="login-body">
+        <section className="login-hero">
+          <div className="login-mark" aria-hidden="true">
+            <IconMark />
+          </div>
+          <p className="login-brand-name">Stockea</p>
+          <h1 className="login-headline">Tu stock, al día</h1>
+          <p className="login-support">Precios de súper y alertas en un solo lugar.</p>
+        </section>
 
         <div className="login-cta">
           {!googleClientId ? (
@@ -113,7 +116,7 @@ export default function Login({ theme, setTheme, onLoggedIn }) {
           )}
           {error ? <p className="login-error">{error}</p> : null}
         </div>
-      </section>
+      </div>
     </div>
   )
 }
