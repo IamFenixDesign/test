@@ -77,6 +77,7 @@ body,
   min-height: 100%;
   min-height: 100dvh;
   min-height: 100svh;
+  min-height: 100lvh;
   height: 100%;
   background-color: var(--bg);
   background: var(--bg);
@@ -86,15 +87,16 @@ html {
   -webkit-text-size-adjust: 100%;
 }
 
-/* iOS PWA: el webview deja una franja negra si el alto no llena el visual viewport */
+/* iOS PWA: nunca achicar el root por debajo del viewport (barra negra/blanca) */
 html.is-pwa,
 html.is-pwa body,
 html.is-pwa #root {
   height: 100%;
-  height: var(--app-height, 100%);
   min-height: 100%;
-  min-height: var(--app-height, 100%);
   min-height: -webkit-fill-available;
+  min-height: 100dvh;
+  min-height: 100lvh;
+  min-height: var(--app-height, 100lvh);
   overscroll-behavior: none;
   background-color: var(--bg);
 }
@@ -113,6 +115,54 @@ body {
     var(--bg);
   letter-spacing: -0.01em;
   transition: background 0.25s ease, color 0.25s ease;
+}
+
+/* Login: mismo gradiente en html/body/#root (tapa safe-area / home indicator) */
+html.is-login,
+html.is-login body,
+html.is-login #root {
+  overflow: hidden;
+  overscroll-behavior: none;
+  background:
+    linear-gradient(
+      158deg,
+      color-mix(in srgb, var(--accent) 14%, var(--bg)) 0%,
+      var(--bg) 42%,
+      color-mix(in srgb, var(--ok) 8%, var(--bg)) 100%
+    );
+  background-repeat: no-repeat;
+  background-size: 100% 100%;
+  background-attachment: fixed;
+}
+
+html.is-login[data-theme='light'],
+html.is-login[data-theme='light'] body,
+html.is-login[data-theme='light'] #root {
+  background:
+    linear-gradient(
+      158deg,
+      color-mix(in srgb, var(--accent) 22%, #e8efe3) 0%,
+      #f2f5ee 46%,
+      color-mix(in srgb, var(--ok) 10%, #eef4ea) 100%
+    );
+  background-repeat: no-repeat;
+  background-size: 100% 100%;
+  background-attachment: fixed;
+}
+
+html.is-login[data-theme='dark'],
+html.is-login[data-theme='dark'] body,
+html.is-login[data-theme='dark'] #root {
+  background:
+    linear-gradient(
+      158deg,
+      color-mix(in srgb, var(--accent) 10%, #0b0d0c) 0%,
+      #0b0d0c 48%,
+      color-mix(in srgb, var(--ok) 7%, #101412) 100%
+    );
+  background-repeat: no-repeat;
+  background-size: 100% 100%;
+  background-attachment: fixed;
 }
 
 button,
