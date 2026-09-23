@@ -354,7 +354,10 @@ class StockeaViewModel(app: Application) : AndroidViewModel(app) {
             _state.update { it.copy(busy = true, error = "", info = "") }
             try {
                 val result = withContext(Dispatchers.IO) { api.loginWithGoogle(idToken) }
-                val items = withContext(Dispatchers.IO) { api.fetchItems() }
+                // Entrar a la app aunque falle la carga inicial de stock
+                val items = withContext(Dispatchers.IO) {
+                    runCatching { api.fetchItems() }.getOrElse { emptyList() }
+                }
                 priceRefreshAt.clear()
                 val info = when {
                     result.linked -> "Cuenta vinculada a Google · ${result.itemCount} productos"
@@ -364,6 +367,7 @@ class StockeaViewModel(app: Application) : AndroidViewModel(app) {
                 _state.update {
                     it.copy(
                         busy = false,
+                        booting = false,
                         user = result.user,
                         items = items,
                         cartRemoved = emptySet(),

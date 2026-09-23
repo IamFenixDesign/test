@@ -57,18 +57,21 @@ export default function Login({ theme, setTheme, onLoggedIn }) {
 
   const handleCredential = useCallback(
     async (credential) => {
+      if (!credential || busy) return
       setBusy(true)
       setError('')
       try {
         const data = await loginWithGoogle(credential)
+        if (!data?.user) {
+          throw new Error('Google no devolvió una sesión válida')
+        }
         onLoggedIn(data.user, data)
       } catch (err) {
         setError(err?.message || 'No se pudo iniciar sesión con Google')
-      } finally {
         setBusy(false)
       }
     },
-    [onLoggedIn],
+    [busy, onLoggedIn],
   )
 
   return (
@@ -114,6 +117,7 @@ export default function Login({ theme, setTheme, onLoggedIn }) {
               onCredential={handleCredential}
             />
           )}
+          {busy ? <p className="login-status">Entrando…</p> : null}
           {error ? <p className="login-error">{error}</p> : null}
         </div>
       </div>
