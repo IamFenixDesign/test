@@ -117,52 +117,58 @@ body {
   transition: background 0.25s ease, color 0.25s ease;
 }
 
-/* Login: mismo gradiente en html/body/#root (tapa safe-area / home indicator) */
+/* Login/boot: mismo gradiente en html/body/#root (tapa safe-area / home indicator).
+   No usar background-attachment:fixed — en iOS Safari deja huecos negros/blancos. */
 html.is-login,
 html.is-login body,
 html.is-login #root {
   overflow: hidden;
   overscroll-behavior: none;
-  background:
-    linear-gradient(
-      158deg,
-      color-mix(in srgb, var(--accent) 14%, var(--bg)) 0%,
-      var(--bg) 42%,
-      color-mix(in srgb, var(--ok) 8%, var(--bg)) 100%
-    );
+  min-height: 100%;
+  min-height: -webkit-fill-available;
+  min-height: 100dvh;
+  min-height: 100lvh;
+  min-height: var(--app-height, 100lvh);
+  background-color: var(--bg);
+  background-image: linear-gradient(
+    158deg,
+    color-mix(in srgb, var(--accent) 14%, var(--bg)) 0%,
+    var(--bg) 42%,
+    color-mix(in srgb, var(--ok) 8%, var(--bg)) 100%
+  );
   background-repeat: no-repeat;
   background-size: 100% 100%;
-  background-attachment: fixed;
+  background-attachment: scroll;
 }
 
 html.is-login[data-theme='light'],
 html.is-login[data-theme='light'] body,
 html.is-login[data-theme='light'] #root {
-  background:
-    linear-gradient(
-      158deg,
-      color-mix(in srgb, var(--accent) 22%, #e8efe3) 0%,
-      #f2f5ee 46%,
-      color-mix(in srgb, var(--ok) 10%, #eef4ea) 100%
-    );
+  background-color: #f2f5ee;
+  background-image: linear-gradient(
+    158deg,
+    color-mix(in srgb, var(--accent) 22%, #e8efe3) 0%,
+    #f2f5ee 46%,
+    color-mix(in srgb, var(--ok) 10%, #eef4ea) 100%
+  );
   background-repeat: no-repeat;
   background-size: 100% 100%;
-  background-attachment: fixed;
+  background-attachment: scroll;
 }
 
 html.is-login[data-theme='dark'],
 html.is-login[data-theme='dark'] body,
 html.is-login[data-theme='dark'] #root {
-  background:
-    linear-gradient(
-      158deg,
-      color-mix(in srgb, var(--accent) 10%, #0b0d0c) 0%,
-      #0b0d0c 48%,
-      color-mix(in srgb, var(--ok) 7%, #101412) 100%
-    );
+  background-color: #0b0d0c;
+  background-image: linear-gradient(
+    158deg,
+    color-mix(in srgb, var(--accent) 10%, #0b0d0c) 0%,
+    #0b0d0c 48%,
+    color-mix(in srgb, var(--ok) 7%, #101412) 100%
+  );
   background-repeat: no-repeat;
   background-size: 100% 100%;
-  background-attachment: fixed;
+  background-attachment: scroll;
 }
 
 button,
