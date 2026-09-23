@@ -90,8 +90,8 @@ export default function Login({ theme, setTheme, onLoggedIn }) {
             setBusy(true)
             setError('')
             try {
-              const user = await loginWithGoogle(response.credential)
-              onLoggedIn(user)
+              const data = await loginWithGoogle(response.credential)
+              onLoggedIn(data.user, data)
             } catch (err) {
               setError(err?.message || 'No se pudo iniciar sesión con Google')
             } finally {

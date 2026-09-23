@@ -198,20 +198,25 @@ export async function upsertUser(profile) {
           email_verified = true
       WHERE id = ${existing[0].id}::uuid
     `
-    return rowToUser({
-      ...existing[0],
-      email: nextEmail,
-      name: nextName,
-      first_name: nextFirst,
-      last_name: nextLast,
-      picture: nextPicture,
-      email_verified: true,
-    })
+    return {
+      user: rowToUser({
+        ...existing[0],
+        email: nextEmail,
+        name: nextName,
+        first_name: nextFirst,
+        last_name: nextLast,
+        picture: nextPicture,
+        email_verified: true,
+      }),
+      linked: false,
+      created: false,
+    }
   }
 
   const byEmail = email ? await getUserRowByEmail(email) : null
   if (byEmail) {
-    // Migrate / link existing email accounts when signing in with Google.
+    // Migrate / link existing email (or other) accounts when signing in with Google.
+    // Same user id ⇒ stock stays attached.
     await getSql()`
       UPDATE stockly_users
       SET email = ${email},
@@ -227,17 +232,21 @@ export async function upsertUser(profile) {
           verify_code_expires = NULL
       WHERE id = ${byEmail.id}::uuid
     `
-    return rowToUser({
-      ...byEmail,
-      email,
-      name: name || byEmail.name || '',
-      first_name: firstName || byEmail.first_name || '',
-      last_name: lastName || byEmail.last_name || '',
-      picture: picture || byEmail.picture || '',
-      provider: profile.provider,
-      provider_id: profile.providerId,
-      email_verified: true,
-    })
+    return {
+      user: rowToUser({
+        ...byEmail,
+        email,
+        name: name || byEmail.name || '',
+        first_name: firstName || byEmail.first_name || '',
+        last_name: lastName || byEmail.last_name || '',
+        picture: picture || byEmail.picture || '',
+        provider: profile.provider,
+        provider_id: profile.providerId,
+        email_verified: true,
+      }),
+      linked: byEmail.provider !== 'google',
+      created: false,
+    }
   }
 
   const id = crypto.randomUUID()
@@ -257,16 +266,20 @@ export async function upsertUser(profile) {
       true
     )
   `
-  return rowToUser({
-    id,
-    email,
-    name,
-    first_name: firstName,
-    last_name: lastName,
-    picture,
-    provider: profile.provider,
-    email_verified: true,
-  })
+  return {
+    user: rowToUser({
+      id,
+      email,
+      name,
+      first_name: firstName,
+      last_name: lastName,
+      picture,
+      provider: profile.provider,
+      email_verified: true,
+    }),
+    linked: false,
+    created: true,
+  }
 }
 
 export async function registerEmailUser({ email, passwordHash, firstName, lastName, codeHash, expiresAt }) {
@@ -402,6 +415,81 @@ export async function listItems(userId) {
     ORDER BY updated_at DESC
   `
   return rows.map(rowToItem)
+}
+
+export async function getUserRowByProvider(provider, providerId) {
+  await ensureSchema()
+  const rows = await getSql()`
+    SELECT * FROM stockly_users
+    WHERE provider = ${provider} AND provider_id = ${providerId}
+    LIMIT 1
+  `
+  return rows[0] || null
+}
+
+/** Move all items from one account onto another. Returns how many rows were reassigned. */
+export async function transferItemsToUser(fromUserId, toUserId) {
+  await ensureSchema()
+  if (!fromUserId || !toUserId || fromUserId === toUserId) return { moved: 0, skipped: 0 }
+
+  const fromItems = await listItems(fromUserId)
+  const toItems = await listItems(toUserId)
+  const toIds = new Set(toItems.map((item) => item.id))
+  let moved = 0
+  let skipped = 0
+
+  for (const item of fromItems) {
+    if (toIds.has(item.id)) {
+      await getSql()`
+        DELETE FROM stockly_items
+        WHERE id = ${item.id}::uuid AND user_id = ${fromUserId}::uuid
+      `
+      skipped += 1
+      continue
+    }
+    await getSql()`
+      UPDATE stockly_items
+      SET user_id = ${toUserId}::uuid, updated_at = now()
+      WHERE id = ${item.id}::uuid AND user_id = ${fromUserId}::uuid
+    `
+    moved += 1
+  }
+
+  return { moved, skipped }
+}
+
+export async function deleteUserAccount(userId) {
+  await ensureSchema()
+  await getSql()`DELETE FROM stockly_items WHERE user_id = ${userId}::uuid`
+  await getSql()`DELETE FROM stockly_users WHERE id = ${userId}::uuid`
+}
+
+export async function attachGoogleProvider(userId, profile) {
+  await ensureSchema()
+  const email = normalizeEmail(profile.email)
+  const firstName = String(profile.firstName || '').trim()
+  const lastName = String(profile.lastName || '').trim()
+  const name =
+    [firstName, lastName].filter(Boolean).join(' ') || profile.name || email || 'Cuenta'
+  const picture = profile.picture || ''
+
+  const rows = await getSql()`
+    UPDATE stockly_users
+    SET email = ${email},
+        name = COALESCE(NULLIF(${name}, ''), name),
+        first_name = COALESCE(NULLIF(${firstName}, ''), first_name),
+        last_name = COALESCE(NULLIF(${lastName}, ''), last_name),
+        picture = COALESCE(NULLIF(${picture}, ''), picture),
+        provider = 'google',
+        provider_id = ${profile.providerId},
+        email_verified = true,
+        password_hash = NULL,
+        verify_code_hash = NULL,
+        verify_code_expires = NULL
+    WHERE id = ${userId}::uuid
+    RETURNING *
+  `
+  return rowToUser(rows[0])
 }
 
 export async function upsertItem(item, userId) {

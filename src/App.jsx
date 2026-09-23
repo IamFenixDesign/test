@@ -10,8 +10,16 @@ import {
   weekdayLabel,
 } from './discounts'
 import { deleteRemoteItem, fetchRemoteItems, upsertRemoteItem } from './itemsApi'
-import { fetchMe, logout as logoutRequest, updateProfile as saveProfile } from './auth'
+import {
+  fetchAuthConfig,
+  fetchMe,
+  linkGoogleAccount,
+  logout as logoutRequest,
+  mergeLegacyAccount,
+  updateProfile as saveProfile,
+} from './auth'
 import { getCameraStream, releaseCameraStream } from './camera'
+import { clearDeviceStockCaches, collectDeviceStockItems } from './deviceStock'
 import { mergeStockLists, parseStockExport, serializeStockExport } from './stockTransfer'
 import Login from './Login.jsx'
 
@@ -1164,7 +1172,11 @@ function App() {
   const [profileError, setProfileError] = useState('')
   const [profileBusy, setProfileBusy] = useState(false)
   const [transferBusy, setTransferBusy] = useState(false)
+  const [linkBusy, setLinkBusy] = useState(false)
+  const [legacyForm, setLegacyForm] = useState({ email: '', password: '' })
+  const [googleClientId, setGoogleClientId] = useState('')
   const importInputRef = useRef(null)
+  const googleLinkBtnRef = useRef(null)
   const [storeQuery, setStoreQuery] = useState('')
   const [storeResults, setStoreResults] = useState({ coto: [], carrefour: [], dia: [], errors: {} })
   const [storeTab, setStoreTab] = useState('coto')
@@ -1305,10 +1317,68 @@ function App() {
     fetchMe().then((current) => {
       if (!cancelled) setUser(current)
     })
+    fetchAuthConfig().then((config) => {
+      if (!cancelled) setGoogleClientId(config.googleClientId || '')
+    })
     return () => {
       cancelled = true
     }
   }, [])
+
+  useEffect(() => {
+    if (!user || user.provider === 'google' || !googleClientId || !googleLinkBtnRef.current) {
+      return undefined
+    }
+    let cancelled = false
+
+    async function mountLinkButton() {
+      try {
+        if (!window.google?.accounts?.id) {
+          await new Promise((resolve, reject) => {
+            const existing = document.querySelector('script[data-google-gis="1"]')
+            if (existing) {
+              existing.addEventListener('load', () => resolve(), { once: true })
+              existing.addEventListener('error', () => reject(new Error('Google')), { once: true })
+              return
+            }
+            const script = document.createElement('script')
+            script.src = 'https://accounts.google.com/gsi/client'
+            script.async = true
+            script.defer = true
+            script.dataset.googleGis = '1'
+            script.onload = () => resolve()
+            script.onerror = () => reject(new Error('Google'))
+            document.head.appendChild(script)
+          })
+        }
+        if (cancelled || !googleLinkBtnRef.current || !window.google?.accounts?.id) return
+        window.google.accounts.id.initialize({
+          client_id: googleClientId,
+          callback: (response) => {
+            handleLinkGoogleCredential(response.credential)
+          },
+        })
+        googleLinkBtnRef.current.innerHTML = ''
+        window.google.accounts.id.renderButton(googleLinkBtnRef.current, {
+          theme: theme === 'dark' ? 'filled_black' : 'outline',
+          size: 'large',
+          shape: 'pill',
+          text: 'continue_with',
+          width: 280,
+          locale: 'es',
+        })
+      } catch {
+        /* button stays empty; user can still merge legacy */
+      }
+    }
+
+    mountLinkButton()
+    return () => {
+      cancelled = true
+    }
+    // handleLinkGoogleCredential is stable enough for this mount; avoid re-binding loops.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id, user?.provider, googleClientId, theme])
 
   useEffect(() => {
     if (!user) {
@@ -1325,18 +1395,26 @@ function App() {
       const notDeleted = (item) => !deletedIdsRef.current.has(item.id)
       if (Array.isArray(remote)) {
         const alive = remote.filter(notDeleted)
-        if (alive.length > 0) {
-          const { kept, removedIds, absorbedIds } = coalesceDuplicates(alive)
-          setItems(kept)
-          removedIds.forEach((id) => {
-            deletedIdsRef.current.add(id)
-            deleteRemoteItem(id)
-          })
-          absorbedIds.forEach((id) => {
-            const item = kept.find((entry) => entry.id === id)
-            if (item) persistItem(item)
-          })
-        } else {
+        const deviceItems = collectDeviceStockItems().map(normalizeItemCounts)
+        const seed = alive.length ? alive : []
+        const { items: merged, added } = mergeStockLists(seed, deviceItems)
+        const { kept, removedIds, absorbedIds } = coalesceDuplicates(merged)
+        setItems(kept)
+        removedIds.forEach((id) => {
+          deletedIdsRef.current.add(id)
+          deleteRemoteItem(id)
+        })
+        absorbedIds.forEach((id) => {
+          const item = kept.find((entry) => entry.id === id)
+          if (item) persistItem(item)
+        })
+        if (deviceItems.length) {
+          await Promise.all(deviceItems.map((item) => upsertRemoteItem(item)))
+          clearDeviceStockCaches(user.id)
+          if (added > 0 || (!alive.length && deviceItems.length)) {
+            showToast(`Sincronizamos ${deviceItems.length} productos de este dispositivo`)
+          }
+        } else if (!alive.length) {
           const legacy = loadLegacyItems().filter(notDeleted)
           if (legacy.length && !loadItems(user.id).length) {
             await Promise.all(legacy.map((item) => upsertRemoteItem(item)))
@@ -1347,12 +1425,17 @@ function App() {
             } catch {
               /* ignore */
             }
-          } else {
-            setItems([])
           }
         }
       } else {
-        setItems(loadItems(user.id).filter(notDeleted))
+        const deviceItems = collectDeviceStockItems().map(normalizeItemCounts)
+        const local = loadItems(user.id).filter(notDeleted)
+        const { items: merged } = mergeStockLists(local, deviceItems)
+        setItems(merged)
+        if (deviceItems.length) {
+          await Promise.all(deviceItems.map((item) => upsertRemoteItem(item)))
+          clearDeviceStockCaches(user.id)
+        }
       }
       setHydrated(true)
     }
@@ -1833,6 +1916,74 @@ function App() {
 
   function toggleGroup(name) {
     setCollapsed((prev) => ({ ...prev, [name]: !prev[name] }))
+  }
+
+  async function syncDeviceStockIntoAccount(accountUser, { toast = true } = {}) {
+    if (!accountUser?.id) return { uploaded: 0, added: 0, updated: 0 }
+    const deviceItems = collectDeviceStockItems().map(normalizeItemCounts)
+    if (!deviceItems.length) {
+      if (toast) showToast('No hay stock guardado en este dispositivo')
+      return { uploaded: 0, added: 0, updated: 0 }
+    }
+    const remote = (await fetchRemoteItems()) || []
+    const { items: next, added, updated } = mergeStockLists(remote, deviceItems)
+    setItems(next)
+    setHydrated(true)
+    writeLocalItems(accountUser.id, next)
+    await Promise.all(deviceItems.map((item) => upsertRemoteItem(item)))
+    clearDeviceStockCaches(accountUser.id)
+    if (toast) {
+      showToast(`Stock del dispositivo sincronizado: ${added} nuevos, ${updated} actualizados`)
+    }
+    return { uploaded: deviceItems.length, added, updated }
+  }
+
+  function handleLoggedIn(nextUser, meta = {}) {
+    setUser(nextUser)
+    if (meta?.linked) {
+      showToast(`Cuenta vinculada a Google · ${meta.itemCount ?? 0} productos en la nube`)
+    } else if (meta?.created === false && meta?.itemCount > 0) {
+      showToast(`Bienvenido · ${meta.itemCount} productos sincronizados`)
+    }
+  }
+
+  async function handleLinkGoogleCredential(credential) {
+    setLinkBusy(true)
+    try {
+      const data = await linkGoogleAccount(credential)
+      setUser(data.user)
+      await syncDeviceStockIntoAccount(data.user, { toast: false })
+      showToast(
+        data.moved
+          ? `Google vinculado · se unieron ${data.moved} productos`
+          : `Google vinculado · ${data.itemCount ?? 0} productos en la nube`,
+      )
+    } catch (err) {
+      showToast(err?.message || 'No se pudo vincular Google')
+    } finally {
+      setLinkBusy(false)
+    }
+  }
+
+  async function handleMergeLegacy(event) {
+    event.preventDefault()
+    setLinkBusy(true)
+    try {
+      const data = await mergeLegacyAccount(legacyForm)
+      await syncDeviceStockIntoAccount(user, { toast: false })
+      const remote = (await fetchRemoteItems()) || []
+      setItems(remote.map(normalizeItemCounts))
+      setLegacyForm({ email: '', password: '' })
+      showToast(
+        data.merged
+          ? `Cuenta unida · ${data.moved} productos traídos (${data.itemCount} en total)`
+          : 'Esa cuenta ya era la actual',
+      )
+    } catch (err) {
+      showToast(err?.message || 'No se pudo unir la cuenta')
+    } finally {
+      setLinkBusy(false)
+    }
   }
 
   async function handleSaveProfile(event) {
@@ -2521,7 +2672,7 @@ function App() {
   }
 
   if (!user) {
-    return <Login theme={theme} setTheme={setTheme} onLoggedIn={setUser} />
+    return <Login theme={theme} setTheme={setTheme} onLoggedIn={handleLoggedIn} />
   }
 
   return (
@@ -2945,7 +3096,68 @@ function App() {
             <div className="profile-hero-copy">
               <strong>{user.name || 'Cuenta'}</strong>
               {user.email ? <span>{user.email}</span> : null}
+              <span className="profile-provider">
+                {user.provider === 'google' ? 'Vinculada a Google' : 'Cuenta con correo'}
+              </span>
             </div>
+          </div>
+
+          <div className="profile-transfer">
+            <h3>Google y sincronización</h3>
+            {user.provider === 'google' ? (
+              <>
+                <p>
+                  Si antes tenías Stockea con otro correo y contraseña, uní esa cuenta para traer el
+                  stock a esta sesión de Google.
+                </p>
+                <form className="profile-legacy-form" onSubmit={handleMergeLegacy}>
+                  <label className="field full">
+                    <span>Correo anterior</span>
+                    <input
+                      type="email"
+                      value={legacyForm.email}
+                      onChange={(event) =>
+                        setLegacyForm((prev) => ({ ...prev, email: event.target.value }))
+                      }
+                      autoComplete="username"
+                      required
+                    />
+                  </label>
+                  <label className="field full">
+                    <span>Contraseña anterior</span>
+                    <input
+                      type="password"
+                      value={legacyForm.password}
+                      onChange={(event) =>
+                        setLegacyForm((prev) => ({ ...prev, password: event.target.value }))
+                      }
+                      autoComplete="current-password"
+                      required
+                    />
+                  </label>
+                  <button className="btn btn-primary" type="submit" disabled={linkBusy}>
+                    {linkBusy ? 'Uniendo…' : 'Unir cuenta y traer stock'}
+                  </button>
+                </form>
+              </>
+            ) : (
+              <>
+                <p>Vinculá Google a esta cuenta. Se conserva el mismo inventario en la nube.</p>
+                {linkBusy ? <p className="login-info">Vinculando…</p> : null}
+                <div ref={googleLinkBtnRef} className="login-google-btn" />
+                {!googleClientId ? (
+                  <p className="error">Falta GOOGLE_CLIENT_ID en el servidor.</p>
+                ) : null}
+              </>
+            )}
+            <button
+              className="btn btn-ghost"
+              type="button"
+              disabled={linkBusy || transferBusy}
+              onClick={() => syncDeviceStockIntoAccount(user)}
+            >
+              Sincronizar stock de este dispositivo
+            </button>
           </div>
 
           <form className="profile-form" onSubmit={handleSaveProfile}>

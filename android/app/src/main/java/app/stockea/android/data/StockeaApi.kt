@@ -132,7 +132,7 @@ class StockeaApi(context: Context) {
         return data.optString("googleClientId", "").trim()
     }
 
-    fun loginWithGoogle(idToken: String): User {
+    fun loginWithGoogle(idToken: String): LoginResult {
         val data = request(
             "POST",
             "/api/auth",
@@ -140,8 +140,55 @@ class StockeaApi(context: Context) {
                 .put("provider", "google")
                 .put("credential", idToken),
         )
-        return data.optJSONObject("user")?.toUser()
+        val user = data.optJSONObject("user")?.toUser()
             ?: throw ApiException("No se pudo iniciar sesión con Google")
+        return LoginResult(
+            user = user,
+            linked = data.optBoolean("linked"),
+            created = data.optBoolean("created"),
+            itemCount = data.optInt("itemCount", 0),
+            moved = data.optInt("moved", 0),
+        )
+    }
+
+    fun linkGoogle(idToken: String): LoginResult {
+        val data = request(
+            "POST",
+            "/api/auth",
+            JSONObject()
+                .put("provider", "link-google")
+                .put("credential", idToken),
+        )
+        val user = data.optJSONObject("user")?.toUser()
+            ?: throw ApiException("No se pudo vincular Google")
+        return LoginResult(
+            user = user,
+            linked = true,
+            created = false,
+            itemCount = data.optInt("itemCount", 0),
+            moved = data.optInt("moved", 0),
+        )
+    }
+
+    fun mergeLegacy(email: String, password: String): LoginResult {
+        val data = request(
+            "POST",
+            "/api/auth",
+            JSONObject()
+                .put("provider", "merge-legacy")
+                .put("email", email)
+                .put("password", password),
+        )
+        val user = data.optJSONObject("user")?.toUser()
+            ?: throw ApiException("No se pudo unir la cuenta")
+        return LoginResult(
+            user = user,
+            linked = false,
+            created = false,
+            itemCount = data.optInt("itemCount", 0),
+            moved = data.optInt("moved", 0),
+            merged = data.optBoolean("merged"),
+        )
     }
 
     fun logout() {
@@ -202,5 +249,14 @@ class StockeaApi(context: Context) {
         return buildWebCompareRows(raw.coto, raw.carrefour, raw.dia)
     }
 }
+
+data class LoginResult(
+    val user: User,
+    val linked: Boolean = false,
+    val created: Boolean = false,
+    val itemCount: Int = 0,
+    val moved: Int = 0,
+    val merged: Boolean = false,
+)
 
 class ApiException(message: String) : Exception(message)

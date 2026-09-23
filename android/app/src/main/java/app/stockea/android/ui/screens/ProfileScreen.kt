@@ -1,5 +1,6 @@
 package app.stockea.android.ui.screens
 
+import android.app.Activity
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -14,6 +15,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -23,16 +25,31 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
+import androidx.credentials.CredentialManager
+import androidx.credentials.CustomCredential
+import androidx.credentials.GetCredentialRequest
+import androidx.credentials.exceptions.GetCredentialCancellationException
+import androidx.credentials.exceptions.GetCredentialException
 import app.stockea.android.data.User
+import com.google.android.libraries.identity.googleid.GetGoogleIdOption
+import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
+import com.google.android.libraries.identity.googleid.GoogleIdTokenParsingException
 import java.time.LocalDate
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 @Composable
 fun ProfileScreen(
@@ -45,13 +62,25 @@ fun ProfileScreen(
     onSave: (firstName: String, lastName: String, email: String) -> Unit,
     onExportJson: () -> String,
     onImportJson: (String) -> Unit,
+    resolveGoogleClientId: suspend () -> String,
+    onLinkGoogle: (idToken: String) -> Unit,
+    onMergeLegacy: (email: String, password: String) -> Unit,
     onLogout: () -> Unit,
 ) {
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
     var firstName by remember(user.id) { mutableStateOf(user.firstName) }
     var lastName by remember(user.id) { mutableStateOf(user.lastName) }
     var email by remember(user.id) { mutableStateOf(user.email) }
     var pendingExport by remember { mutableStateOf<String?>(null) }
+    var legacyEmail by remember { mutableStateOf("") }
+    var legacyPassword by remember { mutableStateOf("") }
+    var googleClientId by remember { mutableStateOf("") }
+    var localError by remember { mutableStateOf("") }
+
+    LaunchedEffect(Unit) {
+        googleClientId = withContext(Dispatchers.IO) { resolveGoogleClientId() }
+    }
 
     val createDoc = rememberLauncherForActivityResult(
         ActivityResultContracts.CreateDocument("application/json"),
@@ -75,6 +104,44 @@ fun ProfileScreen(
                 stream.bufferedReader(Charsets.UTF_8).readText()
             }.orEmpty()
             if (text.isNotBlank()) onImportJson(text)
+        }
+    }
+
+    fun linkGoogle() {
+        val activity = context as? Activity ?: return
+        if (googleClientId.isBlank()) {
+            localError = "Falta configurar GOOGLE_CLIENT_ID"
+            return
+        }
+        scope.launch {
+            localError = ""
+            try {
+                val googleIdOption = GetGoogleIdOption.Builder()
+                    .setFilterByAuthorizedAccounts(false)
+                    .setServerClientId(googleClientId)
+                    .setAutoSelectEnabled(false)
+                    .build()
+                val request = GetCredentialRequest.Builder()
+                    .addCredentialOption(googleIdOption)
+                    .build()
+                val result = CredentialManager.create(context).getCredential(activity, request)
+                val credential = result.credential
+                if (credential is CustomCredential &&
+                    credential.type == GoogleIdTokenCredential.TYPE_GOOGLE_ID_TOKEN_CREDENTIAL
+                ) {
+                    onLinkGoogle(GoogleIdTokenCredential.createFrom(credential.data).idToken)
+                } else {
+                    localError = "Google no devolvió un token válido"
+                }
+            } catch (_: GetCredentialCancellationException) {
+                localError = ""
+            } catch (_: GoogleIdTokenParsingException) {
+                localError = "No se pudo leer el token de Google"
+            } catch (e: GetCredentialException) {
+                localError = e.message ?: "No se pudo vincular Google"
+            } catch (e: Exception) {
+                localError = e.message ?: "No se pudo vincular Google"
+            }
         }
     }
 
@@ -106,6 +173,71 @@ fun ProfileScreen(
                     fontWeight = FontWeight.Bold,
                 )
                 Text(user.email, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(
+                    if (user.provider == "google") "Vinculada a Google" else "Cuenta con correo",
+                    color = MaterialTheme.colorScheme.primary,
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.Bold,
+                )
+            }
+        }
+
+        Card(
+            shape = RoundedCornerShape(20.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Column(
+                modifier = Modifier.padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                Text("Google y sincronización", fontWeight = FontWeight.Bold)
+                if (user.provider == "google") {
+                    Text(
+                        "Si antes tenías Stockea con otro correo y contraseña, uní esa cuenta para traer el stock.",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                    OutlinedTextField(
+                        legacyEmail,
+                        { legacyEmail = it },
+                        label = { Text("Correo anterior") },
+                        modifier = Modifier.fillMaxWidth(),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
+                    )
+                    OutlinedTextField(
+                        legacyPassword,
+                        { legacyPassword = it },
+                        label = { Text("Contraseña anterior") },
+                        modifier = Modifier.fillMaxWidth(),
+                        visualTransformation = PasswordVisualTransformation(),
+                    )
+                    Button(
+                        onClick = { onMergeLegacy(legacyEmail.trim(), legacyPassword) },
+                        enabled = !busy && legacyEmail.isNotBlank() && legacyPassword.isNotBlank(),
+                        modifier = Modifier.fillMaxWidth().height(48.dp),
+                        shape = RoundedCornerShape(14.dp),
+                    ) {
+                        Text(if (busy) "Uniendo…" else "Unir cuenta y traer stock", fontWeight = FontWeight.Bold)
+                    }
+                } else {
+                    Text(
+                        "Vinculá Google a esta cuenta. Se conserva el mismo inventario en la nube.",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                    Button(
+                        onClick = { linkGoogle() },
+                        enabled = !busy && googleClientId.isNotBlank(),
+                        modifier = Modifier.fillMaxWidth().height(48.dp),
+                        shape = RoundedCornerShape(14.dp),
+                    ) {
+                        Text(if (busy) "Vinculando…" else "Vincular con Google", fontWeight = FontWeight.Bold)
+                    }
+                }
+                if (localError.isNotBlank()) {
+                    Text(localError, color = MaterialTheme.colorScheme.error)
+                }
             }
         }
 

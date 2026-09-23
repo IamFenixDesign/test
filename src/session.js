@@ -58,7 +58,9 @@ export async function startSession(res, user) {
 }
 
 export async function establishSession(res, profile) {
-  return startSession(res, await upsertUser(profile))
+  const result = await upsertUser(profile)
+  const user = result?.user || result
+  return startSession(res, user)
 }
 
 export function destroySession(res) {

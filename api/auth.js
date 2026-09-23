@@ -3,6 +3,7 @@ import { readJson, send } from '../src/http.js'
 import {
   getUserRowByEmail,
   getUserRowById,
+  getUserRowByProvider,
   markEmailVerified,
   registerEmailUser,
   rowToUser,
@@ -10,6 +11,10 @@ import {
   updatePassword,
   updateProfile,
   upsertUser,
+  listItems,
+  transferItemsToUser,
+  deleteUserAccount,
+  attachGoogleProvider,
 } from '../src/db.js'
 import { createEmailCode, hashEmailCode, hashPassword, verifyEmailCode, verifyPassword } from '../src/passwords.js'
 import { sendCodeEmail, sendVerificationEmail } from '../src/mail.js'
@@ -185,8 +190,81 @@ async function handleProfile(req, res, body) {
 
 async function handleGoogle(body) {
   const profile = await verifyGoogleIdToken(body.credential || body.idToken || body.token)
-  const user = await upsertUser(profile)
-  return { user }
+  const result = await upsertUser(profile)
+  const items = await listItems(result.user.id)
+  return {
+    user: result.user,
+    linked: Boolean(result.linked),
+    created: Boolean(result.created),
+    itemCount: items.length,
+  }
+}
+
+async function handleLinkGoogle(req, res, body) {
+  const sessionUser = await requireUser(req, res)
+  if (!sessionUser) return null
+
+  const profile = await verifyGoogleIdToken(body.credential || body.idToken || body.token)
+  const googleOwner = await getUserRowByProvider('google', profile.providerId)
+
+  let moved = 0
+  if (googleOwner && googleOwner.id !== sessionUser.id) {
+    const transfer = await transferItemsToUser(googleOwner.id, sessionUser.id)
+    moved += transfer.moved
+    await deleteUserAccount(googleOwner.id)
+  }
+
+  // If Google email already belongs to another account, pull its stock too.
+  const emailOwner = profile.email ? await getUserRowByEmail(profile.email) : null
+  if (emailOwner && emailOwner.id !== sessionUser.id) {
+    const transfer = await transferItemsToUser(emailOwner.id, sessionUser.id)
+    moved += transfer.moved
+    await deleteUserAccount(emailOwner.id)
+  }
+
+  const user = await attachGoogleProvider(sessionUser.id, profile)
+  const items = await listItems(user.id)
+  return {
+    user: await startSession(res, user),
+    linked: true,
+    moved,
+    itemCount: items.length,
+  }
+}
+
+/** Merge a legacy email/password account into the current Google session. */
+async function handleMergeLegacy(req, res, body) {
+  const sessionUser = await requireUser(req, res)
+  if (!sessionUser) return null
+
+  const email = normalizeEmail(body.email || body.correo)
+  const password = String(body.password || body.contrasena || '')
+  if (!EMAIL_RE.test(email)) throw Object.assign(new Error('El correo no es válido'), { status: 400 })
+  if (!password) throw Object.assign(new Error('Falta la contraseña'), { status: 400 })
+
+  const row = await getUserRowByEmail(email)
+  if (!row || row.provider !== 'email') {
+    throw Object.assign(new Error('No encontramos una cuenta con correo y contraseña para ese email'), {
+      status: 404,
+    })
+  }
+  if (!(await verifyPassword(password, row.password_hash))) {
+    throw Object.assign(new Error('Correo o contraseña incorrectos'), { status: 401 })
+  }
+  if (row.id === sessionUser.id) {
+    const items = await listItems(sessionUser.id)
+    return { user: sessionUser, merged: false, moved: 0, itemCount: items.length }
+  }
+
+  const transfer = await transferItemsToUser(row.id, sessionUser.id)
+  await deleteUserAccount(row.id)
+  const items = await listItems(sessionUser.id)
+  return {
+    user: sessionUser,
+    merged: true,
+    moved: transfer.moved,
+    itemCount: items.length,
+  }
 }
 
 export default async function handler(req, res) {
@@ -214,7 +292,36 @@ export default async function handler(req, res) {
     if (body.provider === 'google') {
       const result = await handleGoogle(body)
       const user = await startSession(res, result.user)
-      send(res, 200, { user: publicUser(user) })
+      send(res, 200, {
+        user: publicUser(user),
+        linked: result.linked,
+        created: result.created,
+        itemCount: result.itemCount,
+      })
+      return
+    }
+
+    if (body.provider === 'link-google') {
+      const result = await handleLinkGoogle(req, res, body)
+      if (!result) return
+      send(res, 200, {
+        user: publicUser(result.user),
+        linked: true,
+        moved: result.moved,
+        itemCount: result.itemCount,
+      })
+      return
+    }
+
+    if (body.provider === 'merge-legacy') {
+      const result = await handleMergeLegacy(req, res, body)
+      if (!result) return
+      send(res, 200, {
+        user: publicUser(result.user),
+        merged: result.merged,
+        moved: result.moved,
+        itemCount: result.itemCount,
+      })
       return
     }
 
