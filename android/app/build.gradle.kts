@@ -15,6 +15,12 @@ android {
         versionCode = 3
         versionName = "1.2.0"
         buildConfigField("String", "API_BASE", "\"https://test-iota-two-49.vercel.app\"")
+        // Web OAuth client ID (same as GOOGLE_CLIENT_ID on the server). Override in local.properties if needed.
+        val googleClientId =
+            (project.findProperty("GOOGLE_WEB_CLIENT_ID") as String?)
+                ?.trim()
+                .orEmpty()
+        buildConfigField("String", "GOOGLE_WEB_CLIENT_ID", "\"$googleClientId\"")
     }
 
     buildTypes {
@@ -71,6 +77,10 @@ dependencies {
     implementation("androidx.camera:camera-lifecycle:1.4.0")
     implementation("androidx.camera:camera-view:1.4.0")
     implementation("com.google.mlkit:barcode-scanning:17.3.0")
+
+    implementation("androidx.credentials:credentials:1.3.0")
+    implementation("androidx.credentials:credentials-play-services-auth:1.3.0")
+    implementation("com.google.android.libraries.identity.googleid:googleid:1.1.1")
 
     debugImplementation("androidx.compose.ui:ui-tooling")
 }

@@ -1,12 +1,5 @@
-import { useState } from 'react'
-import {
-  loginWithEmail,
-  registerWithEmail,
-  requestPasswordReset,
-  resendCode,
-  resetPassword,
-  verifyEmail,
-} from './auth'
+import { useEffect, useRef, useState } from 'react'
+import { fetchAuthConfig, loginWithGoogle } from './auth'
 
 function IconMark() {
   return (
@@ -35,167 +28,123 @@ function IconMoon() {
   )
 }
 
-const emptyForm = {
-  firstName: '',
-  lastName: '',
-  email: '',
-  password: '',
-  confirmPassword: '',
+function IconGoogle() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path
+        fill="#EA4335"
+        d="M12 10.2v3.6h5.1c-.2 1.2-.9 2.3-1.9 3l3.1 2.4c1.8-1.7 2.9-4.1 2.9-7 0-.7-.1-1.3-.2-1.9H12z"
+      />
+      <path
+        fill="#34A853"
+        d="M6.6 14.3 5.8 14.9l-2.6 2c1.7 3.3 5.1 5.5 8.8 5.5 2.7 0 4.9-.9 6.5-2.4l-3.1-2.4c-.9.6-2 .9-3.4.9-2.6 0-4.8-1.7-5.6-4.1z"
+      />
+      <path
+        fill="#4A90E2"
+        d="M3.2 7.1C2.4 8.7 2 10.3 2 12s.4 3.3 1.2 4.9l3.4-2.6C6.2 13.4 6 12.7 6 12s.2-1.4.6-2L3.2 7.1z"
+      />
+      <path
+        fill="#FBBC05"
+        d="M12 5.8c1.4 0 2.7.5 3.7 1.4l2.8-2.8C16.9 2.9 14.7 2 12 2 8.3 2 4.9 4.2 3.2 7.1L6.6 9.7C7.4 7.3 9.6 5.8 12 5.8z"
+      />
+    </svg>
+  )
+}
+
+function loadGisScript() {
+  if (window.google?.accounts?.id) return Promise.resolve()
+  return new Promise((resolve, reject) => {
+    const existing = document.querySelector('script[data-google-gis="1"]')
+    if (existing) {
+      existing.addEventListener('load', () => resolve(), { once: true })
+      existing.addEventListener('error', () => reject(new Error('No se pudo cargar Google')), { once: true })
+      return
+    }
+    const script = document.createElement('script')
+    script.src = 'https://accounts.google.com/gsi/client'
+    script.async = true
+    script.defer = true
+    script.dataset.googleGis = '1'
+    script.onload = () => resolve()
+    script.onerror = () => reject(new Error('No se pudo cargar Google'))
+    document.head.appendChild(script)
+  })
 }
 
 export default function Login({ theme, setTheme, onLoggedIn }) {
-  const [mode, setMode] = useState('login')
-  const [form, setForm] = useState(emptyForm)
-  const [code, setCode] = useState('')
-  const [pendingEmail, setPendingEmail] = useState('')
+  const buttonRef = useRef(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
-  const [info, setInfo] = useState('')
+  const [googleClientId, setGoogleClientId] = useState('')
+  const [ready, setReady] = useState(false)
 
-  function update(field, value) {
-    setForm((prev) => ({ ...prev, [field]: value }))
-  }
-
-  function go(next) {
-    setMode(next)
-    setError('')
-    setInfo('')
-    setCode('')
-  }
-
-  async function handleLogin(event) {
-    event.preventDefault()
-    setBusy(true)
-    setError('')
-    try {
-      const data = await loginWithEmail(form.email, form.password)
-      if (data.needsVerification) {
-        setPendingEmail(data.email || form.email)
-        setMode('verify')
-        setCode('')
-        setError('')
-        setInfo('Confirmá tu correo para entrar')
-        return
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      try {
+        const config = await fetchAuthConfig()
+        if (cancelled) return
+        if (config.user) {
+          onLoggedIn(config.user)
+          return
+        }
+        setGoogleClientId(config.googleClientId || '')
+      } catch {
+        if (!cancelled) setError('No se pudo cargar el inicio de sesión')
       }
-      onLoggedIn(data.user)
-    } catch (err) {
-      setError(err?.message || 'No se pudo iniciar sesión')
-    } finally {
-      setBusy(false)
+    })()
+    return () => {
+      cancelled = true
     }
-  }
+  }, [onLoggedIn])
 
-  async function handleRegister(event) {
-    event.preventDefault()
-    setBusy(true)
-    setError('')
-    try {
-      const data = await registerWithEmail(form)
-      setPendingEmail(data.email || form.email)
-      if (data.code) {
-        setCode(String(data.code))
-        setInfo(`Tu código es ${data.code} (el correo de prueba de Resend no llega a otros destinatarios)`)
-      } else {
-        setInfo('Te mandamos un código al correo')
+  useEffect(() => {
+    if (!googleClientId || !buttonRef.current) return undefined
+    let cancelled = false
+
+    async function mountGoogle() {
+      try {
+        await loadGisScript()
+        if (cancelled || !window.google?.accounts?.id || !buttonRef.current) return
+
+        window.google.accounts.id.initialize({
+          client_id: googleClientId,
+          callback: async (response) => {
+            setBusy(true)
+            setError('')
+            try {
+              const user = await loginWithGoogle(response.credential)
+              onLoggedIn(user)
+            } catch (err) {
+              setError(err?.message || 'No se pudo iniciar sesión con Google')
+            } finally {
+              setBusy(false)
+            }
+          },
+          auto_select: false,
+          cancel_on_tap_outside: true,
+        })
+
+        buttonRef.current.innerHTML = ''
+        window.google.accounts.id.renderButton(buttonRef.current, {
+          theme: theme === 'dark' ? 'filled_black' : 'outline',
+          size: 'large',
+          shape: 'pill',
+          text: 'continue_with',
+          width: 320,
+          locale: 'es',
+        })
+        setReady(true)
+      } catch (err) {
+        if (!cancelled) setError(err?.message || 'No se pudo cargar Google')
       }
-      setMode('verify')
-    } catch (err) {
-      setError(err?.message || 'No se pudo crear la cuenta')
-    } finally {
-      setBusy(false)
     }
-  }
 
-  async function handleVerify(event) {
-    event.preventDefault()
-    setBusy(true)
-    setError('')
-    try {
-      const user = await verifyEmail(pendingEmail || form.email, code)
-      onLoggedIn(user)
-    } catch (err) {
-      setError(err?.message || 'No se pudo confirmar la cuenta')
-    } finally {
-      setBusy(false)
+    mountGoogle()
+    return () => {
+      cancelled = true
     }
-  }
-
-  async function handleResend() {
-    setBusy(true)
-    setError('')
-    try {
-      const data =
-        mode === 'reset'
-          ? await requestPasswordReset(pendingEmail || form.email)
-          : await resendCode(pendingEmail || form.email)
-      if (data?.code) {
-        setCode(String(data.code))
-        setInfo(`Tu código es ${data.code} (sandbox Resend)`)
-      } else {
-        setInfo('Te mandamos un código nuevo')
-      }
-    } catch (err) {
-      setError(err?.message || 'No se pudo reenviar el código')
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  async function handleForgot(event) {
-    event.preventDefault()
-    setBusy(true)
-    setError('')
-    try {
-      const data = await requestPasswordReset(form.email)
-      setPendingEmail(data.email || form.email)
-      setForm((prev) => ({ ...prev, password: '', confirmPassword: '' }))
-      if (data.code) {
-        setCode(String(data.code))
-        setInfo(`Tu código es ${data.code} (sandbox Resend)`)
-      } else {
-        setInfo('Te mandamos un código al correo')
-        setCode('')
-      }
-      setMode('reset')
-    } catch (err) {
-      setError(err?.message || 'No se pudo enviar el código')
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  async function handleReset(event) {
-    event.preventDefault()
-    if (form.password !== form.confirmPassword) {
-      setError('Las contraseñas no coinciden')
-      return
-    }
-    setBusy(true)
-    setError('')
-    try {
-      const user = await resetPassword({
-        email: pendingEmail || form.email,
-        code,
-        password: form.password,
-      })
-      onLoggedIn(user)
-    } catch (err) {
-      setError(err?.message || 'No se pudo restablecer la contraseña')
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  const title =
-    mode === 'register'
-      ? 'Creá tu cuenta'
-      : mode === 'verify'
-        ? 'Confirmá tu correo'
-        : mode === 'forgot'
-          ? 'Recuperá tu contraseña'
-          : mode === 'reset'
-            ? 'Nueva contraseña'
-            : 'Entrá para guardar tu inventario'
+  }, [googleClientId, theme, onLoggedIn])
 
   return (
     <div className="login-screen">
@@ -214,219 +163,29 @@ export default function Login({ theme, setTheme, onLoggedIn }) {
           </div>
           <div>
             <h1>Stockea</h1>
-            <p>{title}</p>
+            <p>Entrá con Google para guardar tu inventario</p>
           </div>
         </div>
 
-        {mode === 'login' && (
-          <form className="login-form" onSubmit={handleLogin}>
-            <label className="login-field">
-              Correo
-              <input
-                type="email"
-                autoComplete="email"
-                value={form.email}
-                onChange={(event) => update('email', event.target.value)}
-                required
-              />
-            </label>
-            <label className="login-field">
-              Contraseña
-              <input
-                type="password"
-                autoComplete="current-password"
-                value={form.password}
-                onChange={(event) => update('password', event.target.value)}
-                required
-              />
-            </label>
-            <button className="login-btn login-submit" type="submit" disabled={busy}>
-              Entrar
-            </button>
-            <button className="login-text-btn" type="button" onClick={() => go('forgot')}>
-              ¿Olvidaste tu contraseña?
-            </button>
-          </form>
-        )}
-
-        {mode === 'register' && (
-          <form className="login-form" onSubmit={handleRegister}>
-            <p className="login-copy">Completá tus datos. Te mandamos un código de 6 dígitos al correo para confirmar la cuenta.</p>
-            <div className="login-row">
-              <label className="login-field">
-                Nombre
-                <input
-                  type="text"
-                  autoComplete="given-name"
-                  value={form.firstName}
-                  onChange={(event) => update('firstName', event.target.value)}
-                  required
-                />
-              </label>
-              <label className="login-field">
-                Apellido
-                <input
-                  type="text"
-                  autoComplete="family-name"
-                  value={form.lastName}
-                  onChange={(event) => update('lastName', event.target.value)}
-                  required
-                />
-              </label>
-            </div>
-            <label className="login-field">
-              Correo
-              <input
-                type="email"
-                autoComplete="email"
-                value={form.email}
-                onChange={(event) => update('email', event.target.value)}
-                required
-              />
-            </label>
-            <label className="login-field">
-              Contraseña
-              <input
-                type="password"
-                autoComplete="new-password"
-                value={form.password}
-                onChange={(event) => update('password', event.target.value)}
-                minLength={8}
-                required
-              />
-            </label>
-            <button className="login-btn login-submit" type="submit" disabled={busy}>
-              Crear cuenta
-            </button>
-          </form>
-        )}
-
-        {mode === 'verify' && (
-          <form className="login-form" onSubmit={handleVerify}>
-            <p className="login-copy">
-              Mandamos un código a <strong>{pendingEmail || form.email}</strong>
+        <div className="login-google-wrap">
+          {!googleClientId ? (
+            <p className="login-error">
+              Falta configurar <code>GOOGLE_CLIENT_ID</code> en el servidor.
             </p>
-            <label className="login-field">
-              Código
-              <input
-                className="login-code"
-                inputMode="numeric"
-                autoComplete="one-time-code"
-                maxLength={6}
-                value={code}
-                onChange={(event) => setCode(event.target.value.replace(/\D/g, '').slice(0, 6))}
-                required
-              />
-            </label>
-            <button className="login-btn login-submit" type="submit" disabled={busy || code.length !== 6}>
-              Confirmar cuenta
-            </button>
-            <button className="login-text-btn" type="button" disabled={busy} onClick={handleResend}>
-              Reenviar código
-            </button>
-          </form>
-        )}
+          ) : (
+            <>
+              <div ref={buttonRef} className="login-google-btn" aria-label="Continuar con Google" />
+              {!ready && !error ? <p className="login-copy">Cargando Google…</p> : null}
+              <button className="login-btn login-google-fallback" type="button" disabled={!ready || busy} hidden>
+                <IconGoogle />
+                {busy ? 'Entrando…' : 'Continuar con Google'}
+              </button>
+            </>
+          )}
+        </div>
 
-        {mode === 'forgot' && (
-          <form className="login-form" onSubmit={handleForgot}>
-            <p className="login-copy">Ingresá el correo de tu cuenta. Te mandamos un código para crear una contraseña nueva.</p>
-            <label className="login-field">
-              Correo
-              <input
-                type="email"
-                autoComplete="email"
-                value={form.email}
-                onChange={(event) => update('email', event.target.value)}
-                required
-              />
-            </label>
-            <button className="login-btn login-submit" type="submit" disabled={busy}>
-              Enviar código
-            </button>
-          </form>
-        )}
-
-        {mode === 'reset' && (
-          <form className="login-form" onSubmit={handleReset}>
-            <p className="login-copy">
-              Mandamos un código a <strong>{pendingEmail || form.email}</strong>
-            </p>
-            <label className="login-field">
-              Código
-              <input
-                className="login-code"
-                inputMode="numeric"
-                autoComplete="one-time-code"
-                maxLength={6}
-                value={code}
-                onChange={(event) => setCode(event.target.value.replace(/\D/g, '').slice(0, 6))}
-                required
-              />
-            </label>
-            <label className="login-field">
-              Contraseña nueva
-              <input
-                type="password"
-                autoComplete="new-password"
-                value={form.password}
-                onChange={(event) => update('password', event.target.value)}
-                minLength={8}
-                required
-              />
-            </label>
-            <label className="login-field">
-              Repetir contraseña
-              <input
-                type="password"
-                autoComplete="new-password"
-                value={form.confirmPassword}
-                onChange={(event) => update('confirmPassword', event.target.value)}
-                minLength={8}
-                required
-              />
-            </label>
-            <button className="login-btn login-submit" type="submit" disabled={busy || code.length !== 6}>
-              Guardar contraseña
-            </button>
-            <button className="login-text-btn" type="button" disabled={busy} onClick={handleResend}>
-              Reenviar código
-            </button>
-          </form>
-        )}
-
-        {info ? <p className="login-info">{info}</p> : null}
+        {busy ? <p className="login-info">Conectando con Google…</p> : null}
         {error ? <p className="login-error">{error}</p> : null}
-
-        {mode === 'login' && (
-          <p className="login-switch">
-            ¿No tenés cuenta?{' '}
-            <button type="button" onClick={() => go('register')}>
-              Registrate
-            </button>
-          </p>
-        )}
-        {mode === 'register' && (
-          <p className="login-switch">
-            ¿Ya tenés cuenta?{' '}
-            <button type="button" onClick={() => go('login')}>
-              Entrá
-            </button>
-          </p>
-        )}
-        {mode === 'verify' && (
-          <p className="login-switch">
-            <button type="button" onClick={() => go('login')}>
-              Volver al inicio
-            </button>
-          </p>
-        )}
-        {(mode === 'forgot' || mode === 'reset') && (
-          <p className="login-switch">
-            <button type="button" onClick={() => go('login')}>
-              Volver al inicio
-            </button>
-          </p>
-        )}
       </section>
     </div>
   )

@@ -10,7 +10,7 @@ import {
   weekdayLabel,
 } from './discounts'
 import { deleteRemoteItem, fetchRemoteItems, upsertRemoteItem } from './itemsApi'
-import { changePassword, fetchMe, logout as logoutRequest, updateProfile as saveProfile } from './auth'
+import { fetchMe, logout as logoutRequest, updateProfile as saveProfile } from './auth'
 import { getCameraStream, releaseCameraStream } from './camera'
 import Login from './Login.jsx'
 
@@ -1158,14 +1158,10 @@ function App() {
   const [toast, setToast] = useState('')
   const [openMenu, setOpenMenu] = useState(null)
   const [collapsed, setCollapsed] = useState({})
-  const [passwordModal, setPasswordModal] = useState(false)
   const [deleteBusy, setDeleteBusy] = useState(false)
   const [profileForm, setProfileForm] = useState({ firstName: '', lastName: '', email: '' })
   const [profileError, setProfileError] = useState('')
   const [profileBusy, setProfileBusy] = useState(false)
-  const [passwordForm, setPasswordForm] = useState({ currentPassword: '', newPassword: '', confirmPassword: '' })
-  const [passwordError, setPasswordError] = useState('')
-  const [passwordBusy, setPasswordBusy] = useState(false)
   const [storeQuery, setStoreQuery] = useState('')
   const [storeResults, setStoreResults] = useState({ coto: [], carrefour: [], dia: [], errors: {} })
   const [storeTab, setStoreTab] = useState('coto')
@@ -1822,7 +1818,6 @@ function App() {
     setOpenMenu(null)
     setModal(null)
     setPendingDelete(null)
-    setPasswordModal(false)
     closeScanner()
     setMainView('stock')
     setCartRemoved(new Set())
@@ -1831,13 +1826,6 @@ function App() {
     dirtyIdsRef.current = new Map()
     setItems([])
     setUser(null)
-  }
-
-  function openPasswordModal() {
-    setOpenMenu(null)
-    setPasswordError('')
-    setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' })
-    setPasswordModal(true)
   }
 
   function toggleGroup(name) {
@@ -1856,28 +1844,6 @@ function App() {
       setProfileError(err?.message || 'No se pudo guardar el perfil')
     } finally {
       setProfileBusy(false)
-    }
-  }
-
-  async function handleChangePassword(event) {
-    event.preventDefault()
-    if (passwordForm.newPassword !== passwordForm.confirmPassword) {
-      setPasswordError('Las contraseñas no coinciden')
-      return
-    }
-    setPasswordBusy(true)
-    setPasswordError('')
-    try {
-      await changePassword({
-        currentPassword: passwordForm.currentPassword,
-        newPassword: passwordForm.newPassword,
-      })
-      setPasswordModal(false)
-      showToast('Contraseña actualizada')
-    } catch (err) {
-      setPasswordError(err?.message || 'No se pudo cambiar la contraseña')
-    } finally {
-      setPasswordBusy(false)
     }
   }
 
@@ -2517,7 +2483,7 @@ function App() {
 
   return (
     <div
-      className={`app ${modal || scanning || passwordModal || pendingDelete || cartOpen ? 'is-overlay' : ''} ${
+      className={`app ${modal || scanning || pendingDelete || cartOpen ? 'is-overlay' : ''} ${
         chromeHidden ? 'chrome-hidden' : ''
       } view-${mainView}`}
     >
@@ -2975,9 +2941,6 @@ function App() {
           </form>
 
           <div className="profile-actions">
-            <button className="btn btn-ghost" type="button" onClick={openPasswordModal}>
-              Cambiar contraseña
-            </button>
             <button className="btn btn-danger" type="button" onClick={handleLogout}>
               <IconLogout />
               Cerrar sesión
@@ -3679,56 +3642,6 @@ function App() {
               </button>
             </div>
           </div>
-        </div>
-      )}
-
-      {passwordModal && (
-        <div className="overlay overlay-dialog">
-          <form className="modal password-modal" onSubmit={handleChangePassword}>
-            <h2>Cambiar contraseña</h2>
-            <p className="lead">Ingresá tu contraseña actual y la nueva.</p>
-            <label className="field full">
-              <span>Contraseña actual</span>
-              <input
-                type="password"
-                autoComplete="current-password"
-                value={passwordForm.currentPassword}
-                onChange={(event) => setPasswordForm((prev) => ({ ...prev, currentPassword: event.target.value }))}
-                required
-              />
-            </label>
-            <label className="field full">
-              <span>Contraseña nueva</span>
-              <input
-                type="password"
-                autoComplete="new-password"
-                value={passwordForm.newPassword}
-                onChange={(event) => setPasswordForm((prev) => ({ ...prev, newPassword: event.target.value }))}
-                minLength={8}
-                required
-              />
-            </label>
-            <label className="field full">
-              <span>Repetir contraseña</span>
-              <input
-                type="password"
-                autoComplete="new-password"
-                value={passwordForm.confirmPassword}
-                onChange={(event) => setPasswordForm((prev) => ({ ...prev, confirmPassword: event.target.value }))}
-                minLength={8}
-                required
-              />
-            </label>
-            {passwordError ? <p className="error">{passwordError}</p> : null}
-            <div className="modal-actions">
-              <button className="btn btn-ghost" type="button" onClick={() => setPasswordModal(false)} disabled={passwordBusy}>
-                Cancelar
-              </button>
-              <button className="btn btn-primary" type="submit" disabled={passwordBusy}>
-                Guardar
-              </button>
-            </div>
-          </form>
         </div>
       )}
 
