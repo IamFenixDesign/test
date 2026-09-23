@@ -19,9 +19,32 @@
       content="width=device-width, initial-scale=1.0, viewport-fit=cover"
     />
     <title>Stockea — Control de stock</title>
+    <style>
+      /* First paint before CSS bundles: avoid solid black/white under the home indicator */
+      html.is-login,
+      html.is-login body,
+      html.is-login #root {
+        margin: 0;
+        min-height: 100%;
+        min-height: 100dvh;
+        background-color: #0b0d0c;
+        background-image: linear-gradient(158deg, #1a1f14 0%, #0b0d0c 48%, #101412 100%);
+        background-repeat: no-repeat;
+        background-size: 100% 100%;
+      }
+      html.is-login[data-theme='light'],
+      html.is-login[data-theme='light'] body,
+      html.is-login[data-theme='light'] #root {
+        background-color: #f2f5ee;
+        background-image: linear-gradient(158deg, #e8efe3 0%, #f2f5ee 46%, #eef4ea 100%);
+      }
+    </style>
     <script>
       document.documentElement.dataset.theme =
         localStorage.getItem('stockly-theme') === 'light' ? 'light' : 'dark'
+      // Cold start / Safari / PWA: paint login gradient before React hydrates.
+      // App removes `is-login` once a session user is confirmed.
+      document.documentElement.classList.add('is-login')
 
       function syncAppHeight() {
         // iOS/Android PWA: visualViewport can be shorter than the layout

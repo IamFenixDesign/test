@@ -37,13 +37,6 @@ export default function Login({ theme, setTheme, onLoggedIn }) {
   const [configReady, setConfigReady] = useState(false)
 
   useEffect(() => {
-    document.documentElement.classList.add('is-login')
-    return () => {
-      document.documentElement.classList.remove('is-login')
-    }
-  }, [])
-
-  useEffect(() => {
     let cancelled = false
     ;(async () => {
       try {
