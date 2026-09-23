@@ -1,22 +1,25 @@
 package app.stockea.android.ui.screens
 
-import android.app.Activity
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.DarkMode
 import androidx.compose.material.icons.outlined.LightMode
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -46,6 +49,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import app.stockea.android.auth.GoogleSignInResult
+import app.stockea.android.auth.findActivity
 import app.stockea.android.auth.requestGoogleIdToken
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -161,6 +165,7 @@ fun LoginScreen(
     var clientId by remember { mutableStateOf("") }
     var localError by remember { mutableStateOf("") }
     var loadingClient by remember { mutableStateOf(true) }
+    var signingIn by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
         loadingClient = true
@@ -173,7 +178,8 @@ fun LoginScreen(
     }
 
     fun signIn() {
-        val activity = context as? Activity
+        if (signingIn || busy) return
+        val activity = context.findActivity()
         if (activity == null) {
             localError = "No se pudo abrir Google Sign-In"
             return
@@ -183,18 +189,26 @@ fun LoginScreen(
             return
         }
         scope.launch {
+            signingIn = true
             localError = ""
-            when (val result = requestGoogleIdToken(context, activity, clientId)) {
-                is GoogleSignInResult.Success -> onGoogleCredential(result.idToken)
-                GoogleSignInResult.Cancelled -> localError = ""
-                is GoogleSignInResult.Error -> localError = result.message
+            try {
+                when (val result = requestGoogleIdToken(context, activity, clientId)) {
+                    is GoogleSignInResult.Success -> onGoogleCredential(result.idToken)
+                    GoogleSignInResult.Cancelled -> localError = "Inicio de sesión cancelado"
+                    is GoogleSignInResult.Error -> localError = result.message
+                }
+            } finally {
+                signingIn = false
             }
         }
     }
 
     val scheme = MaterialTheme.colorScheme
     val brandColor = if (darkTheme) Color.White else scheme.onBackground
-    val canSignIn = !busy && !loadingClient && clientId.isNotBlank()
+    val waiting = busy || signingIn || loadingClient
+    val canSignIn = !waiting && clientId.isNotBlank()
+    val accent = scheme.primary
+    val mint = scheme.secondary
 
     Box(
         modifier = Modifier
@@ -202,9 +216,9 @@ fun LoginScreen(
             .background(
                 Brush.verticalGradient(
                     listOf(
-                        scheme.background,
-                        scheme.surface.copy(alpha = 0.55f),
-                        scheme.background,
+                        if (darkTheme) Color(0xFF0B0D0C) else Color(0xFFF2F5EE),
+                        if (darkTheme) Color(0xFF121714) else Color(0xFFE8EFE0),
+                        if (darkTheme) Color(0xFF0B0D0C) else Color(0xFFF2F5EE),
                     ),
                 ),
             ),
@@ -212,20 +226,24 @@ fun LoginScreen(
         Box(
             modifier = Modifier
                 .align(Alignment.TopStart)
-                .padding(top = 48.dp)
-                .size(220.dp)
+                .padding(top = 24.dp)
+                .size(280.dp)
                 .background(
-                    Brush.radialGradient(listOf(scheme.primary.copy(alpha = 0.28f), Color.Transparent)),
+                    Brush.radialGradient(
+                        listOf(accent.copy(alpha = if (darkTheme) 0.32f else 0.38f), Color.Transparent),
+                    ),
                     RoundedCornerShape(999.dp),
                 ),
         )
         Box(
             modifier = Modifier
                 .align(Alignment.BottomEnd)
-                .padding(bottom = 80.dp)
-                .size(200.dp)
+                .padding(bottom = 48.dp)
+                .size(240.dp)
                 .background(
-                    Brush.radialGradient(listOf(scheme.secondary.copy(alpha = 0.22f), Color.Transparent)),
+                    Brush.radialGradient(
+                        listOf(mint.copy(alpha = if (darkTheme) 0.26f else 0.22f), Color.Transparent),
+                    ),
                     RoundedCornerShape(999.dp),
                 ),
         )
@@ -235,7 +253,7 @@ fun LoginScreen(
             modifier = Modifier
                 .align(Alignment.TopEnd)
                 .statusBarsPadding()
-                .padding(top = 8.dp, end = 12.dp),
+                .padding(top = 4.dp, end = 8.dp),
         ) {
             Icon(
                 if (darkTheme) Icons.Outlined.LightMode else Icons.Outlined.DarkMode,
@@ -248,54 +266,77 @@ fun LoginScreen(
             modifier = Modifier
                 .align(Alignment.Center)
                 .fillMaxWidth()
-                .padding(horizontal = 28.dp),
+                .widthIn(max = 420.dp)
+                .padding(horizontal = 28.dp)
+                .navigationBarsPadding(),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+            verticalArrangement = Arrangement.spacedBy(0.dp),
         ) {
-            // Logo solo: cubo a color sobre fondo oscuro (como favicon / .logo web)
             Box(
                 modifier = Modifier
-                    .size(88.dp)
-                    .shadow(18.dp, RoundedCornerShape(22.dp), clip = false)
-                    .clip(RoundedCornerShape(22.dp))
-                    .background(Color(0xFF0B0D0C)),
+                    .size(92.dp)
+                    .shadow(22.dp, RoundedCornerShape(26.dp), clip = false)
+                    .clip(RoundedCornerShape(26.dp))
+                    .background(
+                        Brush.linearGradient(
+                            listOf(accent, Color(0xFFA8D63A), mint),
+                        ),
+                    ),
                 contentAlignment = Alignment.Center,
             ) {
-                StockeaLogoMark(modifier = Modifier.size(52.dp))
+                StockeaLogoMark(modifier = Modifier.size(48.dp))
             }
+
             Text(
                 "Stockea",
+                modifier = Modifier.padding(top = 18.dp),
                 color = brandColor,
                 style = MaterialTheme.typography.displaySmall,
                 fontWeight = FontWeight.ExtraBold,
-                letterSpacing = (-1.5).sp,
+                letterSpacing = (-1.8).sp,
+                textAlign = TextAlign.Center,
             )
             Text(
                 "Tu stock, al día",
+                modifier = Modifier.padding(top = 8.dp),
                 color = scheme.onSurfaceVariant,
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.SemiBold,
+                textAlign = TextAlign.Center,
             )
             Text(
                 "Precios de súper y alertas en un solo lugar.",
-                color = scheme.onSurfaceVariant.copy(alpha = 0.8f),
+                modifier = Modifier.padding(top = 6.dp),
+                color = scheme.onSurfaceVariant.copy(alpha = 0.82f),
                 textAlign = TextAlign.Center,
                 style = MaterialTheme.typography.bodyMedium,
             )
 
             if (info.isNotBlank()) {
-                Text(info, color = scheme.secondary, textAlign = TextAlign.Center)
+                Text(
+                    info,
+                    modifier = Modifier.padding(top = 14.dp),
+                    color = mint,
+                    textAlign = TextAlign.Center,
+                    style = MaterialTheme.typography.bodySmall,
+                )
             }
             val shownError = localError.ifBlank { error }
             if (shownError.isNotBlank()) {
-                Text(shownError, color = scheme.error, textAlign = TextAlign.Center)
+                Text(
+                    shownError,
+                    modifier = Modifier.padding(top = 14.dp),
+                    color = scheme.error,
+                    textAlign = TextAlign.Center,
+                    style = MaterialTheme.typography.bodySmall,
+                )
             }
 
             Box(
                 modifier = Modifier
-                    .padding(top = 16.dp)
-                    .size(64.dp)
-                    .shadow(10.dp, CircleShape, clip = false)
+                    .padding(top = 36.dp)
+                    .size(68.dp)
+                    .shadow(12.dp, CircleShape, clip = false)
                     .clip(CircleShape)
                     .background(Color.White)
                     .semantics {
@@ -305,17 +346,27 @@ fun LoginScreen(
                     .clickable(enabled = canSignIn, onClick = { signIn() }),
                 contentAlignment = Alignment.Center,
             ) {
-                if (busy || loadingClient) {
-                    Text(
-                        "…",
+                if (waiting) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(26.dp),
+                        strokeWidth = 2.5.dp,
                         color = Color(0xFF4285F4),
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 22.sp,
                     )
                 } else {
-                    GoogleMark(modifier = Modifier.size(28.dp))
+                    GoogleMark(modifier = Modifier.size(30.dp))
                 }
             }
+
+            if (busy || signingIn) {
+                Text(
+                    "Entrando…",
+                    modifier = Modifier.padding(top = 12.dp),
+                    color = scheme.onSurfaceVariant,
+                    style = MaterialTheme.typography.bodySmall,
+                )
+            }
+
+            Box(modifier = Modifier.height(24.dp))
         }
     }
 }
