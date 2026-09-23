@@ -344,6 +344,50 @@
   width: min(100%, 320px);
 }
 
+.gsi-shell-icon,
+.login-gsi-icon {
+  width: 64px;
+  height: 64px;
+  min-height: 64px;
+  max-width: 64px;
+  margin: 0 auto;
+  border-radius: 999px;
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+}
+
+.gsi-face-icon {
+  width: 64px;
+  height: 64px;
+  min-height: 64px;
+  padding: 0;
+  gap: 0;
+  border-radius: 999px;
+  background: #fff;
+  border: 1px solid rgba(15, 23, 18, 0.1);
+  box-shadow:
+    0 1px 2px rgba(15, 23, 18, 0.06),
+    0 12px 28px color-mix(in srgb, var(--accent) 14%, transparent);
+}
+
+.gsi-shell-icon.gsi-shell-dark .gsi-face-icon {
+  background: #fff;
+  border-color: rgba(232, 240, 228, 0.18);
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.35),
+    0 14px 32px rgba(0, 0, 0, 0.35);
+}
+
+.gsi-face-icon .gsi-glyph {
+  width: 28px;
+  height: 28px;
+}
+
+.gsi-shell-icon .gsi-hit {
+  border-radius: 999px;
+}
+
 .gsi-face {
   display: flex;
   align-items: center;
@@ -1389,9 +1433,9 @@ html[data-theme='dark'] #credential_picker_container {
 
 .login-cta {
   width: min(100%, 320px);
-  margin-top: 18px;
+  margin-top: 22px;
   display: grid;
-  gap: 10px;
+  gap: 12px;
   justify-items: center;
   animation: login-rise 0.85s ease-out 0.28s both;
 }

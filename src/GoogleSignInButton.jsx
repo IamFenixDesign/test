@@ -45,8 +45,9 @@ function loadGisScript() {
 
 /**
  * Google Sign-In control.
- * - variant="custom": branded face + invisible GIS hit (Profile / Unir).
- * - variant="native": visible GIS button so "Continuar como…" + logo adapt with theme.
+ * - variant="icon": solo logo Google (login).
+ * - variant="custom": logo + texto (Perfil / Unir).
+ * - variant="native": botón GIS visible.
  */
 export default function GoogleSignInButton({
   clientId,
@@ -63,6 +64,7 @@ export default function GoogleSignInButton({
   const [ready, setReady] = useState(false)
   const [error, setError] = useState('')
   const onCredentialRef = useRef(onCredential)
+  const isIcon = variant === 'icon'
 
   useEffect(() => {
     onCredentialRef.current = onCredential
@@ -86,23 +88,32 @@ export default function GoogleSignInButton({
           cancel_on_tap_outside: true,
           context: 'signin',
           itp_support: true,
-          use_fedcm_for_prompt: true,
         })
 
-        const width = Math.min(
-          400,
-          Math.max(260, Math.floor(wrapRef.current?.getBoundingClientRect().width || 320)),
-        )
         hitRef.current.innerHTML = ''
-        window.google.accounts.id.renderButton(hitRef.current, {
-          theme: theme === 'dark' ? 'filled_black' : 'outline',
-          size: 'large',
-          shape: 'pill',
-          text: 'continue_with',
-          logo_alignment: 'left',
-          width,
-          locale: 'es',
-        })
+        if (isIcon) {
+          window.google.accounts.id.renderButton(hitRef.current, {
+            type: 'icon',
+            theme: theme === 'dark' ? 'filled_black' : 'outline',
+            size: 'large',
+            shape: 'circle',
+            locale: 'es',
+          })
+        } else {
+          const width = Math.min(
+            400,
+            Math.max(260, Math.floor(wrapRef.current?.getBoundingClientRect().width || 320)),
+          )
+          window.google.accounts.id.renderButton(hitRef.current, {
+            theme: theme === 'dark' ? 'filled_black' : 'outline',
+            size: 'large',
+            shape: 'pill',
+            text: 'continue_with',
+            logo_alignment: 'left',
+            width,
+            locale: 'es',
+          })
+        }
 
         if (showPrompt && !cancelled) {
           try {
@@ -130,7 +141,7 @@ export default function GoogleSignInButton({
         /* ignore */
       }
     }
-  }, [clientId, theme, disabled, showPrompt])
+  }, [clientId, theme, disabled, showPrompt, isIcon])
 
   if (!clientId) {
     return <p className="error">Falta GOOGLE_CLIENT_ID en el servidor.</p>
@@ -138,7 +149,7 @@ export default function GoogleSignInButton({
 
   const shellClass = [
     'gsi-shell',
-    variant === 'native' ? 'gsi-shell-native' : 'gsi-shell-custom',
+    isIcon ? 'gsi-shell-icon' : variant === 'native' ? 'gsi-shell-native' : 'gsi-shell-custom',
     theme === 'dark' ? 'gsi-shell-dark' : 'gsi-shell-light',
     className,
   ]
@@ -153,10 +164,10 @@ export default function GoogleSignInButton({
       data-disabled={disabled ? '1' : '0'}
       data-variant={variant}
     >
-      {variant === 'custom' ? (
-        <div className="gsi-face" aria-hidden="true">
+      {variant === 'custom' || isIcon ? (
+        <div className={`gsi-face${isIcon ? ' gsi-face-icon' : ''}`} aria-hidden="true">
           <GoogleGlyph />
-          <span>{label}</span>
+          {!isIcon ? <span>{label}</span> : null}
         </div>
       ) : null}
       <div
@@ -164,7 +175,6 @@ export default function GoogleSignInButton({
         className={variant === 'native' ? 'gsi-native-hit' : 'gsi-hit'}
         aria-label={label}
       />
-      {!ready && !error ? <p className="gsi-status">Cargando Google…</p> : null}
       {error ? <p className="error">{error}</p> : null}
     </div>
   )
