@@ -211,10 +211,33 @@ export async function upsertUser(profile) {
 
   const byEmail = email ? await getUserRowByEmail(email) : null
   if (byEmail) {
-    if (byEmail.provider === 'email') {
-      throw new Error('Ya hay una cuenta con ese correo. Entrá con tu contraseña')
-    }
-    throw new Error('Ya hay una cuenta con ese correo')
+    // Migrate / link existing email accounts when signing in with Google.
+    await getSql()`
+      UPDATE stockly_users
+      SET email = ${email},
+          name = ${name || byEmail.name || ''},
+          first_name = ${firstName || byEmail.first_name || ''},
+          last_name = ${lastName || byEmail.last_name || ''},
+          picture = ${picture || byEmail.picture || ''},
+          provider = ${profile.provider},
+          provider_id = ${profile.providerId},
+          email_verified = true,
+          password_hash = NULL,
+          verify_code_hash = NULL,
+          verify_code_expires = NULL
+      WHERE id = ${byEmail.id}::uuid
+    `
+    return rowToUser({
+      ...byEmail,
+      email,
+      name: name || byEmail.name || '',
+      first_name: firstName || byEmail.first_name || '',
+      last_name: lastName || byEmail.last_name || '',
+      picture: picture || byEmail.picture || '',
+      provider: profile.provider,
+      provider_id: profile.providerId,
+      email_verified: true,
+    })
   }
 
   const id = crypto.randomUUID()
