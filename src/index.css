@@ -77,11 +77,23 @@ body,
   min-height: 100%;
   min-height: 100dvh;
   min-height: 100svh;
+  height: 100%;
+  background-color: var(--bg);
   background: var(--bg);
 }
 
 html {
   -webkit-text-size-adjust: 100%;
+}
+
+/* iOS PWA: el webview deja una franja negra si el alto no llena el visual viewport */
+html.is-pwa,
+html.is-pwa body,
+html.is-pwa #root {
+  height: 100%;
+  min-height: 100%;
+  min-height: -webkit-fill-available;
+  overscroll-behavior: none;
 }
 
 body {
