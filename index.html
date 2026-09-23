@@ -24,12 +24,15 @@
         localStorage.getItem('stockly-theme') === 'light' ? 'light' : 'dark'
 
       function syncAppHeight() {
-        var h =
-          (window.visualViewport && window.visualViewport.height) ||
-          window.innerHeight ||
-          document.documentElement.clientHeight
+        // iOS/Android PWA: visualViewport can be shorter than the layout
+        // viewport (home-indicator / system chrome). Always take the max so
+        // full-bleed layers never leave a black/white gap at the bottom.
+        var vv = window.visualViewport ? window.visualViewport.height : 0
+        var ih = window.innerHeight || 0
+        var ch = document.documentElement.clientHeight || 0
+        var h = Math.max(vv || 0, ih, ch)
         if (h > 0) {
-          document.documentElement.style.setProperty('--app-height', h + 'px')
+          document.documentElement.style.setProperty('--app-height', Math.round(h) + 'px')
         }
       }
 
