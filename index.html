@@ -6,8 +6,7 @@
     <link rel="icon" type="image/png" sizes="32x32" href="./favicon-32.png?v=1.1.0" />
     <link rel="apple-touch-icon" sizes="180x180" href="./apple-touch-icon.png?v=1.1.0" />
     <link rel="manifest" href="./manifest.webmanifest?v=1.1.0" />
-    <meta name="theme-color" content="#243018" media="(prefers-color-scheme: dark)" />
-    <meta name="theme-color" content="#d7e7a4" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#243018" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
@@ -43,20 +42,33 @@
     <script>
       document.documentElement.dataset.theme =
         localStorage.getItem('stockly-theme') === 'light' ? 'light' : 'dark'
-      // Cold start / Safari / PWA: paint login gradient before React hydrates.
-      // App removes `is-login` once a session user is confirmed.
       document.documentElement.classList.add('is-login')
+
+      function setThemeColor(color) {
+        var nodes = document.querySelectorAll('meta[name="theme-color"]')
+        for (var i = nodes.length - 1; i >= 0; i--) nodes[i].parentNode.removeChild(nodes[i])
+        var meta = document.createElement('meta')
+        meta.setAttribute('name', 'theme-color')
+        meta.setAttribute('content', color)
+        document.head.appendChild(meta)
+      }
 
       function syncThemeChrome() {
         var root = document.documentElement
         var login = root.classList.contains('is-login')
         var light = root.dataset.theme === 'light'
         var color = login ? (light ? '#d7e7a4' : '#243018') : light ? '#f2f5ee' : '#0b0d0c'
-        document.querySelectorAll('meta[name="theme-color"]').forEach(function (el) {
-          el.removeAttribute('media')
-          el.setAttribute('content', color)
-        })
+        setThemeColor(color)
+        var appleBar = document.querySelector('meta[name="apple-mobile-web-app-status-bar-style"]')
+        if (appleBar) {
+          var standalone =
+            root.classList.contains('is-pwa') || window.navigator.standalone === true
+          appleBar.setAttribute('content', standalone ? 'black-translucent' : 'default')
+        }
       }
+
+      syncThemeChrome()
+      window.setThemeColor = setThemeColor
 
       function isIosBrowser() {
         var ua = navigator.userAgent || ''

@@ -1264,11 +1264,19 @@ html[data-theme='dark'] #credential_picker_container {
   z-index: 0;
   left: 0;
   right: 0;
-  top: -40vmax;
-  bottom: -40vmax;
+  /* Poco overshoot: el verde/lima de arriba queda bajo la hora y la batería. */
+  top: -72px;
+  bottom: -56px;
   pointer-events: none;
   background-color: #000000;
-  background-image: linear-gradient(180deg, #243018 0%, #243018 22%, #141a10 48%, #0b0d0c 92%, #000000 100%);
+  background-image: linear-gradient(
+    180deg,
+    #243018 0,
+    #243018 168px,
+    #141a10 46%,
+    #0b0d0c 88%,
+    #000000 100%
+  );
 }
 
 .login-bleed::after {
@@ -1285,12 +1293,26 @@ html[data-theme='dark'] #credential_picker_container {
 
 html[data-theme='light'] .login-bleed {
   background-color: #ffffff;
-  background-image: linear-gradient(180deg, #d7e7a4 0%, #d7e7a4 22%, #e7efd4 48%, #f3f6ee 92%, #ffffff 100%);
+  background-image: linear-gradient(
+    180deg,
+    #d7e7a4 0,
+    #d7e7a4 168px,
+    #e7efd4 46%,
+    #f3f6ee 88%,
+    #ffffff 100%
+  );
 }
 
 html[data-theme='dark'] .login-bleed {
   background-color: #000000;
-  background-image: linear-gradient(180deg, #243018 0%, #243018 22%, #141a10 48%, #0b0d0c 92%, #000000 100%);
+  background-image: linear-gradient(
+    180deg,
+    #243018 0,
+    #243018 168px,
+    #141a10 46%,
+    #0b0d0c 88%,
+    #000000 100%
+  );
 }
 
 @keyframes login-drift {
