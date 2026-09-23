@@ -27,8 +27,8 @@ const STORAGE_KEY = 'stockly-items-v2'
 const THEME_KEY = 'stockly-theme'
 const CATEGORIES = ['Alimentos', 'Bebidas', 'Limpieza', 'Papelería', 'Insumos']
 const FILTER_CATEGORIES = ['Todo', ...CATEGORIES]
-const SYNC_MS = 2500
-const DIRTY_MS = 2500
+const SYNC_MS = 800
+const DIRTY_MS = 1200
 /** Evita disparos duplicados (focus + visibility); el refresh es al instante al usar la app. */
 const PRICE_REFRESH_MS = 2 * 1000
 /** Mientras la app está visible, vuelve a consultar supers cada minuto. */
@@ -1463,18 +1463,21 @@ function App() {
           return next
         })
       }
+      // Cualquier cambio en otra pestaña/dispositivo → pull inmediato
       pullRemote()
     }
 
     pullRemote()
     const timer = window.setInterval(pullRemote, SYNC_MS)
     window.addEventListener('focus', pullRemote)
+    window.addEventListener('online', pullRemote)
     document.addEventListener('visibilitychange', pullRemote)
     syncChannel?.addEventListener('message', onBroadcast)
     return () => {
       cancelled = true
       window.clearInterval(timer)
       window.removeEventListener('focus', pullRemote)
+      window.removeEventListener('online', pullRemote)
       document.removeEventListener('visibilitychange', pullRemote)
       syncChannel?.removeEventListener('message', onBroadcast)
     }
@@ -1892,6 +1895,11 @@ function App() {
     writeLocalItems(accountUser.id, next)
     await Promise.all(deviceItems.map((item) => upsertRemoteItem(item)))
     clearDeviceStockCaches(accountUser.id)
+    try {
+      syncChannel?.postMessage({ type: 'changed' })
+    } catch {
+      /* ignore */
+    }
     if (toast && (added > 0 || updated > 0)) {
       showToast(`Stock sincronizado: ${added} nuevos, ${updated} actualizados`)
     }
@@ -1976,6 +1984,11 @@ function App() {
       setItems(next)
       writeLocalItems(user?.id, next)
       await Promise.all(normalized.map((item) => upsertRemoteItem(item)))
+      try {
+        syncChannel?.postMessage({ type: 'changed' })
+      } catch {
+        /* ignore */
+      }
       showToast(`Importado: ${added} nuevos, ${updated} actualizados`)
     } catch (err) {
       showToast(err?.message || 'No se pudo importar la lista')
@@ -1987,7 +2000,9 @@ function App() {
   function persistItem(item) {
     if (!item?.id || deletedIdsRef.current.has(item.id)) return
     dirtyIdsRef.current.set(item.id, Date.now())
-    upsertRemoteItem(item)
+    upsertRemoteItem(item).then((ok) => {
+      if (ok) syncChannel?.postMessage({ type: 'changed', id: item.id })
+    })
   }
 
   function updateQty(id, next) {
@@ -3027,7 +3042,7 @@ function App() {
           )}
         </section>
       ) : (
-        <section className="panel profile-panel">
+        <section className={`panel profile-panel${user.provider !== 'google' ? ' can-link' : ''}`}>
           <div className="profile-hero">
             {user.picture ? (
               <img className="profile-avatar" src={user.picture} alt="" referrerPolicy="no-referrer" />
@@ -3045,31 +3060,24 @@ function App() {
             </div>
           </div>
 
-          <div className="profile-transfer profile-google-sync">
-            <h3>Unir cuenta</h3>
-            {user.provider === 'google' ? (
+          {user.provider !== 'google' ? (
+            <div className="profile-transfer profile-google-sync">
+              <h3>Unir cuenta</h3>
               <p>
-                Tu cuenta ya está vinculada a Google. El stock de este dispositivo y de otras
-                sesiones con el mismo Google se sincroniza solo al entrar.
+                Tocá el botón para entrar con Google. Si ya tenés una cuenta Stockea con ese Google,
+                unimos el inventario automáticamente.
               </p>
-            ) : (
-              <>
-                <p>
-                  Tocá el botón para entrar con Google. Si ya tenés una cuenta Stockea con ese
-                  Google, unimos el inventario automáticamente.
-                </p>
-                {linkBusy ? <p className="login-info">Uniendo y sincronizando…</p> : null}
-                <GoogleSignInButton
-                  className="profile-gsi"
-                  clientId={googleClientId}
-                  theme={theme}
-                  label="Unir con Google"
-                  disabled={linkBusy}
-                  onCredential={handleUnifyGoogleCredential}
-                />
-              </>
-            )}
-          </div>
+              {linkBusy ? <p className="login-info">Uniendo y sincronizando…</p> : null}
+              <GoogleSignInButton
+                className="profile-gsi"
+                clientId={googleClientId}
+                theme={theme}
+                label="Unir con Google"
+                disabled={linkBusy}
+                onCredential={handleUnifyGoogleCredential}
+              />
+            </div>
+          ) : null}
 
           <form className="profile-form" onSubmit={handleSaveProfile}>
             <label className="field full">
