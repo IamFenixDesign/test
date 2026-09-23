@@ -1229,7 +1229,8 @@ function App() {
     document.documentElement.dataset.theme = theme
     localStorage.setItem(THEME_KEY, theme)
 
-    // Safari pinta hora/batería con theme-color. En login usa el verde de arriba.
+    // Safari pinta hora/batería con theme-color. Hay que reemplazar el meta:
+    // cambiar solo content no actualiza la barra en iOS.
     const onLogin = document.documentElement.classList.contains('is-login')
     const color = onLogin
       ? theme === 'dark'
@@ -1238,14 +1239,19 @@ function App() {
       : theme === 'dark'
         ? '#0b0d0c'
         : '#f2f5ee'
-    document.querySelectorAll('meta[name="theme-color"]').forEach((el) => {
-      el.removeAttribute('media')
-      el.setAttribute('content', color)
-    })
+    if (window.setThemeColor) window.setThemeColor(color)
+    else {
+      document.querySelectorAll('meta[name="theme-color"]').forEach((el) => {
+        el.removeAttribute('media')
+        el.setAttribute('content', color)
+      })
+    }
 
     const appleBar = document.querySelector('meta[name="apple-mobile-web-app-status-bar-style"]')
     if (appleBar) {
-      appleBar.setAttribute('content', 'black-translucent')
+      const standalone =
+        document.documentElement.classList.contains('is-pwa') || window.navigator.standalone === true
+      appleBar.setAttribute('content', standalone ? 'black-translucent' : 'default')
     }
   }, [theme])
 
