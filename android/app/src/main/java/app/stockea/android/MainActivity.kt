@@ -189,8 +189,11 @@ private fun StockeaRoot(vm: StockeaViewModel) {
                         busy = state.busy,
                         info = state.info,
                         error = state.error,
+                        itemCount = state.items.size,
                         contentPadding = padding,
                         onSave = vm::saveProfile,
+                        onExportJson = vm::exportStockJson,
+                        onImportJson = vm::importStockJson,
                         onLogout = vm::logout,
                     )
                 }
