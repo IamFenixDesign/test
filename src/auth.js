@@ -26,9 +26,11 @@ export async function fetchAuthConfig() {
     return {
       user: data.user || null,
       googleClientId: data.googleClientId || '',
+      appleClientId: data.appleClientId || '',
+      appleRedirectUri: data.appleRedirectUri || '',
     }
   } catch {
-    return { user: null, googleClientId: '' }
+    return { user: null, googleClientId: '', appleClientId: '', appleRedirectUri: '' }
   }
 }
 
@@ -44,8 +46,28 @@ export async function loginWithGoogle(credential) {
   return authRequest({ provider: 'google', credential })
 }
 
+export async function loginWithApple({ credential, email, firstName, lastName }) {
+  return authRequest({
+    provider: 'apple',
+    credential,
+    email,
+    firstName,
+    lastName,
+  })
+}
+
 export async function linkGoogleAccount(credential) {
   return authRequest({ provider: 'link-google', credential })
+}
+
+export async function linkAppleAccount({ credential, email, firstName, lastName }) {
+  return authRequest({
+    provider: 'link-apple',
+    credential,
+    email,
+    firstName,
+    lastName,
+  })
 }
 
 export async function mergeLegacyAccount({ email, password }) {

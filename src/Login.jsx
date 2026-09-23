@@ -1,5 +1,7 @@
-import { useEffect, useRef, useState } from 'react'
-import { fetchAuthConfig, loginWithGoogle } from './auth'
+import { useCallback, useEffect, useState } from 'react'
+import { fetchAuthConfig, loginWithApple, loginWithGoogle } from './auth'
+import GoogleSignInButton from './GoogleSignInButton.jsx'
+import AppleSignInButton from './AppleSignInButton.jsx'
 
 function IconMark() {
   return (
@@ -28,32 +30,12 @@ function IconMoon() {
   )
 }
 
-function loadGisScript() {
-  if (window.google?.accounts?.id) return Promise.resolve()
-  return new Promise((resolve, reject) => {
-    const existing = document.querySelector('script[data-google-gis="1"]')
-    if (existing) {
-      existing.addEventListener('load', () => resolve(), { once: true })
-      existing.addEventListener('error', () => reject(new Error('No se pudo cargar Google')), { once: true })
-      return
-    }
-    const script = document.createElement('script')
-    script.src = 'https://accounts.google.com/gsi/client'
-    script.async = true
-    script.defer = true
-    script.dataset.googleGis = '1'
-    script.onload = () => resolve()
-    script.onerror = () => reject(new Error('No se pudo cargar Google'))
-    document.head.appendChild(script)
-  })
-}
-
 export default function Login({ theme, setTheme, onLoggedIn }) {
-  const buttonRef = useRef(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [googleClientId, setGoogleClientId] = useState('')
-  const [ready, setReady] = useState(false)
+  const [appleClientId, setAppleClientId] = useState('')
+  const [appleRedirectUri, setAppleRedirectUri] = useState('')
 
   useEffect(() => {
     let cancelled = false
@@ -66,6 +48,8 @@ export default function Login({ theme, setTheme, onLoggedIn }) {
           return
         }
         setGoogleClientId(config.googleClientId || '')
+        setAppleClientId(config.appleClientId || '')
+        setAppleRedirectUri(config.appleRedirectUri || '')
       } catch {
         if (!cancelled) setError('No se pudo cargar el inicio de sesión')
       }
@@ -75,53 +59,39 @@ export default function Login({ theme, setTheme, onLoggedIn }) {
     }
   }, [onLoggedIn])
 
-  useEffect(() => {
-    if (!googleClientId || !buttonRef.current) return undefined
-    let cancelled = false
-
-    async function mountGoogle() {
+  const handleGoogle = useCallback(
+    async (credential) => {
+      setBusy(true)
+      setError('')
       try {
-        await loadGisScript()
-        if (cancelled || !window.google?.accounts?.id || !buttonRef.current) return
-
-        window.google.accounts.id.initialize({
-          client_id: googleClientId,
-          callback: async (response) => {
-            setBusy(true)
-            setError('')
-            try {
-              const data = await loginWithGoogle(response.credential)
-              onLoggedIn(data.user, data)
-            } catch (err) {
-              setError(err?.message || 'No se pudo iniciar sesión con Google')
-            } finally {
-              setBusy(false)
-            }
-          },
-          auto_select: false,
-          cancel_on_tap_outside: true,
-        })
-
-        buttonRef.current.innerHTML = ''
-        window.google.accounts.id.renderButton(buttonRef.current, {
-          theme: theme === 'dark' ? 'filled_black' : 'outline',
-          size: 'large',
-          shape: 'pill',
-          text: 'continue_with',
-          width: Math.min(320, Math.floor(buttonRef.current.getBoundingClientRect().width) || 280),
-          locale: 'es',
-        })
-        setReady(true)
+        const data = await loginWithGoogle(credential)
+        onLoggedIn(data.user, data)
       } catch (err) {
-        if (!cancelled) setError(err?.message || 'No se pudo cargar Google')
+        setError(err?.message || 'No se pudo iniciar sesión con Google')
+      } finally {
+        setBusy(false)
       }
-    }
+    },
+    [onLoggedIn],
+  )
 
-    mountGoogle()
-    return () => {
-      cancelled = true
-    }
-  }, [googleClientId, theme, onLoggedIn])
+  const handleApple = useCallback(
+    async (payload) => {
+      setBusy(true)
+      setError('')
+      try {
+        const data = await loginWithApple(payload)
+        onLoggedIn(data.user, data)
+      } catch (err) {
+        setError(err?.message || 'No se pudo iniciar sesión con Apple')
+      } finally {
+        setBusy(false)
+      }
+    },
+    [onLoggedIn],
+  )
+
+  const hasAnyProvider = Boolean(googleClientId || appleClientId)
 
   return (
     <div className="login-screen">
@@ -149,15 +119,38 @@ export default function Login({ theme, setTheme, onLoggedIn }) {
         <p className="login-support">Precios de súper y alertas en un solo lugar.</p>
 
         <div className="login-cta">
-          {!googleClientId ? (
+          {!hasAnyProvider ? (
             <p className="login-error">
-              Falta configurar <code>GOOGLE_CLIENT_ID</code> en el servidor.
+              Falta configurar <code>GOOGLE_CLIENT_ID</code> o <code>APPLE_CLIENT_ID</code>.
             </p>
           ) : (
-            <>
-              <div ref={buttonRef} className="login-google-btn" aria-label="Continuar con Google" />
-              {!ready && !error ? <p className="login-copy">Cargando Google…</p> : null}
-            </>
+            <div className="login-auth-stack">
+              {googleClientId ? (
+                <GoogleSignInButton
+                  className="login-gsi"
+                  clientId={googleClientId}
+                  theme={theme}
+                  label="Continuar con Google"
+                  disabled={busy}
+                  onCredential={handleGoogle}
+                />
+              ) : null}
+              {appleClientId ? (
+                <AppleSignInButton
+                  className="login-apple"
+                  clientId={appleClientId}
+                  redirectUri={appleRedirectUri}
+                  theme={theme}
+                  label="Continuar con Apple"
+                  disabled={busy}
+                  onSuccess={handleApple}
+                />
+              ) : null}
+              <p className="login-sync-hint">
+                Si ya tenías Stockea con Google, al entrar con Apple (mismo correo) unimos el stock
+                automáticamente. También podés unir Google desde Perfil.
+              </p>
+            </div>
           )}
           {busy ? <p className="login-info">Conectando…</p> : null}
           {error ? <p className="login-error">{error}</p> : null}

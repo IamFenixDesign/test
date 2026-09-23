@@ -86,6 +86,23 @@ export async function ensureSchema() {
   await db`ALTER TABLE stockly_items ALTER COLUMN quantity TYPE NUMERIC USING quantity::numeric`
   await db`ALTER TABLE stockly_items ALTER COLUMN min_stock TYPE NUMERIC USING min_stock::numeric`
   await db`CREATE INDEX IF NOT EXISTS stockly_items_user_id_idx ON stockly_items (user_id)`
+  await db`
+    CREATE TABLE IF NOT EXISTS stockly_user_identities (
+      provider TEXT NOT NULL,
+      provider_id TEXT NOT NULL,
+      user_id UUID NOT NULL REFERENCES stockly_users(id) ON DELETE CASCADE,
+      email TEXT DEFAULT '',
+      created_at TIMESTAMPTZ DEFAULT now(),
+      PRIMARY KEY (provider, provider_id)
+    )
+  `
+  await db`CREATE INDEX IF NOT EXISTS stockly_user_identities_user_idx ON stockly_user_identities (user_id)`
+  await db`
+    INSERT INTO stockly_user_identities (provider, provider_id, user_id, email)
+    SELECT provider, provider_id, id, COALESCE(email, '')
+    FROM stockly_users
+    ON CONFLICT (provider, provider_id) DO NOTHING
+  `
 }
 
 function num(value) {
@@ -128,8 +145,13 @@ function displayName(row) {
   return full || row?.name || row?.email || ''
 }
 
-export function rowToUser(row) {
+export function rowToUser(row, linkedProviders = null) {
   if (!row) return null
+  const providers = Array.isArray(linkedProviders)
+    ? linkedProviders
+    : row.provider
+      ? [row.provider]
+      : []
   return {
     id: row.id,
     email: row.email || '',
@@ -138,12 +160,61 @@ export function rowToUser(row) {
     lastName: row.last_name || '',
     picture: row.picture || '',
     provider: row.provider || '',
+    providers,
     emailVerified: row.email_verified !== false,
   }
 }
 
 function normalizeEmail(email) {
   return String(email || '').trim().toLowerCase()
+}
+
+export async function listUserProviders(userId) {
+  if (!userId) return []
+  await ensureSchema()
+  const rows = await getSql()`
+    SELECT provider FROM stockly_user_identities
+    WHERE user_id = ${userId}::uuid
+    ORDER BY provider
+  `
+  const fromIdentities = rows.map((row) => row.provider).filter(Boolean)
+  if (fromIdentities.length) return [...new Set(fromIdentities)]
+  const user = await getUserRowById(userId)
+  return user?.provider ? [user.provider] : []
+}
+
+export async function enrichUser(row) {
+  if (!row) return null
+  const providers = await listUserProviders(row.id)
+  return rowToUser(row, providers)
+}
+
+async function saveIdentity(userId, profile) {
+  const email = normalizeEmail(profile.email)
+  await getSql()`
+    INSERT INTO stockly_user_identities (provider, provider_id, user_id, email)
+    VALUES (${profile.provider}, ${profile.providerId}, ${userId}::uuid, ${email})
+    ON CONFLICT (provider, provider_id) DO UPDATE
+    SET user_id = EXCLUDED.user_id,
+        email = CASE
+          WHEN EXCLUDED.email <> '' THEN EXCLUDED.email
+          ELSE stockly_user_identities.email
+        END
+  `
+}
+
+export async function findUserRowByIdentity(provider, providerId) {
+  if (!provider || !providerId) return null
+  await ensureSchema()
+  const viaIdentity = await getSql()`
+    SELECT u.*
+    FROM stockly_user_identities i
+    JOIN stockly_users u ON u.id = i.user_id
+    WHERE i.provider = ${provider} AND i.provider_id = ${providerId}
+    LIMIT 1
+  `
+  if (viaIdentity[0]) return viaIdentity[0]
+  return getUserRowByProvider(provider, providerId)
 }
 
 export async function getUserRowById(id) {
@@ -163,8 +234,8 @@ export async function getUserRowByEmail(email) {
 
 export async function getUserById(id) {
   const row = await getUserRowById(id)
-  const user = rowToUser(row)
-  if (!user) return null
+  if (!row) return null
+  const user = await enrichUser(row)
   if (user.provider === 'email' && !user.emailVerified) return null
   return user
 }
@@ -177,17 +248,13 @@ export async function upsertUser(profile) {
   const name = [firstName, lastName].filter(Boolean).join(' ') || profile.name || email || 'Cuenta'
   const picture = profile.picture || ''
 
-  const existing = await getSql()`
-    SELECT * FROM stockly_users
-    WHERE provider = ${profile.provider} AND provider_id = ${profile.providerId}
-    LIMIT 1
-  `
-  if (existing[0]) {
-    const nextName = name || existing[0].name || ''
-    const nextEmail = email || existing[0].email || ''
-    const nextPicture = picture || existing[0].picture || ''
-    const nextFirst = firstName || existing[0].first_name || ''
-    const nextLast = lastName || existing[0].last_name || ''
+  const existing = await findUserRowByIdentity(profile.provider, profile.providerId)
+  if (existing) {
+    const nextName = name || existing.name || ''
+    const nextEmail = email || existing.email || ''
+    const nextPicture = picture || existing.picture || ''
+    const nextFirst = firstName || existing.first_name || ''
+    const nextLast = lastName || existing.last_name || ''
     await getSql()`
       UPDATE stockly_users
       SET email = ${nextEmail},
@@ -195,17 +262,22 @@ export async function upsertUser(profile) {
           first_name = ${nextFirst},
           last_name = ${nextLast},
           picture = ${nextPicture},
+          provider = ${profile.provider},
+          provider_id = ${profile.providerId},
           email_verified = true
-      WHERE id = ${existing[0].id}::uuid
+      WHERE id = ${existing.id}::uuid
     `
+    await saveIdentity(existing.id, profile)
     return {
-      user: rowToUser({
-        ...existing[0],
+      user: await enrichUser({
+        ...existing,
         email: nextEmail,
         name: nextName,
         first_name: nextFirst,
         last_name: nextLast,
         picture: nextPicture,
+        provider: profile.provider,
+        provider_id: profile.providerId,
         email_verified: true,
       }),
       linked: false,
@@ -215,8 +287,7 @@ export async function upsertUser(profile) {
 
   const byEmail = email ? await getUserRowByEmail(email) : null
   if (byEmail) {
-    // Migrate / link existing email (or other) accounts when signing in with Google.
-    // Same user id ⇒ stock stays attached.
+    // Same email ⇒ keep stock on that user and attach this OAuth identity (Google ↔ Apple).
     await getSql()`
       UPDATE stockly_users
       SET email = ${email},
@@ -232,8 +303,14 @@ export async function upsertUser(profile) {
           verify_code_expires = NULL
       WHERE id = ${byEmail.id}::uuid
     `
+    await saveIdentity(byEmail.id, {
+      provider: byEmail.provider,
+      providerId: byEmail.provider_id,
+      email: byEmail.email,
+    })
+    await saveIdentity(byEmail.id, profile)
     return {
-      user: rowToUser({
+      user: await enrichUser({
         ...byEmail,
         email,
         name: name || byEmail.name || '',
@@ -244,7 +321,7 @@ export async function upsertUser(profile) {
         provider_id: profile.providerId,
         email_verified: true,
       }),
-      linked: byEmail.provider !== 'google',
+      linked: byEmail.provider !== profile.provider,
       created: false,
     }
   }
@@ -266,8 +343,9 @@ export async function upsertUser(profile) {
       true
     )
   `
+  await saveIdentity(id, profile)
   return {
-    user: rowToUser({
+    user: await enrichUser({
       id,
       email,
       name,
@@ -404,7 +482,7 @@ export async function updateProfile(userId, { firstName, lastName, email }) {
     WHERE id = ${userId}::uuid
     RETURNING *
   `
-  return rowToUser(rows[0])
+  return enrichUser(rows[0])
 }
 
 export async function listItems(userId) {
@@ -464,7 +542,7 @@ export async function deleteUserAccount(userId) {
   await getSql()`DELETE FROM stockly_users WHERE id = ${userId}::uuid`
 }
 
-export async function attachGoogleProvider(userId, profile) {
+export async function attachOAuthProvider(userId, profile) {
   await ensureSchema()
   const email = normalizeEmail(profile.email)
   const firstName = String(profile.firstName || '').trim()
@@ -475,12 +553,12 @@ export async function attachGoogleProvider(userId, profile) {
 
   const rows = await getSql()`
     UPDATE stockly_users
-    SET email = ${email},
+    SET email = CASE WHEN ${email} <> '' THEN ${email} ELSE email END,
         name = COALESCE(NULLIF(${name}, ''), name),
         first_name = COALESCE(NULLIF(${firstName}, ''), first_name),
         last_name = COALESCE(NULLIF(${lastName}, ''), last_name),
         picture = COALESCE(NULLIF(${picture}, ''), picture),
-        provider = 'google',
+        provider = ${profile.provider},
         provider_id = ${profile.providerId},
         email_verified = true,
         password_hash = NULL,
@@ -489,7 +567,13 @@ export async function attachGoogleProvider(userId, profile) {
     WHERE id = ${userId}::uuid
     RETURNING *
   `
-  return rowToUser(rows[0])
+  await saveIdentity(userId, profile)
+  return enrichUser(rows[0])
+}
+
+/** @deprecated use attachOAuthProvider */
+export async function attachGoogleProvider(userId, profile) {
+  return attachOAuthProvider(userId, { ...profile, provider: 'google' })
 }
 
 export async function upsertItem(item, userId) {

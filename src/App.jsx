@@ -14,6 +14,7 @@ import {
   fetchAuthConfig,
   fetchMe,
   linkGoogleAccount,
+  linkAppleAccount,
   logout as logoutRequest,
   updateProfile as saveProfile,
 } from './auth'
@@ -21,6 +22,7 @@ import { getCameraStream, releaseCameraStream } from './camera'
 import { clearDeviceStockCaches, collectDeviceStockItems } from './deviceStock'
 import { mergeStockLists, parseStockExport, serializeStockExport } from './stockTransfer'
 import GoogleSignInButton from './GoogleSignInButton.jsx'
+import AppleSignInButton from './AppleSignInButton.jsx'
 import Login from './Login.jsx'
 
 const STORAGE_KEY = 'stockly-items-v2'
@@ -1194,6 +1196,8 @@ function App() {
   const [transferBusy, setTransferBusy] = useState(false)
   const [linkBusy, setLinkBusy] = useState(false)
   const [googleClientId, setGoogleClientId] = useState('')
+  const [appleClientId, setAppleClientId] = useState('')
+  const [appleRedirectUri, setAppleRedirectUri] = useState('')
   const importInputRef = useRef(null)
   const [storeQuery, setStoreQuery] = useState('')
   const [storeResults, setStoreResults] = useState({ coto: [], carrefour: [], dia: [], errors: {} })
@@ -1336,7 +1340,11 @@ function App() {
       if (!cancelled) setUser(current)
     })
     fetchAuthConfig().then((config) => {
-      if (!cancelled) setGoogleClientId(config.googleClientId || '')
+      if (!cancelled) {
+        setGoogleClientId(config.googleClientId || '')
+        setAppleClientId(config.appleClientId || '')
+        setAppleRedirectUri(config.appleRedirectUri || '')
+      }
     })
     return () => {
       cancelled = true
@@ -1901,29 +1909,45 @@ function App() {
   function handleLoggedIn(nextUser, meta = {}) {
     setUser(nextUser)
     if (meta?.linked) {
-      showToast(`Cuenta unida a Google · ${meta.itemCount ?? 0} productos sincronizados`)
+      showToast(`Cuentas sincronizadas · ${meta.itemCount ?? 0} productos`)
     } else if (meta?.itemCount > 0) {
       showToast(`Bienvenido · ${meta.itemCount} productos sincronizados`)
     }
+  }
+
+  async function finishUnifyLink(data, providerLabel) {
+    setUser(data.user)
+    await syncDeviceStockIntoAccount(data.user, { toast: false })
+    const remote = (await fetchRemoteItems()) || []
+    setItems(remote.map(normalizeItemCounts))
+    setHydrated(true)
+    const total = data.itemCount ?? remote.length
+    showToast(
+      data.moved > 0
+        ? `Cuentas unidas · ${data.moved} productos traídos (${total} en total)`
+        : `${providerLabel} listo · ${total} productos sincronizados`,
+    )
   }
 
   async function handleUnifyGoogleCredential(credential) {
     setLinkBusy(true)
     try {
       const data = await linkGoogleAccount(credential)
-      setUser(data.user)
-      await syncDeviceStockIntoAccount(data.user, { toast: false })
-      const remote = (await fetchRemoteItems()) || []
-      setItems(remote.map(normalizeItemCounts))
-      setHydrated(true)
-      const total = data.itemCount ?? remote.length
-      showToast(
-        data.moved > 0
-          ? `Cuentas unidas · ${data.moved} productos traídos (${total} en total)`
-          : `Google listo · ${total} productos sincronizados`,
-      )
+      await finishUnifyLink(data, 'Google')
     } catch (err) {
       showToast(err?.message || 'No se pudo unir la cuenta con Google')
+    } finally {
+      setLinkBusy(false)
+    }
+  }
+
+  async function handleUnifyApple(payload) {
+    setLinkBusy(true)
+    try {
+      const data = await linkAppleAccount(payload)
+      await finishUnifyLink(data, 'Apple')
+    } catch (err) {
+      showToast(err?.message || 'No se pudo unir la cuenta con Apple')
     } finally {
       setLinkBusy(false)
     }
@@ -3040,35 +3064,69 @@ function App() {
               <strong>{user.name || 'Cuenta'}</strong>
               {user.email ? <span>{user.email}</span> : null}
               <span className="profile-provider">
-                {user.provider === 'google' ? 'Vinculada a Google' : 'Cuenta con correo'}
+                {(() => {
+                  const linked = Array.isArray(user.providers) ? user.providers : [user.provider]
+                  const hasGoogle = linked.includes('google')
+                  const hasApple = linked.includes('apple')
+                  if (hasGoogle && hasApple) return 'Google + Apple'
+                  if (hasGoogle) return 'Vinculada a Google'
+                  if (hasApple) return 'Vinculada a Apple'
+                  return 'Cuenta con correo'
+                })()}
               </span>
             </div>
           </div>
 
           <div className="profile-transfer profile-google-sync">
-            <h3>Unir cuenta</h3>
-            {user.provider === 'google' ? (
-              <p>
-                Tu cuenta ya está vinculada a Google. El stock de este dispositivo y de otras
-                sesiones con el mismo Google se sincroniza solo al entrar.
-              </p>
-            ) : (
-              <>
-                <p>
-                  Tocá el botón para entrar con Google. Si ya tenés una cuenta Stockea con ese
-                  Google, unimos el inventario automáticamente.
-                </p>
-                {linkBusy ? <p className="login-info">Uniendo y sincronizando…</p> : null}
-                <GoogleSignInButton
-                  className="profile-gsi"
-                  clientId={googleClientId}
-                  theme={theme}
-                  label="Unir con Google"
-                  disabled={linkBusy}
-                  onCredential={handleUnifyGoogleCredential}
-                />
-              </>
-            )}
+            <h3>Unir cuentas</h3>
+            {(() => {
+              const linked = Array.isArray(user.providers) ? user.providers : [user.provider]
+              const hasGoogle = linked.includes('google')
+              const hasApple = linked.includes('apple')
+              if (hasGoogle && hasApple) {
+                return (
+                  <p>
+                    Google y Apple ya están unidos a esta cuenta. El stock se sincroniza solo al
+                    entrar con cualquiera de los dos.
+                  </p>
+                )
+              }
+              return (
+                <>
+                  <p>
+                    Si ya tenías Stockea con otro proveedor, unilo acá: traemos el inventario a esta
+                    sesión automáticamente.
+                  </p>
+                  {linkBusy ? <p className="login-info">Uniendo y sincronizando…</p> : null}
+                  <div className="profile-link-stack">
+                    {!hasGoogle && googleClientId ? (
+                      <GoogleSignInButton
+                        className="profile-gsi"
+                        clientId={googleClientId}
+                        theme={theme}
+                        label="Unir con Google"
+                        disabled={linkBusy}
+                        onCredential={handleUnifyGoogleCredential}
+                      />
+                    ) : null}
+                    {!hasApple && appleClientId ? (
+                      <AppleSignInButton
+                        className="profile-apple"
+                        clientId={appleClientId}
+                        redirectUri={appleRedirectUri}
+                        theme={theme}
+                        label="Unir con Apple"
+                        disabled={linkBusy}
+                        onSuccess={handleUnifyApple}
+                      />
+                    ) : null}
+                    {!googleClientId && !appleClientId ? (
+                      <p className="error">Faltan credenciales OAuth en el servidor.</p>
+                    ) : null}
+                  </div>
+                </>
+              )
+            })()}
           </div>
 
           <form className="profile-form" onSubmit={handleSaveProfile}>

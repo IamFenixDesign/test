@@ -3,7 +3,6 @@ import { readJson, send } from '../src/http.js'
 import {
   getUserRowByEmail,
   getUserRowById,
-  getUserRowByProvider,
   markEmailVerified,
   registerEmailUser,
   rowToUser,
@@ -14,11 +13,13 @@ import {
   listItems,
   transferItemsToUser,
   deleteUserAccount,
-  attachGoogleProvider,
+  attachOAuthProvider,
+  findUserRowByIdentity,
 } from '../src/db.js'
 import { createEmailCode, hashEmailCode, hashPassword, verifyEmailCode, verifyPassword } from '../src/passwords.js'
 import { sendCodeEmail, sendVerificationEmail } from '../src/mail.js'
 import { googleClientId, verifyGoogleIdToken } from '../src/googleAuth.js'
+import { appleClientId, appleRedirectUri, verifyAppleIdToken } from '../src/appleAuth.js'
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 const CODE_TTL_MS = 15 * 60 * 1000
@@ -33,6 +34,7 @@ function publicUser(user) {
     lastName: user.lastName,
     picture: user.picture,
     provider: user.provider,
+    providers: Array.isArray(user.providers) ? user.providers : user.provider ? [user.provider] : [],
   }
 }
 
@@ -200,29 +202,44 @@ async function handleGoogle(body) {
   }
 }
 
-async function handleLinkGoogle(req, res, body) {
+async function handleApple(body) {
+  const profile = await verifyAppleIdToken(body.credential || body.idToken || body.token, {
+    email: body.email,
+    firstName: body.firstName || body.nombre,
+    lastName: body.lastName || body.apellido,
+  })
+  const result = await upsertUser(profile)
+  const items = await listItems(result.user.id)
+  return {
+    user: result.user,
+    linked: Boolean(result.linked),
+    created: Boolean(result.created),
+    itemCount: items.length,
+  }
+}
+
+async function linkOAuthToSession(req, res, profile) {
   const sessionUser = await requireUser(req, res)
   if (!sessionUser) return null
 
-  const profile = await verifyGoogleIdToken(body.credential || body.idToken || body.token)
-  const googleOwner = await getUserRowByProvider('google', profile.providerId)
-
+  const owner = await findUserRowByIdentity(profile.provider, profile.providerId)
   let moved = 0
-  if (googleOwner && googleOwner.id !== sessionUser.id) {
-    const transfer = await transferItemsToUser(googleOwner.id, sessionUser.id)
+  if (owner && owner.id !== sessionUser.id) {
+    const transfer = await transferItemsToUser(owner.id, sessionUser.id)
     moved += transfer.moved
-    await deleteUserAccount(googleOwner.id)
+    await deleteUserAccount(owner.id)
   }
 
-  // If Google email already belongs to another account, pull its stock too.
-  const emailOwner = profile.email ? await getUserRowByEmail(profile.email) : null
-  if (emailOwner && emailOwner.id !== sessionUser.id) {
-    const transfer = await transferItemsToUser(emailOwner.id, sessionUser.id)
-    moved += transfer.moved
-    await deleteUserAccount(emailOwner.id)
+  if (profile.email) {
+    const emailOwner = await getUserRowByEmail(profile.email)
+    if (emailOwner && emailOwner.id !== sessionUser.id) {
+      const transfer = await transferItemsToUser(emailOwner.id, sessionUser.id)
+      moved += transfer.moved
+      await deleteUserAccount(emailOwner.id)
+    }
   }
 
-  const user = await attachGoogleProvider(sessionUser.id, profile)
+  const user = await attachOAuthProvider(sessionUser.id, profile)
   const items = await listItems(user.id)
   return {
     user: await startSession(res, user),
@@ -230,6 +247,20 @@ async function handleLinkGoogle(req, res, body) {
     moved,
     itemCount: items.length,
   }
+}
+
+async function handleLinkGoogle(req, res, body) {
+  const profile = await verifyGoogleIdToken(body.credential || body.idToken || body.token)
+  return linkOAuthToSession(req, res, profile)
+}
+
+async function handleLinkApple(req, res, body) {
+  const profile = await verifyAppleIdToken(body.credential || body.idToken || body.token, {
+    email: body.email,
+    firstName: body.firstName || body.nombre,
+    lastName: body.lastName || body.apellido,
+  })
+  return linkOAuthToSession(req, res, profile)
 }
 
 /** Merge a legacy email/password account into the current Google session. */
@@ -273,6 +304,8 @@ export default async function handler(req, res) {
       send(res, 200, {
         user: publicUser(await readSession(req)),
         googleClientId: googleClientId(),
+        appleClientId: appleClientId(),
+        appleRedirectUri: appleRedirectUri(),
       })
       return
     }
@@ -301,8 +334,32 @@ export default async function handler(req, res) {
       return
     }
 
+    if (body.provider === 'apple') {
+      const result = await handleApple(body)
+      const user = await startSession(res, result.user)
+      send(res, 200, {
+        user: publicUser(user),
+        linked: result.linked,
+        created: result.created,
+        itemCount: result.itemCount,
+      })
+      return
+    }
+
     if (body.provider === 'link-google') {
       const result = await handleLinkGoogle(req, res, body)
+      if (!result) return
+      send(res, 200, {
+        user: publicUser(result.user),
+        linked: true,
+        moved: result.moved,
+        itemCount: result.itemCount,
+      })
+      return
+    }
+
+    if (body.provider === 'link-apple') {
+      const result = await handleLinkApple(req, res, body)
       if (!result) return
       send(res, 200, {
         user: publicUser(result.user),

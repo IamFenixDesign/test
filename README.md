@@ -2,9 +2,11 @@
 
 Control de stock con precios de Coto Digital, Carrefour y Día.
 
-## Auth (Google)
+## Auth (Google + Apple)
 
-El login es **solo con Google** (web + Android).
+Login web con **Google** y/o **Apple**. Si el mismo correo ya tiene cuenta (p. ej. Google) y entrás con Apple, unimos el stock automáticamente. También podés unir el otro proveedor desde Perfil.
+
+### Google
 
 1. En [Google Cloud Console](https://console.cloud.google.com/apis/credentials) creá un **OAuth client ID** tipo **Web**.
 2. Authorized JavaScript origins:
@@ -19,6 +21,17 @@ El login es **solo con Google** (web + Android).
    GOOGLE_WEB_CLIENT_ID=123456789-xxxx.apps.googleusercontent.com
    ```
 5. En Google Cloud, agregá también un cliente **Android** con el package `app.stockea.android` y el SHA-1 de tu keystore (debug/release).
+
+### Apple
+
+1. En [Apple Developer](https://developer.apple.com/account/resources/identifiers/list) creá un **Services ID** con Sign in with Apple.
+2. Configurá Return URLs (`https://tu-app.vercel.app` y `http://localhost:5173`).
+3. En Vercel / `.env`:
+   ```text
+   APPLE_CLIENT_ID=com.tuapp.service
+   # opcional:
+   # APPLE_REDIRECT_URI=https://tu-app.vercel.app
+   ```
 
 ## Vercel (recomendado)
 
