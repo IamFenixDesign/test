@@ -1,5 +1,6 @@
 package app.stockea.android.ui.screens
 
+import android.app.Activity
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -11,7 +12,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.DarkMode
@@ -20,22 +20,30 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
+import androidx.credentials.CredentialManager
+import androidx.credentials.CustomCredential
+import androidx.credentials.GetCredentialRequest
+import androidx.credentials.exceptions.GetCredentialCancellationException
+import androidx.credentials.exceptions.GetCredentialException
+import com.google.android.libraries.identity.googleid.GetGoogleIdOption
+import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
+import com.google.android.libraries.identity.googleid.GoogleIdTokenParsingException
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 @Composable
 fun LoginScreen(
@@ -44,43 +52,82 @@ fun LoginScreen(
     info: String,
     darkTheme: Boolean,
     onToggleTheme: () -> Unit,
-    onLogin: (email: String, password: String) -> Unit,
-    onRegister: (firstName: String, lastName: String, email: String, password: String) -> Unit,
-    onVerify: (email: String, code: String) -> Unit,
+    resolveGoogleClientId: suspend () -> String,
+    onGoogleCredential: (idToken: String) -> Unit,
 ) {
-    var mode by remember { mutableStateOf("login") }
-    var firstName by remember { mutableStateOf("") }
-    var lastName by remember { mutableStateOf("") }
-    var email by remember { mutableStateOf("") }
-    var password by remember { mutableStateOf("") }
-    var confirm by remember { mutableStateOf("") }
-    var code by remember { mutableStateOf("") }
-    var pendingEmail by remember { mutableStateOf("") }
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var clientId by remember { mutableStateOf("") }
+    var localError by remember { mutableStateOf("") }
+    var loadingClient by remember { mutableStateOf(true) }
 
-    LaunchedEffect(info) {
-        val match = Regex("""Tu código es (\d{6})""").find(info)
-        if (match != null) code = match.groupValues[1]
+    LaunchedEffect(Unit) {
+        loadingClient = true
+        localError = ""
+        clientId = withContext(Dispatchers.IO) { resolveGoogleClientId() }
+        if (clientId.isBlank()) {
+            localError = "Falta configurar GOOGLE_CLIENT_ID en el servidor"
+        }
+        loadingClient = false
     }
 
-    val verifyEmail = when {
-        error.startsWith("needs_verify:") -> error.removePrefix("needs_verify:")
-        pendingEmail.isNotBlank() -> pendingEmail
-        else -> email
+    fun signIn() {
+        val activity = context as? Activity
+        if (activity == null) {
+            localError = "No se pudo abrir Google Sign-In"
+            return
+        }
+        if (clientId.isBlank()) {
+            localError = "Falta configurar GOOGLE_CLIENT_ID en el servidor"
+            return
+        }
+        scope.launch {
+            localError = ""
+            try {
+                val googleIdOption = GetGoogleIdOption.Builder()
+                    .setFilterByAuthorizedAccounts(false)
+                    .setServerClientId(clientId)
+                    .setAutoSelectEnabled(false)
+                    .build()
+                val request = GetCredentialRequest.Builder()
+                    .addCredentialOption(googleIdOption)
+                    .build()
+                val credentialManager = CredentialManager.create(context)
+                val result = credentialManager.getCredential(activity, request)
+                val credential = result.credential
+                if (credential is CustomCredential &&
+                    credential.type == GoogleIdTokenCredential.TYPE_GOOGLE_ID_TOKEN_CREDENTIAL
+                ) {
+                    val google = GoogleIdTokenCredential.createFrom(credential.data)
+                    onGoogleCredential(google.idToken)
+                } else {
+                    localError = "Google no devolvió un token válido"
+                }
+            } catch (_: GetCredentialCancellationException) {
+                localError = ""
+            } catch (_: GoogleIdTokenParsingException) {
+                localError = "No se pudo leer el token de Google"
+            } catch (e: GetCredentialException) {
+                localError = e.message ?: "No se pudo iniciar sesión con Google"
+            } catch (e: Exception) {
+                localError = e.message ?: "No se pudo iniciar sesión con Google"
+            }
+        }
     }
 
     Column(
         modifier = Modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
-            .padding(20.dp)
-            .verticalScroll(rememberScrollState()),
-        verticalArrangement = Arrangement.Center,
+            .verticalScroll(rememberScrollState())
+            .padding(20.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
             IconButton(onClick = onToggleTheme) {
                 Icon(
                     if (darkTheme) Icons.Outlined.LightMode else Icons.Outlined.DarkMode,
-                    contentDescription = "Tema",
+                    contentDescription = "Cambiar tema",
                 )
             }
         }
@@ -90,105 +137,36 @@ fun LoginScreen(
                 .fillMaxWidth()
                 .background(MaterialTheme.colorScheme.surface, RoundedCornerShape(28.dp))
                 .padding(22.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
             Text("Stockea", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
             Text(
-                when (mode) {
-                    "register" -> "Creá tu cuenta"
-                    "verify" -> "Confirmá tu correo"
-                    else -> "Entrá para guardar tu inventario"
-                },
+                "Entrá con Google para guardar tu inventario",
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
 
-            if (mode == "register") {
-                OutlinedTextField(firstName, { firstName = it }, label = { Text("Nombre") }, modifier = Modifier.fillMaxWidth())
-                OutlinedTextField(lastName, { lastName = it }, label = { Text("Apellido") }, modifier = Modifier.fillMaxWidth())
-            }
-
-            if (mode != "verify") {
-                OutlinedTextField(
-                    email, { email = it },
-                    label = { Text("Correo") },
-                    modifier = Modifier.fillMaxWidth(),
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
-                )
-                OutlinedTextField(
-                    password, { password = it },
-                    label = { Text("Contraseña") },
-                    modifier = Modifier.fillMaxWidth(),
-                    visualTransformation = PasswordVisualTransformation(),
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-                )
-            }
-
-            if (mode == "register") {
-                OutlinedTextField(
-                    confirm, { confirm = it },
-                    label = { Text("Repetir contraseña") },
-                    modifier = Modifier.fillMaxWidth(),
-                    visualTransformation = PasswordVisualTransformation(),
-                )
-            }
-
-            if (mode == "verify") {
-                Text(verifyEmail, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                OutlinedTextField(
-                    code, { code = it },
-                    label = { Text("Código") },
-                    modifier = Modifier.fillMaxWidth(),
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                )
-            }
-
             if (info.isNotBlank()) Text(info, color = MaterialTheme.colorScheme.secondary)
-            if (error.isNotBlank() && !error.startsWith("needs_verify:")) {
-                Text(error, color = MaterialTheme.colorScheme.error)
+            val shownError = localError.ifBlank { error }
+            if (shownError.isNotBlank()) {
+                Text(shownError, color = MaterialTheme.colorScheme.error)
             }
 
             Button(
-                onClick = {
-                    when (mode) {
-                        "login" -> onLogin(email.trim(), password)
-                        "register" -> {
-                            if (password != confirm) return@Button
-                            onRegister(firstName.trim(), lastName.trim(), email.trim(), password)
-                            pendingEmail = email.trim()
-                            mode = "verify"
-                        }
-                        "verify" -> onVerify(verifyEmail, code.trim())
-                    }
-                },
-                enabled = !busy,
-                modifier = Modifier.fillMaxWidth().height(48.dp),
+                onClick = { signIn() },
+                enabled = !busy && !loadingClient && clientId.isNotBlank(),
+                modifier = Modifier.fillMaxWidth().height(52.dp),
                 shape = RoundedCornerShape(14.dp),
             ) {
                 Text(
-                    when (mode) {
-                        "login" -> if (busy) "Entrando…" else "Entrar"
-                        "register" -> if (busy) "Creando…" else "Registrarme"
-                        else -> if (busy) "Confirmando…" else "Confirmar"
+                    when {
+                        busy -> "Entrando…"
+                        loadingClient -> "Cargando…"
+                        else -> "Continuar con Google"
                     },
                     fontWeight = FontWeight.Bold,
                 )
             }
-
-            if (error.startsWith("needs_verify:") && mode != "verify") {
-                mode = "verify"
-                pendingEmail = error.removePrefix("needs_verify:")
-            }
-
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    if (mode == "login") "¿No tenés cuenta?" else "¿Ya tenés cuenta?",
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                TextButton(onClick = { mode = if (mode == "login") "register" else "login" }) {
-                    Text(if (mode == "login") "Registrate" else "Entrar")
-                }
-            }
         }
-        Spacer(modifier = Modifier.height(40.dp))
+        Spacer(modifier = Modifier.height(24.dp))
     }
 }

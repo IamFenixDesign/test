@@ -1105,6 +1105,24 @@
   gap: 10px;
 }
 
+.login-google-wrap {
+  display: grid;
+  gap: 12px;
+  justify-items: center;
+  margin-top: 8px;
+}
+
+.login-google-btn {
+  min-height: 44px;
+  width: min(100%, 320px);
+  display: grid;
+  place-items: center;
+}
+
+.login-google-fallback[hidden] {
+  display: none !important;
+}
+
 .login-row {
   display: grid;
   grid-template-columns: 1fr 1fr;
