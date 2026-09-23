@@ -102,17 +102,15 @@ export default function Login({ theme, setTheme, onLoggedIn }) {
             </p>
           ) : (
             <GoogleSignInButton
-              className="login-gsi"
+              className="login-gsi-icon"
               clientId={googleClientId}
               theme={theme}
-              variant="native"
-              showPrompt
-              label="Continuar con Google"
+              variant="icon"
+              label="Iniciar sesión con Google"
               disabled={busy}
               onCredential={handleCredential}
             />
           )}
-          {busy ? <p className="login-info">Conectando…</p> : null}
           {error ? <p className="login-error">{error}</p> : null}
         </div>
       </section>
