@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { fetchAuthConfig, loginWithGoogle } from './auth'
 import GoogleSignInButton from './GoogleSignInButton.jsx'
 
-/** Cubo monocromo para el badge lima (como en la PWA de referencia). */
+/** Cubo monocromo para el mark lima (marca Stockea). */
 function IconMark() {
   return (
     <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
@@ -34,6 +34,7 @@ export default function Login({ theme, setTheme, onLoggedIn }) {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [googleClientId, setGoogleClientId] = useState('')
+  const [configReady, setConfigReady] = useState(false)
 
   useEffect(() => {
     let cancelled = false
@@ -48,6 +49,8 @@ export default function Login({ theme, setTheme, onLoggedIn }) {
         setGoogleClientId(config.googleClientId || '')
       } catch {
         if (!cancelled) setError('No se pudo cargar el inicio de sesión')
+      } finally {
+        if (!cancelled) setConfigReady(true)
       }
     })()
     return () => {
@@ -77,9 +80,10 @@ export default function Login({ theme, setTheme, onLoggedIn }) {
   return (
     <div className="login-screen">
       <div className="login-atmosphere" aria-hidden="true">
-        <span className="login-orb login-orb-a" />
-        <span className="login-orb login-orb-b" />
-        <span className="login-grid" />
+        <span className="login-wash login-wash-a" />
+        <span className="login-wash login-wash-b" />
+        <span className="login-shelf" />
+        <span className="login-bloom" />
       </div>
 
       <button
@@ -102,7 +106,9 @@ export default function Login({ theme, setTheme, onLoggedIn }) {
         </section>
 
         <div className="login-cta">
-          {!googleClientId ? (
+          {!configReady ? (
+            <p className="login-status">Cargando…</p>
+          ) : !googleClientId ? (
             <p className="login-error">
               Falta configurar <code>GOOGLE_CLIENT_ID</code> en el servidor.
             </p>
