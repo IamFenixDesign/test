@@ -9,9 +9,11 @@ import {
   saveEmailCode,
   updatePassword,
   updateProfile,
+  upsertUser,
 } from '../src/db.js'
 import { createEmailCode, hashEmailCode, hashPassword, verifyEmailCode, verifyPassword } from '../src/passwords.js'
 import { sendCodeEmail, sendVerificationEmail } from '../src/mail.js'
+import { googleClientId, verifyGoogleIdToken } from '../src/googleAuth.js'
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 const CODE_TTL_MS = 15 * 60 * 1000
@@ -181,10 +183,19 @@ async function handleProfile(req, res, body) {
   return { user: await startSession(res, user) }
 }
 
+async function handleGoogle(body) {
+  const profile = await verifyGoogleIdToken(body.credential || body.idToken || body.token)
+  const user = await upsertUser(profile)
+  return { user }
+}
+
 export default async function handler(req, res) {
   try {
     if (req.method === 'GET') {
-      send(res, 200, { user: publicUser(await readSession(req)) })
+      send(res, 200, {
+        user: publicUser(await readSession(req)),
+        googleClientId: googleClientId(),
+      })
       return
     }
 
@@ -197,6 +208,13 @@ export default async function handler(req, res) {
     if (body.provider === 'logout') {
       destroySession(res)
       send(res, 200, { user: null })
+      return
+    }
+
+    if (body.provider === 'google') {
+      const result = await handleGoogle(body)
+      const user = await startSession(res, result.user)
+      send(res, 200, { user: publicUser(user) })
       return
     }
 

@@ -125,49 +125,23 @@ class StockeaApi(context: Context) {
         return user.toUser()
     }
 
-    fun login(email: String, password: String): AuthResult {
-        val data = request(
-            "POST",
-            "/api/auth",
-            JSONObject()
-                .put("provider", "email")
-                .put("email", email)
-                .put("password", password),
-        )
-        if (data.optBoolean("needsVerification")) {
-            return AuthResult.NeedsVerification(data.optString("email", email))
-        }
-        val user = data.optJSONObject("user")?.toUser()
-            ?: throw ApiException("No se pudo iniciar sesión")
-        return AuthResult.Ok(user)
+    fun googleClientId(): String {
+        val configured = app.stockea.android.BuildConfig.GOOGLE_WEB_CLIENT_ID.trim()
+        if (configured.isNotEmpty()) return configured
+        val data = request("GET", "/api/auth")
+        return data.optString("googleClientId", "").trim()
     }
 
-    fun register(firstName: String, lastName: String, email: String, password: String): Pair<String, String?> {
+    fun loginWithGoogle(idToken: String): User {
         val data = request(
             "POST",
             "/api/auth",
             JSONObject()
-                .put("provider", "register")
-                .put("firstName", firstName)
-                .put("lastName", lastName)
-                .put("email", email)
-                .put("password", password),
+                .put("provider", "google")
+                .put("credential", idToken),
         )
-        val pendingEmail = data.optString("email", email)
-        val code = data.optString("code", "").ifBlank { null }
-        return pendingEmail to code
-    }
-
-    fun verify(email: String, code: String): User {
-        val data = request(
-            "POST",
-            "/api/auth",
-            JSONObject()
-                .put("provider", "verify")
-                .put("email", email)
-                .put("code", code),
-        )
-        return data.getJSONObject("user").toUser()
+        return data.optJSONObject("user")?.toUser()
+            ?: throw ApiException("No se pudo iniciar sesión con Google")
     }
 
     fun logout() {
@@ -227,11 +201,6 @@ class StockeaApi(context: Context) {
         val raw = searchSupersRaw(query, limit)
         return buildWebCompareRows(raw.coto, raw.carrefour, raw.dia)
     }
-}
-
-sealed class AuthResult {
-    data class Ok(val user: User) : AuthResult()
-    data class NeedsVerification(val email: String) : AuthResult()
 }
 
 class ApiException(message: String) : Exception(message)

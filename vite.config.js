@@ -72,6 +72,9 @@ export default defineConfig(({ mode }) => {
   if (env.POSTGRES_URL) process.env.POSTGRES_URL = env.POSTGRES_URL
   if (env.AUTH_SECRET) process.env.AUTH_SECRET = env.AUTH_SECRET
   for (const key of [
+    'GOOGLE_CLIENT_ID',
+    'GOOGLE_ANDROID_CLIENT_ID',
+    'GOOGLE_IOS_CLIENT_ID',
     'RESEND_API_KEY',
     'RESEND_ACCOUNT_EMAIL',
     'MAIL_FROM',

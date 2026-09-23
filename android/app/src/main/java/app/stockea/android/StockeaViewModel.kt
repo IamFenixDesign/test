@@ -4,7 +4,6 @@ import android.app.Application
 import android.content.Context
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import app.stockea.android.data.AuthResult
 import app.stockea.android.data.CompareRow
 import app.stockea.android.data.StockItem
 import app.stockea.android.data.StockeaApi
@@ -347,71 +346,11 @@ class StockeaViewModel(app: Application) : AndroidViewModel(app) {
         return true
     }
 
-    fun login(email: String, password: String) {
+    fun loginWithGoogle(idToken: String) {
         viewModelScope.launch {
             _state.update { it.copy(busy = true, error = "", info = "") }
             try {
-                when (val result = withContext(Dispatchers.IO) { api.login(email, password) }) {
-                    is AuthResult.NeedsVerification -> {
-                        _state.update {
-                            it.copy(
-                                busy = false,
-                                info = "Confirmá tu correo: ${result.email}",
-                                error = "needs_verify:${result.email}",
-                            )
-                        }
-                    }
-                    is AuthResult.Ok -> {
-                        val items = withContext(Dispatchers.IO) { api.fetchItems() }
-                        priceRefreshAt.clear()
-                        _state.update {
-                            it.copy(
-                                busy = false,
-                                user = result.user,
-                                items = items,
-                                cartRemoved = emptySet(),
-                                tab = MainTab.Stock,
-                            )
-                        }
-                        startPriceRefreshLoop()
-                    }
-                }
-            } catch (e: Exception) {
-                _state.update { it.copy(busy = false, error = e.message ?: "Error al entrar") }
-            }
-        }
-    }
-
-    fun register(firstName: String, lastName: String, email: String, password: String) {
-        viewModelScope.launch {
-            _state.update { it.copy(busy = true, error = "", info = "") }
-            try {
-                val (pending, sandboxCode) = withContext(Dispatchers.IO) {
-                    api.register(firstName, lastName, email, password)
-                }
-                val info = if (!sandboxCode.isNullOrBlank()) {
-                    "Tu código es $sandboxCode (Resend sandbox no envía a otros correos)"
-                } else {
-                    "Te enviamos un código a $pending"
-                }
-                _state.update {
-                    it.copy(
-                        busy = false,
-                        info = info,
-                        error = "needs_verify:$pending",
-                    )
-                }
-            } catch (e: Exception) {
-                _state.update { it.copy(busy = false, error = e.message ?: "No se pudo registrar") }
-            }
-        }
-    }
-
-    fun verify(email: String, code: String) {
-        viewModelScope.launch {
-            _state.update { it.copy(busy = true, error = "", info = "") }
-            try {
-                val user = withContext(Dispatchers.IO) { api.verify(email, code) }
+                val user = withContext(Dispatchers.IO) { api.loginWithGoogle(idToken) }
                 val items = withContext(Dispatchers.IO) { api.fetchItems() }
                 priceRefreshAt.clear()
                 _state.update {
@@ -421,13 +360,19 @@ class StockeaViewModel(app: Application) : AndroidViewModel(app) {
                         items = items,
                         cartRemoved = emptySet(),
                         tab = MainTab.Stock,
+                        error = "",
+                        info = "",
                     )
                 }
                 startPriceRefreshLoop()
             } catch (e: Exception) {
-                _state.update { it.copy(busy = false, error = e.message ?: "Código inválido") }
+                _state.update { it.copy(busy = false, error = e.message ?: "Error al entrar con Google") }
             }
         }
+    }
+
+    fun resolveGoogleClientId(): String {
+        return runCatching { api.googleClientId() }.getOrDefault("")
     }
 
     fun logout() {

@@ -20,6 +20,18 @@ export async function fetchMe() {
   }
 }
 
+export async function fetchAuthConfig() {
+  try {
+    const data = await authRequest(null)
+    return {
+      user: data.user || null,
+      googleClientId: data.googleClientId || '',
+    }
+  } catch {
+    return { user: null, googleClientId: '' }
+  }
+}
+
 export async function logout() {
   try {
     await authRequest({ provider: 'logout' })
@@ -28,44 +40,9 @@ export async function logout() {
   }
 }
 
-export async function registerWithEmail(fields) {
-  return authRequest({
-    provider: 'register',
-    firstName: fields.firstName,
-    lastName: fields.lastName,
-    email: fields.email,
-    password: fields.password,
-  })
-}
-
-export async function loginWithEmail(email, password) {
-  return authRequest({ provider: 'email', email, password })
-}
-
-export async function verifyEmail(email, code) {
-  const data = await authRequest({ provider: 'verify', email, code })
+export async function loginWithGoogle(credential) {
+  const data = await authRequest({ provider: 'google', credential })
   return data.user
-}
-
-export async function resendCode(email, purpose = 'verify') {
-  return authRequest({ provider: 'resend', email, purpose })
-}
-
-export async function requestPasswordReset(email) {
-  return authRequest({ provider: 'forgot', email })
-}
-
-export async function resetPassword({ email, code, password }) {
-  const data = await authRequest({ provider: 'reset', email, code, password })
-  return data.user
-}
-
-export async function changePassword({ currentPassword, newPassword }) {
-  return authRequest({
-    provider: 'change-password',
-    currentPassword,
-    newPassword,
-  })
 }
 
 export async function updateProfile({ firstName, lastName, email }) {
