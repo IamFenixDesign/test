@@ -6,8 +6,8 @@
     <link rel="icon" type="image/png" sizes="32x32" href="./favicon-32.png?v=1.1.0" />
     <link rel="apple-touch-icon" sizes="180x180" href="./apple-touch-icon.png?v=1.1.0" />
     <link rel="manifest" href="./manifest.webmanifest?v=1.1.0" />
-    <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)" />
-    <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#243018" media="(prefers-color-scheme: dark)" />
+    <meta name="theme-color" content="#d7e7a4" media="(prefers-color-scheme: light)" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
@@ -29,7 +29,7 @@
         min-height: 100%;
         min-height: 100dvh;
         background-color: #000000;
-        background-image: linear-gradient(180deg, #1c2414 0%, #0b0d0c 92%, #000000 100%);
+        background-image: linear-gradient(180deg, #243018 0%, #243018 16%, #0b0d0c 92%, #000000 100%);
         background-repeat: no-repeat;
         background-size: 100% 100%;
       }
@@ -37,7 +37,7 @@
       html.is-login[data-theme='light'] body,
       html.is-login[data-theme='light'] #root {
         background-color: #ffffff;
-        background-image: linear-gradient(180deg, #e7f0c8 0%, #f3f6ee 92%, #ffffff 100%);
+        background-image: linear-gradient(180deg, #d7e7a4 0%, #d7e7a4 16%, #f3f6ee 92%, #ffffff 100%);
       }
     </style>
     <script>
@@ -51,8 +51,9 @@
         var root = document.documentElement
         var login = root.classList.contains('is-login')
         var light = root.dataset.theme === 'light'
-        var color = login ? (light ? '#ffffff' : '#000000') : light ? '#f2f5ee' : '#0b0d0c'
+        var color = login ? (light ? '#d7e7a4' : '#243018') : light ? '#f2f5ee' : '#0b0d0c'
         document.querySelectorAll('meta[name="theme-color"]').forEach(function (el) {
+          el.removeAttribute('media')
           el.setAttribute('content', color)
         })
       }
