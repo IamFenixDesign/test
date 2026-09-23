@@ -37,7 +37,7 @@ cd android
 
 APK: `android/app/build/outputs/apk/debug/app-debug.apk`
 
-Descarga directa (repo): [`android/release/stockea-debug.apk`](android/release/stockea-debug.apk) · v1.2.0
+Descarga directa (repo): [`android/release/stockea-debug.apk`](android/release/stockea-debug.apk) · v1.3.0
 
 Detalles: [`android/README.md`](android/README.md).
 
