@@ -64,9 +64,9 @@
 		A10000000000000000000258 /* App */ = {
 			isa = PBXGroup;
 			children = (
-				A10000000000000000000001 /* StockeaApp.swift */,,
-				A10000000000000000000002 /* AppConfig.swift */,,
-				A10000000000000000000003 /* Theme.swift */,,
+				A10000000000000000000001 /* StockeaApp.swift */,
+				A10000000000000000000002 /* AppConfig.swift */,
+				A10000000000000000000003 /* Theme.swift */,
 				A10000000000000000000004 /* GoogleAuth.swift */,
 			);
 			path = App;
@@ -76,9 +76,9 @@
 		A10000000000000000000259 /* Data */ = {
 			isa = PBXGroup;
 			children = (
-				A10000000000000000000005 /* Models.swift */,,
-				A10000000000000000000006 /* CompareMatch.swift */,,
-				A10000000000000000000007 /* APIClient.swift */,,
+				A10000000000000000000005 /* Models.swift */,
+				A10000000000000000000006 /* CompareMatch.swift */,
+				A10000000000000000000007 /* APIClient.swift */,
 				A10000000000000000000008 /* AppModel.swift */,
 			);
 			path = Data;
@@ -88,13 +88,13 @@
 		A1000000000000000000025A /* Views */ = {
 			isa = PBXGroup;
 			children = (
-				A10000000000000000000009 /* RootView.swift */,,
-				A1000000000000000000000A /* LoginView.swift */,,
-				A1000000000000000000000B /* StockView.swift */,,
-				A1000000000000000000000C /* CompareView.swift */,,
-				A1000000000000000000000D /* NewItemView.swift */,,
-				A1000000000000000000000E /* CartView.swift */,,
-				A1000000000000000000000F /* ProfileView.swift */,,
+				A10000000000000000000009 /* RootView.swift */,
+				A1000000000000000000000A /* LoginView.swift */,
+				A1000000000000000000000B /* StockView.swift */,
+				A1000000000000000000000C /* CompareView.swift */,
+				A1000000000000000000000D /* NewItemView.swift */,
+				A1000000000000000000000E /* CartView.swift */,
+				A1000000000000000000000F /* ProfileView.swift */,
 				A10000000000000000000010 /* ScannerView.swift */,
 			);
 			path = Views;
@@ -104,9 +104,9 @@
 		A1000000000000000000025B /* Stockea */ = {
 			isa = PBXGroup;
 			children = (
-				A10000000000000000000258 /* App */,,
-				A10000000000000000000259 /* Data */,,
-				A1000000000000000000025A /* Views */,,
+				A10000000000000000000258 /* App */,
+				A10000000000000000000259 /* Data */,
+				A1000000000000000000025A /* Views */,
 				A100000000000000000000C8 /* Assets.xcassets */,
 				A100000000000000000000CA /* Info.plist */,
 			);
@@ -268,7 +268,6 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = "";
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = Stockea/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
@@ -294,7 +293,6 @@
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = "";
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = Stockea/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
