@@ -1,0 +1,45 @@
+# Stockea — iOS nativo
+
+App nativa en SwiftUI, el mismo alcance que Android: login con Google, stock, alta con escáner, comparar Coto / Carrefour / Día, carrito y perfil.
+
+Bundle ID: `app.stockea.ios`
+
+Habla con el backend de Vercel: `https://test-iota-two-49.vercel.app`
+
+## Qué necesitás
+
+- Mac con Xcode 16 o más nuevo
+- Un iPhone (o el simulador) con iOS 17+
+- Un cliente OAuth **iOS** en Google Cloud. El login de Google no arranca sin ese ID.
+
+## Google Sign-In
+
+1. En [Google Cloud Console](https://console.cloud.google.com/apis/credentials) creá un cliente **iOS**.
+2. Bundle ID: `app.stockea.ios`
+3. Copiá el Client ID, por ejemplo `123456789-abc.apps.googleusercontent.com`.
+4. En `ios/Stockea/Info.plist` reemplazá las dos apariciones de `REEMPLAZAR`:
+   - `GOOGLE_IOS_CLIENT_ID` → el Client ID completo
+   - `CFBundleURLSchemes` → el Client ID dado vuelta, sin `.apps.googleusercontent.com`
+
+   Si el Client ID es `123456789-abc.apps.googleusercontent.com`, el scheme es `com.googleusercontent.apps.123456789-abc`.
+
+El ID token se valida con el cliente web que ya usa el servidor (`GOOGLE_CLIENT_ID`).
+
+## Abrir y correr
+
+```bash
+open ios/Stockea.xcodeproj
+```
+
+En Xcode: elegí tu Team en Signing, un iPhone y Run.
+
+La primera vez Xcode descarga el paquete `GoogleSignIn-iOS`.
+
+## Pantallas
+
+- Login solo con Google (sin cambio de tema)
+- Stock: alertas, +/−, carrito, borrar
+- Nuevo: nombre, unidad, stock, precio de súper o personalizado, EAN y cámara
+- Comparar precios (Coto, Carrefour y Día)
+- Carrito de lo que está bajo el mínimo
+- Perfil: editar, tema claro/oscuro, exportar e importar JSON, cerrar sesión
