@@ -275,16 +275,12 @@ fun LoginScreen(
             Box(
                 modifier = Modifier
                     .size(92.dp)
-                    .shadow(22.dp, RoundedCornerShape(26.dp), clip = false)
-                    .clip(RoundedCornerShape(26.dp))
-                    .background(
-                        Brush.linearGradient(
-                            listOf(accent, Color(0xFFA8D63A), mint),
-                        ),
-                    ),
+                    .shadow(22.dp, RoundedCornerShape(23.dp), clip = false)
+                    .clip(RoundedCornerShape(23.dp))
+                    .background(Color(0xFF0B0D0C)),
                 contentAlignment = Alignment.Center,
             ) {
-                StockeaLogoMark(modifier = Modifier.size(48.dp))
+                StockeaLogoMark(modifier = Modifier.size(72.dp))
             }
 
             Text(
