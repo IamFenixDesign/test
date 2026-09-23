@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Cubo Stockea centrado en la safe zone (~66dp), sin fondo -->
+    <group
+        android:translateX="54"
+        android:translateY="54"
+        android:scaleX="2.35"
+        android:scaleY="2.35">
+        <group
+            android:translateX="-16"
+            android:translateY="-16">
+            <path
+                android:fillColor="#D4F562"
+                android:pathData="M16,6.1 L25.4,11.1 L16,16.1 L6.6,11.1 Z" />
+            <path
+                android:fillColor="#7A9C24"
+                android:pathData="M6.6,11.1 L16,16.1 L16,25.9 L6.6,20.9 Z" />
+            <path
+                android:fillColor="#7EE2B8"
+                android:pathData="M25.4,11.1 L16,16.1 L16,25.9 L25.4,20.9 Z" />
+        </group>
+    </group>
+</vector>
