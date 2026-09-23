@@ -39,3 +39,8 @@ android/app/*.iml
 # APK de release versionado (el build/ sigue ignorado)
 !android/release/*.apk
 
+# iOS
+ios/**/xcuserdata/
+ios/**/DerivedData/
+*.xcuserstate
+
