@@ -353,23 +353,78 @@ class StockeaViewModel(app: Application) : AndroidViewModel(app) {
         viewModelScope.launch {
             _state.update { it.copy(busy = true, error = "", info = "") }
             try {
-                val user = withContext(Dispatchers.IO) { api.loginWithGoogle(idToken) }
+                val result = withContext(Dispatchers.IO) { api.loginWithGoogle(idToken) }
                 val items = withContext(Dispatchers.IO) { api.fetchItems() }
                 priceRefreshAt.clear()
+                val info = when {
+                    result.linked -> "Cuenta vinculada a Google · ${result.itemCount} productos"
+                    result.itemCount > 0 -> "Bienvenido · ${result.itemCount} productos sincronizados"
+                    else -> ""
+                }
                 _state.update {
                     it.copy(
                         busy = false,
-                        user = user,
+                        user = result.user,
                         items = items,
                         cartRemoved = emptySet(),
                         tab = MainTab.Stock,
                         error = "",
-                        info = "",
+                        info = info,
                     )
                 }
                 startPriceRefreshLoop()
             } catch (e: Exception) {
                 _state.update { it.copy(busy = false, error = e.message ?: "Error al entrar con Google") }
+            }
+        }
+    }
+
+    fun linkGoogle(idToken: String) {
+        viewModelScope.launch {
+            _state.update { it.copy(busy = true, error = "", info = "") }
+            try {
+                val result = withContext(Dispatchers.IO) { api.linkGoogle(idToken) }
+                val items = withContext(Dispatchers.IO) { api.fetchItems() }
+                _state.update {
+                    it.copy(
+                        busy = false,
+                        user = result.user,
+                        items = items,
+                        info = if (result.moved > 0) {
+                            "Google vinculado · se unieron ${result.moved} productos"
+                        } else {
+                            "Google vinculado · ${result.itemCount} productos en la nube"
+                        },
+                        error = "",
+                    )
+                }
+            } catch (e: Exception) {
+                _state.update { it.copy(busy = false, error = e.message ?: "No se pudo vincular Google") }
+            }
+        }
+    }
+
+    fun mergeLegacyAccount(email: String, password: String) {
+        viewModelScope.launch {
+            _state.update { it.copy(busy = true, error = "", info = "") }
+            try {
+                val result = withContext(Dispatchers.IO) { api.mergeLegacy(email, password) }
+                val items = withContext(Dispatchers.IO) { api.fetchItems() }
+                _state.update {
+                    it.copy(
+                        busy = false,
+                        user = result.user,
+                        items = items,
+                        info = if (result.merged) {
+                            "Cuenta unida · ${result.moved} productos traídos (${result.itemCount} en total)"
+                        } else {
+                            "Esa cuenta ya era la actual"
+                        },
+                        error = "",
+                    )
+                }
+            } catch (e: Exception) {
+                _state.update { it.copy(busy = false, error = e.message ?: "No se pudo unir la cuenta") }
             }
         }
     }

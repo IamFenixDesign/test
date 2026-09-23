@@ -194,6 +194,9 @@ private fun StockeaRoot(vm: StockeaViewModel) {
                         onSave = vm::saveProfile,
                         onExportJson = vm::exportStockJson,
                         onImportJson = vm::importStockJson,
+                        resolveGoogleClientId = { vm.resolveGoogleClientId() },
+                        onLinkGoogle = vm::linkGoogle,
+                        onMergeLegacy = vm::mergeLegacyAccount,
                         onLogout = vm::logout,
                     )
                 }

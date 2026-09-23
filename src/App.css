@@ -271,6 +271,19 @@
   word-break: break-word;
 }
 
+.profile-provider {
+  color: var(--accent-text) !important;
+  font-size: 0.78rem !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.profile-legacy-form {
+  display: grid;
+  gap: 10px;
+}
+
 .profile-form {
   display: grid;
   gap: 12px;

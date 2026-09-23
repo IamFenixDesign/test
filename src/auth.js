@@ -41,8 +41,15 @@ export async function logout() {
 }
 
 export async function loginWithGoogle(credential) {
-  const data = await authRequest({ provider: 'google', credential })
-  return data.user
+  return authRequest({ provider: 'google', credential })
+}
+
+export async function linkGoogleAccount(credential) {
+  return authRequest({ provider: 'link-google', credential })
+}
+
+export async function mergeLegacyAccount({ email, password }) {
+  return authRequest({ provider: 'merge-legacy', email, password })
 }
 
 export async function updateProfile({ firstName, lastName, email }) {
