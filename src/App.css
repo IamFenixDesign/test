@@ -1281,6 +1281,89 @@
   margin-top: 8px;
 }
 
+.login-google-shell {
+  position: relative;
+  width: min(100%, 320px);
+  min-height: 48px;
+  border-radius: 999px;
+  overflow: hidden;
+  isolation: isolate;
+}
+
+.login-google-shell.is-disabled {
+  opacity: 0.55;
+  pointer-events: none;
+}
+
+.login-google-face {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 48px;
+  padding: 0 18px;
+  border-radius: 999px;
+  font-weight: 700;
+  font-size: 0.95rem;
+  letter-spacing: -0.01em;
+  color: var(--text);
+  background: color-mix(in srgb, var(--bg-card) 88%, var(--bg-hover));
+  border: 1px solid var(--line-strong);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.18);
+}
+
+html[data-theme="dark"] .login-google-face {
+  color: #eef4ea;
+  background: #171a18;
+  border-color: rgba(232, 240, 228, 0.16);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.35);
+}
+
+html[data-theme="light"] .login-google-face {
+  color: #141c16;
+  background: #ffffff;
+  border-color: rgba(24, 36, 26, 0.14);
+}
+
+.login-google-g {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}
+
+.login-google-hit {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  opacity: 0.02;
+  overflow: hidden;
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.login-google-hit > div,
+.login-google-hit iframe {
+  width: 100% !important;
+  height: 100% !important;
+  max-width: none !important;
+  border: 0 !important;
+  outline: 0 !important;
+  margin: 0 !important;
+}
+
+.login-google-loading {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+  font-size: 0.82rem;
+  color: var(--muted);
+  background: color-mix(in srgb, var(--bg) 55%, transparent);
+}
+
 .login-google-btn {
   min-height: 44px;
   width: min(100%, 320px);
@@ -1292,18 +1375,6 @@
 
 .login-google-btn > div {
   margin: 0 auto !important;
-}
-
-html[data-theme="dark"] .login-google-btn {
-  background: #131314;
-  box-shadow: inset 0 0 0 1px rgba(232, 240, 228, 0.14);
-}
-
-html[data-theme="dark"] .login-google-btn iframe,
-html[data-theme="dark"] .login-google-btn > div {
-  border: 0 !important;
-  outline: 0 !important;
-  color-scheme: dark;
 }
 
 .profile-transfer {

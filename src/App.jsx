@@ -21,6 +21,7 @@ import {
 import { getCameraStream, releaseCameraStream } from './camera'
 import { clearDeviceStockCaches, collectDeviceStockItems } from './deviceStock'
 import { mergeStockLists, parseStockExport, serializeStockExport } from './stockTransfer'
+import GoogleSignInButton from './GoogleSignInButton.jsx'
 import Login from './Login.jsx'
 
 const STORAGE_KEY = 'stockly-items-v2'
@@ -1196,7 +1197,6 @@ function App() {
   const [legacyForm, setLegacyForm] = useState({ email: '', password: '' })
   const [googleClientId, setGoogleClientId] = useState('')
   const importInputRef = useRef(null)
-  const googleLinkBtnRef = useRef(null)
   const [storeQuery, setStoreQuery] = useState('')
   const [storeResults, setStoreResults] = useState({ coto: [], carrefour: [], dia: [], errors: {} })
   const [storeTab, setStoreTab] = useState('coto')
@@ -1344,61 +1344,6 @@ function App() {
       cancelled = true
     }
   }, [])
-
-  useEffect(() => {
-    if (!user || user.provider === 'google' || !googleClientId || !googleLinkBtnRef.current) {
-      return undefined
-    }
-    let cancelled = false
-
-    async function mountLinkButton() {
-      try {
-        if (!window.google?.accounts?.id) {
-          await new Promise((resolve, reject) => {
-            const existing = document.querySelector('script[data-google-gis="1"]')
-            if (existing) {
-              existing.addEventListener('load', () => resolve(), { once: true })
-              existing.addEventListener('error', () => reject(new Error('Google')), { once: true })
-              return
-            }
-            const script = document.createElement('script')
-            script.src = 'https://accounts.google.com/gsi/client'
-            script.async = true
-            script.defer = true
-            script.dataset.googleGis = '1'
-            script.onload = () => resolve()
-            script.onerror = () => reject(new Error('Google'))
-            document.head.appendChild(script)
-          })
-        }
-        if (cancelled || !googleLinkBtnRef.current || !window.google?.accounts?.id) return
-        window.google.accounts.id.initialize({
-          client_id: googleClientId,
-          callback: (response) => {
-            handleLinkGoogleCredential(response.credential)
-          },
-        })
-        googleLinkBtnRef.current.innerHTML = ''
-        window.google.accounts.id.renderButton(googleLinkBtnRef.current, {
-          theme: theme === 'dark' ? 'filled_black' : 'outline',
-          size: 'large',
-          shape: 'pill',
-          text: 'continue_with',
-          width: 280,
-          locale: 'es',
-        })
-      } catch {
-        /* button stays empty; user can still merge legacy */
-      }
-    }
-
-    mountLinkButton()
-    return () => {
-      cancelled = true
-    }
-    // handleLinkGoogleCredential is stable enough for this mount; avoid re-binding loops.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.id, user?.provider, googleClientId, theme])
 
   useEffect(() => {
     if (!user) {
