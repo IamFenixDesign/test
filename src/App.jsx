@@ -2680,7 +2680,7 @@ function App() {
   }
 
   if (!user) {
-    return <Login theme={theme} setTheme={setTheme} onLoggedIn={handleLoggedIn} />
+    return <Login theme={theme} onLoggedIn={handleLoggedIn} />
   }
 
   return (

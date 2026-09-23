@@ -1371,16 +1371,6 @@ html[data-theme='dark'] .login-bleed {
   }
 }
 
-.login-theme {
-  position: fixed;
-  top: max(10px, calc(env(safe-area-inset-top, 0px) + 8px));
-  right: max(12px, calc(env(safe-area-inset-right, 0px) + 4px));
-  z-index: 30;
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  background: color-mix(in srgb, var(--bg-elev) 72%, transparent);
-}
-
 .login-body {
   position: relative;
   z-index: 1;
@@ -4887,11 +4877,6 @@ html[data-theme="light"] .store-col-title.dia {
       padding-right: max(18px, env(safe-area-inset-right, 0px));
     }
 
-    .login-theme {
-      top: max(10px, calc(env(safe-area-inset-top, 47px) + 6px));
-      right: max(12px, calc(env(safe-area-inset-right, 0px) + 2px));
-    }
-
     .scanner-topbar {
       padding-top: max(16px, env(safe-area-inset-top, 47px));
     }
@@ -5055,12 +5040,6 @@ html[data-theme="light"] .store-col-title.dia {
     padding-top: max(12px, env(safe-area-inset-top, 47px));
     padding-bottom: max(8px, env(safe-area-inset-bottom, 0px));
     background: transparent;
-  }
-
-  html.is-pwa:not(.is-desktop-site) .login-theme,
-  html.is-ios:not(.is-desktop-site) .login-theme {
-    top: max(10px, calc(env(safe-area-inset-top, 47px) + 6px));
-    right: max(12px, calc(env(safe-area-inset-right, 0px) + 2px));
   }
 
   html.is-pwa:not(.is-desktop-site) .login-body,
