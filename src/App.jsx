@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import './App.css'
 import { barcodeDigits, extractEan13, guessCategory, matchByEan, qtyUnitOfProduct, searchSupermarkets, cheaperOf, findCompareMatchIndex } from './supermarkets'
 import {
@@ -1341,6 +1341,15 @@ function App() {
     if (!hydrated || !user?.id) return
     writeLocalItems(user.id, items)
   }, [items, hydrated, user])
+
+  // Auth gate (boot + login): keep login gradient on html/body so iOS Safari/PWA
+  // never shows a black/white safe-area strip on first paint. After logout, Login
+  // remounts with the class already correct — matching the “works after logout” case.
+  useLayoutEffect(() => {
+    const root = document.documentElement
+    if (user) root.classList.remove('is-login')
+    else root.classList.add('is-login')
+  }, [user])
 
   useEffect(() => {
     let cancelled = false
