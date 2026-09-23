@@ -32,24 +32,7 @@ function IconMark({ theme }) {
   )
 }
 
-function IconSun() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-      <circle cx="12" cy="12" r="4" />
-      <path d="M12 3v2M12 19v2M5 12H3M21 12h-2M6.3 6.3 4.9 4.9M19.1 19.1l-1.4-1.4M6.3 17.7 4.9 19.1M19.1 4.9l-1.4 1.4" />
-    </svg>
-  )
-}
-
-function IconMoon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-      <path d="M20 14.5A8.5 8.5 0 1 1 9.5 4 7 7 0 0 0 20 14.5Z" />
-    </svg>
-  )
-}
-
-export default function Login({ theme, setTheme, onLoggedIn }) {
+export default function Login({ theme, onLoggedIn }) {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [googleClientId, setGoogleClientId] = useState('')
@@ -99,15 +82,6 @@ export default function Login({ theme, setTheme, onLoggedIn }) {
   return (
     <div className="login-screen">
       <div className="login-bleed" aria-hidden="true" />
-
-      <button
-        className="btn btn-ghost theme-toggle login-theme"
-        type="button"
-        onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-        aria-label={theme === 'dark' ? 'Cambiar a tema claro' : 'Cambiar a tema oscuro'}
-      >
-        {theme === 'dark' ? <IconSun /> : <IconMoon />}
-      </button>
 
       <div className="login-body">
         <section className="login-hero">
