@@ -542,11 +542,18 @@ html[data-theme='dark'] #credential_picker_container {
     grid-template-columns: 1fr 1fr;
     grid-template-areas:
       "hero form"
-      "google google"
       "stock stock"
       "logout logout";
     align-items: stretch;
     padding: 0;
+  }
+
+  .profile-panel.can-link {
+    grid-template-areas:
+      "hero form"
+      "google google"
+      "stock stock"
+      "logout logout";
   }
 
   .profile-hero {
