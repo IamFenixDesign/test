@@ -12,8 +12,8 @@ android {
         applicationId = "app.stockea.android"
         minSdk = 26
         targetSdk = 35
-        versionCode = 3
-        versionName = "1.2.0"
+        versionCode = 4
+        versionName = "1.3.0"
         buildConfigField("String", "API_BASE", "\"https://test-iota-two-49.vercel.app\"")
         // Web OAuth client ID (same as GOOGLE_CLIENT_ID on the server). Override in local.properties if needed.
         val googleClientId =
