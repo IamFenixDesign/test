@@ -455,6 +455,26 @@ function IconLogout() {
   )
 }
 
+function IconExport() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M12 3v12" />
+      <path d="m7 8 5-5 5 5" />
+      <path d="M5 21h14" />
+    </svg>
+  )
+}
+
+function IconImport() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M12 21V9" />
+      <path d="m7 16 5 5 5-5" />
+      <path d="M5 3h14" />
+    </svg>
+  )
+}
+
 function IconScan() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -3200,20 +3220,22 @@ function App() {
             <p>Exportá un JSON de respaldo o importá una lista para sumar/actualizar productos.</p>
             <div className="profile-transfer-actions">
               <button
-                className="btn btn-ghost"
+                className="profile-io-btn profile-io-export"
                 type="button"
                 onClick={handleExportStock}
                 disabled={transferBusy || items.length === 0}
               >
-                Exportar
+                <IconExport />
+                <span>Exportar</span>
               </button>
               <button
-                className="btn btn-ghost"
+                className="profile-io-btn profile-io-import"
                 type="button"
                 onClick={() => importInputRef.current?.click()}
                 disabled={transferBusy}
               >
-                {transferBusy ? 'Importando…' : 'Importar'}
+                <IconImport />
+                <span>{transferBusy ? 'Importando…' : 'Importar'}</span>
               </button>
             </div>
             <input

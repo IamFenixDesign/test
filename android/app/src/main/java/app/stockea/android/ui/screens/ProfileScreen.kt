@@ -298,7 +298,7 @@ fun ProfileScreen(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     style = MaterialTheme.typography.bodySmall,
                 )
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
                     OutlinedButton(
                         onClick = {
                             val body = onExportJson()
@@ -306,18 +306,21 @@ fun ProfileScreen(
                             createDoc.launch("stockea-stock-${LocalDate.now()}.json")
                         },
                         enabled = !busy && itemCount > 0,
-                        modifier = Modifier.weight(1f).height(48.dp),
+                        modifier = Modifier.weight(1f).height(50.dp),
                         shape = RoundedCornerShape(14.dp),
                     ) {
-                        Text("Exportar")
+                        Text("Exportar", fontWeight = FontWeight.Bold)
                     }
-                    OutlinedButton(
+                    Button(
                         onClick = { openDoc.launch(arrayOf("application/json", "text/*")) },
                         enabled = !busy,
-                        modifier = Modifier.weight(1f).height(48.dp),
+                        modifier = Modifier.weight(1f).height(50.dp),
                         shape = RoundedCornerShape(14.dp),
                     ) {
-                        Text(if (busy) "…" else "Importar")
+                        Text(
+                            if (busy) "Importando…" else "Importar",
+                            fontWeight = FontWeight.Bold,
+                        )
                     }
                 }
             }
