@@ -1,11 +1,19 @@
 import SwiftUI
 
+private struct FormHeightKey: PreferenceKey {
+    static var defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = max(value, nextValue())
+    }
+}
+
 struct NewItemView: View {
     @EnvironmentObject private var model: AppModel
     @State private var draft = NewItemDraft()
     @State private var query = ""
     @State private var loaded = false
     @State private var searchTask: Task<Void, Never>?
+    @State private var formHeight: CGFloat = 0
 
     private var dark: Bool { model.state.darkTheme }
     private var editing: Bool { model.state.editingItemId != nil }
@@ -133,6 +141,11 @@ struct NewItemView: View {
                     }
                 }
                 .padding(16)
+                .background {
+                    GeometryReader { proxy in
+                        Color.clear.preference(key: FormHeightKey.self, value: proxy.size.height)
+                    }
+                }
             }
             .background(.clear)
             .navigationTitle(editing ? "Editar" : "Nuevo")
@@ -167,9 +180,19 @@ struct NewItemView: View {
                 model.lookupStores(ean)
             }
         }
-        .presentationDetents([.medium, .large])
+        .onPreferenceChange(FormHeightKey.self) { height in
+            guard height > 0 else { return }
+            formHeight = height
+        }
+        .presentationDetents([.height(sheetHeight)])
         .presentationDragIndicator(.visible)
         .presentationCornerRadius(28)
+    }
+
+    private var sheetHeight: CGFloat {
+        let screen = UIScreen.main.bounds.height
+        let measured = formHeight > 0 ? formHeight + 72 : 360
+        return min(max(measured, 280), screen * 0.92)
     }
 
     private var quantityText: Binding<String> {
