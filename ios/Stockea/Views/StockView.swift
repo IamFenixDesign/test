@@ -18,6 +18,14 @@ struct StockView: View {
                         .font(.title.bold())
                         .foregroundStyle(StockeaColor.ink(dark: dark))
                     Spacer()
+                    Button { model.setTab(.profile) } label: {
+                        Image(systemName: "person")
+                            .font(.title3)
+                            .foregroundStyle(model.state.tab == .profile ? StockeaColor.accent : StockeaColor.ink(dark: dark))
+                            .frame(width: 44, height: 44)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Abrir perfil")
                     Button { model.openCart() } label: {
                         ZStack(alignment: .topTrailing) {
                             Image(systemName: "cart")

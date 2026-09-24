@@ -3,6 +3,7 @@ import SwiftUI
 struct RootView: View {
     @EnvironmentObject private var model: AppModel
     @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
         Group {
@@ -17,6 +18,10 @@ struct RootView: View {
             } else {
                 MainShell()
             }
+        }
+        .onAppear { model.applySystemTheme(dark: colorScheme == .dark) }
+        .onChange(of: colorScheme) { _, scheme in
+            model.applySystemTheme(dark: scheme == .dark)
         }
         .onChange(of: scenePhase) { _, phase in
             if phase == .active { model.onAppResumed() }
@@ -99,13 +104,6 @@ private struct BottomBar: View {
             barButton("Comparar", system: "scalemass", selected: model.state.tab == .compare) {
                 model.setTab(.compare)
             }
-            barButton(
-                model.state.darkTheme ? "Claro" : "Oscuro",
-                system: model.state.darkTheme ? "sun.max" : "moon",
-                selected: false
-            ) {
-                withAnimation(.smooth(duration: 0.45)) { model.toggleTheme() }
-            }
             Button {
                 withAnimation(.spring(duration: 0.42, bounce: 0.28)) { model.openNewItem() }
             } label: {
@@ -121,9 +119,6 @@ private struct BottomBar: View {
             .accessibilityLabel("Nuevo ítem")
             barButton("Stock", system: "shippingbox", selected: model.state.tab == .stock && !model.state.showNewItem && !model.state.showCart) {
                 model.setTab(.stock)
-            }
-            barButton("Perfil", system: "person", selected: model.state.tab == .profile) {
-                model.setTab(.profile)
             }
         }
         .padding(.horizontal, 8)
