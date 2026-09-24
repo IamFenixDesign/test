@@ -365,8 +365,8 @@ final class AppModel: ObservableObject {
         Task {
             do {
                 let items = try await api.fetchItems()
-                state.items = items
-                state.cartRemoved = pruneCartRemoved(state.cartRemoved, items)
+                state.items = mergePreservingOrder(current: state.items, incoming: items)
+                state.cartRemoved = pruneCartRemoved(state.cartRemoved, state.items)
             } catch {
                 if !isTimeout(error) { state.error = error.localizedDescription }
             }
@@ -673,6 +673,14 @@ final class AppModel: ObservableObject {
                 }
             }
         }
+    }
+
+    private func mergePreservingOrder(current: [StockItem], incoming: [StockItem]) -> [StockItem] {
+        let byId = Dictionary(uniqueKeysWithValues: incoming.map { ($0.id, $0) })
+        var ordered = current.compactMap { byId[$0.id] }
+        let seen = Set(ordered.map(\.id))
+        ordered.append(contentsOf: incoming.filter { !seen.contains($0.id) })
+        return ordered
     }
 
     private func isTimeout(_ error: Error) -> Bool {

@@ -14,20 +14,19 @@ struct NewItemView: View {
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(alignment: .leading, spacing: 12) {
+                VStack(alignment: .leading, spacing: 8) {
                     field("Nombre", text: $draft.name)
-                    HStack {
+                    HStack(alignment: .bottom, spacing: 8) {
                         field("EAN", text: $draft.barcode)
                         Button {
                             model.openScanner()
                         } label: {
                             Image(systemName: "barcode.viewfinder")
-                                .font(.title2)
-                                .frame(width: 48, height: 48)
+                                .font(.title3)
+                                .frame(width: 44, height: 44)
                                 .background(StockeaColor.surface(dark: dark), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
                         }
                         .buttonStyle(.plain)
-                        .padding(.top, 18)
                         .accessibilityLabel("Escanear código")
                     }
                     TextField("Buscar en súper", text: $query)
@@ -82,11 +81,13 @@ struct NewItemView: View {
                         ForEach(stockCategories, id: \.self) { Text($0).tag($0) }
                     }
                     .pickerStyle(.menu)
+                    .fixedSize(horizontal: false, vertical: true)
                     Picker("Unidad", selection: $draft.qtyUnit) {
                         Text("Unidad").tag("unit")
                         Text("Kilo").tag("kg")
                     }
                     .pickerStyle(.segmented)
+                    .fixedSize(horizontal: false, vertical: true)
                     field(draft.qtyUnit == "kg" ? "Cantidad (gramos)" : (editing ? "Cantidad" : "Cantidad inicial"), text: quantityText)
                     field(draft.qtyUnit == "kg" ? "Mínimo (gramos)" : "Mínimo", text: minText)
                     if draft.priceCoto > 0 || draft.priceCarrefour > 0 || draft.priceDia > 0 || draft.price > 0 {
@@ -177,7 +178,7 @@ struct NewItemView: View {
     }
 
     private func field(_ title: String, text: Binding<String>) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: 4) {
             Text(title)
                 .font(.caption)
                 .foregroundStyle(StockeaColor.muted(dark: dark))
