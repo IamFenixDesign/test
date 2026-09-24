@@ -1,21 +1,5 @@
 import SwiftUI
 
-private struct FittedNewItemSheet: ViewModifier {
-    func body(content: Content) -> some View {
-        if #available(iOS 18.0, *) {
-            content
-                .presentationSizing(.fitted)
-                .presentationDragIndicator(.visible)
-                .presentationCornerRadius(28)
-        } else {
-            content
-                .presentationDetents([.medium, .large])
-                .presentationDragIndicator(.visible)
-                .presentationCornerRadius(28)
-        }
-    }
-}
-
 struct NewItemView: View {
     @EnvironmentObject private var model: AppModel
     @State private var draft = NewItemDraft()
@@ -27,19 +11,10 @@ struct NewItemView: View {
     private var editing: Bool { model.state.editingItemId != nil }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                Button("Cerrar") { model.closeNewItem() }
-                    .font(.body)
-                Spacer(minLength: 8)
-                Text(editing ? "Editar" : "Nuevo")
-                    .font(.headline)
-                Spacer(minLength: 8)
-                Button("Guardar") { save() }
-                    .font(.body.weight(.semibold))
-            }
-            .foregroundStyle(StockeaColor.ink(dark: dark))
-            field("Nombre", text: $draft.name)
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 8) {
+                    field("Nombre", text: $draft.name)
                     HStack(alignment: .bottom, spacing: 8) {
                         field("EAN", text: $draft.barcode)
                         Button {
@@ -74,8 +49,7 @@ struct NewItemView: View {
                             selection: model.state.storeTab,
                             onSelect: { model.setStoreTab($0) }
                         )
-                        ScrollView {
-                            VStack(spacing: 8) {
+                        VStack(spacing: 8) {
                                 ForEach(model.state.storeResults.list(model.state.storeTab)) { product in
                                     Button {
                                         apply(product)
@@ -97,9 +71,7 @@ struct NewItemView: View {
                                     }
                                     .buttonStyle(.plain)
                                 }
-                            }
                         }
-                        .frame(maxHeight: 220)
                     }
 
                     VStack(alignment: .leading, spacing: 4) {
@@ -160,10 +132,19 @@ struct NewItemView: View {
                             .foregroundStyle(StockeaColor.danger)
                     }
                 }
-            .padding(16)
-            .frame(maxWidth: .infinity, alignment: .topLeading)
-            .fixedSize(horizontal: false, vertical: true)
-            .background(StockeaColor.background(dark: dark))
+                .padding(16)
+            }
+            .background(.clear)
+            .navigationTitle(editing ? "Editar" : "Nuevo")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cerrar") { model.closeNewItem() }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Guardar") { save() }
+                }
+            }
             .onAppear {
                 if !loaded {
                     if let existing = model.editingDraft() {
@@ -185,7 +166,10 @@ struct NewItemView: View {
                 model.consumeScannedEan()
                 model.lookupStores(ean)
             }
-        .modifier(FittedNewItemSheet())
+        }
+        .presentationDetents([.medium, .large])
+        .presentationDragIndicator(.visible)
+        .presentationCornerRadius(28)
     }
 
     private var quantityText: Binding<String> {
