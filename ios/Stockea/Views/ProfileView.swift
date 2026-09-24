@@ -69,7 +69,7 @@ struct ProfileView: View {
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(StockeaColor.surface(dark: dark), in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .stockeaCard(dark: dark, radius: 22)
     }
 
     @ViewBuilder
@@ -112,7 +112,7 @@ struct ProfileView: View {
             .disabled(model.state.busy)
         }
         .padding(16)
-        .background(StockeaColor.surface(dark: dark), in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .stockeaCard(dark: dark, radius: 22)
     }
 
     private var stockCard: some View {
@@ -143,7 +143,7 @@ struct ProfileView: View {
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(StockeaColor.surface(dark: dark), in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .stockeaCard(dark: dark, radius: 22)
     }
 
     private var logoutButton: some View {

@@ -29,7 +29,7 @@ private struct MainShell: View {
 
     var body: some View {
         ZStack(alignment: .bottom) {
-            StockeaColor.background(dark: model.state.darkTheme).ignoresSafeArea()
+            StockeaBackground(dark: model.state.darkTheme)
             Group {
                 switch model.state.tab {
                 case .stock:
@@ -110,9 +110,11 @@ private struct BottomBar: View {
                 model.setTab(.profile)
             }
         }
-        .padding(.top, 8)
-        .padding(.bottom, 10)
-        .background(.ultraThinMaterial)
+        .padding(.horizontal, 8)
+        .padding(.vertical, 8)
+        .stockeaGlass(in: Capsule(), interactive: true)
+        .padding(.horizontal, 12)
+        .padding(.bottom, 6)
     }
 
     private func barButton(_ title: String, system: String, selected: Bool, action: @escaping () -> Void) -> some View {
