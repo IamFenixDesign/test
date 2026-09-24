@@ -43,6 +43,7 @@ struct AppState {
     var compareResults: [CompareRow] = []
     var compareBusy = false
     var showNewItem = false
+    var editingItemId: String?
     var showCart = false
     var showScanner = false
     var scannedEan: String?
@@ -107,6 +108,7 @@ final class AppModel: ObservableObject {
         state.error = ""
         state.info = ""
         state.showNewItem = false
+        state.editingItemId = nil
         state.showCart = false
         state.showScanner = false
         state.scannedEan = nil
@@ -124,6 +126,7 @@ final class AppModel: ObservableObject {
     }
 
     func openNewItem() {
+        state.editingItemId = nil
         state.showNewItem = true
         state.showCart = false
         state.tab = .stock
@@ -133,8 +136,51 @@ final class AppModel: ObservableObject {
         clearStoreLookup()
     }
 
+    func openEdit(_ item: StockItem) {
+        state.editingItemId = item.id
+        state.showNewItem = true
+        state.showCart = false
+        state.tab = .stock
+        state.showScanner = false
+        state.scannedEan = nil
+        state.error = ""
+        clearStoreLookup()
+        state.allowCustomPrice = item.priceSource == "custom"
+    }
+
+    func editingDraft() -> NewItemDraft? {
+        guard let id = state.editingItemId,
+              let item = state.items.first(where: { $0.id == id }) else { return nil }
+        let kg = item.qtyUnit == "kg"
+        return NewItemDraft(
+            name: item.name,
+            barcode: item.barcode,
+            category: stockCategories.contains(item.category) ? item.category : "Alimentos",
+            quantity: kg ? gramsFromKg(item.quantity) : item.quantity,
+            minStock: kg ? gramsFromKg(item.minStock) : item.minStock,
+            qtyUnit: kg ? "kg" : "unit",
+            price: item.price,
+            priceSource: item.priceSource,
+            priceCoto: item.priceCoto,
+            priceCarrefour: item.priceCarrefour,
+            priceDia: item.priceDia,
+            listPriceCoto: item.listPriceCoto,
+            listPriceCarrefour: item.listPriceCarrefour,
+            listPriceDia: item.listPriceDia,
+            image: item.image,
+            urlCoto: item.urlCoto,
+            urlCarrefour: item.urlCarrefour,
+            urlDia: item.urlDia,
+            discountCoto: item.discountCoto,
+            discountCarrefour: item.discountCarrefour,
+            discountDia: item.discountDia,
+            customPrice: item.priceSource == "custom" ? plainNumber(item.price) : ""
+        )
+    }
+
     func closeNewItem() {
         state.showNewItem = false
+        state.editingItemId = nil
         state.showScanner = false
         state.scannedEan = nil
         clearStoreLookup()
@@ -144,6 +190,7 @@ final class AppModel: ObservableObject {
         refreshItems()
         state.showCart = true
         state.showNewItem = false
+        state.editingItemId = nil
         state.showScanner = false
         state.tab = .stock
     }
@@ -234,8 +281,9 @@ final class AppModel: ObservableObject {
         let quantity = unit == "kg" ? normalizeQty(kgFromGrams(draft.quantity), "kg") : normalizeQty(max(0, draft.quantity), "unit")
         let minStock = unit == "kg" ? normalizeQty(kgFromGrams(draft.minStock), "kg") : normalizeQty(max(0, draft.minStock), "unit")
         let custom = source == "custom"
+        let editingId = state.editingItemId
         let item = StockItem(
-            id: UUID().uuidString,
+            id: editingId ?? UUID().uuidString,
             name: name,
             barcode: draft.barcode.trimmingCharacters(in: .whitespacesAndNewlines),
             category: draft.category.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "Alimentos" : draft.category,
@@ -258,12 +306,13 @@ final class AppModel: ObservableObject {
             discountCarrefour: custom ? "" : draft.discountCarrefour,
             discountDia: custom ? "" : draft.discountDia
         )
-        replaceItem(item, persist: true, prepend: true)
+        replaceItem(item, persist: true, prepend: editingId == nil)
         priceRefreshAt[item.id] = Date()
         state.showNewItem = false
+        state.editingItemId = nil
         state.showScanner = false
         state.scannedEan = nil
-        state.info = "Producto agregado"
+        state.info = editingId == nil ? "Producto agregado" : "Producto actualizado"
         state.tab = .stock
         state.error = ""
         clearStoreLookup()

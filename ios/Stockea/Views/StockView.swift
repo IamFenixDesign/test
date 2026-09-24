@@ -121,6 +121,11 @@ private struct StockCard: View {
                         .frame(width: 36, height: 36)
                 }
                 Spacer()
+                Button { model.openEdit(item) } label: {
+                    Image(systemName: "pencil")
+                        .foregroundStyle(StockeaColor.accent)
+                }
+                .accessibilityLabel("Editar")
                 Button { model.toggleCart(id: item.id) } label: {
                     Image(systemName: model.state.isInCart(item.id) ? "cart.fill" : "cart")
                 }

@@ -178,6 +178,29 @@ func kgFromGrams(_ grams: Double) -> Double {
     return (grams * 10).rounded() / 10_000
 }
 
+func plainNumber(_ value: Double) -> String {
+    guard value > 0 else { return "" }
+    if value.rounded() == value { return String(Int(value)) }
+    return String(value)
+}
+
+func gramsFromKg(_ kg: Double) -> Double {
+    guard kg.isFinite, kg >= 0 else { return 0 }
+    return (kg * 10_000).rounded() / 10
+}
+
+func formWeightForUnit(_ value: Double, fromUnit: String, toUnit: String) -> Double {
+    let from = fromUnit == "kg" ? "kg" : "unit"
+    let to = toUnit == "kg" ? "kg" : "unit"
+    if from == to {
+        return to == "kg" ? value : normalizeQty(value, "unit")
+    }
+    if from == "kg" {
+        return normalizeQty(kgFromGrams(value), "unit")
+    }
+    return gramsFromKg(normalizeQty(value, "kg"))
+}
+
 func tracksStorePrices(_ item: StockItem) -> Bool {
     if item.priceSource == "coto" || item.priceSource == "carrefour" || item.priceSource == "dia" {
         return true
