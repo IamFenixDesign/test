@@ -226,7 +226,7 @@ final class AppModel: ObservableObject {
     func lookupStores(_ query: String) {
         let q = query.trimmingCharacters(in: .whitespacesAndNewlines)
         guard q.count >= 2 else {
-            state.storeLookupError = "Escribí un producto o EAN y tocá buscar."
+            state.storeLookupError = "Escribí un producto o EAN."
             return
         }
         Task {

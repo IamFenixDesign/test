@@ -6,6 +6,7 @@ struct NewItemView: View {
     @State private var query = ""
     @State private var loaded = false
     @State private var ignoreUnitChange = false
+    @State private var searchTask: Task<Void, Never>?
 
     private var dark: Bool { model.state.darkTheme }
     private var editing: Bool { model.state.editingItemId != nil }
@@ -29,21 +30,13 @@ struct NewItemView: View {
                         .padding(.top, 18)
                         .accessibilityLabel("Escanear código")
                     }
-                    HStack {
-                        TextField("Buscar en súper", text: $query)
-                            .textInputAutocapitalization(.never)
-                            .padding(12)
-                            .background(StockeaColor.surface(dark: dark), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-                        Button("Buscar") {
-                            let term = query.trimmingCharacters(in: .whitespaces).isEmpty ? draft.barcode : query
-                            model.lookupStores(term)
-                        }
-                        .font(.subheadline.bold())
-                        .foregroundStyle(StockeaColor.accentInk)
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 10)
-                        .background(StockeaColor.accent, in: Capsule())
-                    }
+                    TextField("Buscar en súper", text: $query)
+                        .textInputAutocapitalization(.never)
+                        .submitLabel(.search)
+                        .onSubmit { searchNow() }
+                        .padding(12)
+                        .background(StockeaColor.surface(dark: dark), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                        .onChange(of: query) { _, _ in scheduleSearch() }
                     if model.state.storeLookupBusy {
                         ProgressView()
                     }
@@ -221,6 +214,27 @@ struct NewItemView: View {
             draft.urlCoto = product.url
             draft.discountCoto = product.hasDiscount ? product.discountLabel : ""
         }
+    }
+
+    private func searchTerm() -> String {
+        let typed = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        return typed.isEmpty ? draft.barcode : typed
+    }
+
+    private func scheduleSearch() {
+        searchTask?.cancel()
+        let term = searchTerm()
+        guard term.count >= 2 else { return }
+        searchTask = Task {
+            try? await Task.sleep(nanoseconds: 400_000_000)
+            guard !Task.isCancelled else { return }
+            model.lookupStores(term)
+        }
+    }
+
+    private func searchNow() {
+        searchTask?.cancel()
+        model.lookupStores(searchTerm())
     }
 
     private func storePill(_ title: String, store: String, price: Double) -> some View {
