@@ -9,9 +9,12 @@ struct RootView: View {
         Group {
             if model.state.booting {
                 ZStack {
-                    StockeaBackground(dark: model.state.darkTheme)
-                    ProgressView()
-                        .tint(StockeaColor.accent)
+                    StockeaBackground(dark: colorScheme == .dark)
+                    VStack(spacing: 22) {
+                        CubeMark(light: colorScheme != .dark, size: 108)
+                        ProgressView()
+                            .tint(Color.secondary)
+                    }
                 }
             } else if model.state.user == nil {
                 LoginView()
@@ -158,18 +161,16 @@ private struct BottomBar: View {
 
     @ViewBuilder
     private var glassBar: some View {
+        let blurred = barContent
+            .padding(.horizontal, 6)
+            .padding(.vertical, 6)
+            .background(.ultraThinMaterial, in: Capsule())
         if #available(iOS 26.0, *) {
             GlassEffectContainer(spacing: 16) {
-                barContent
-                    .padding(.horizontal, 6)
-                    .padding(.vertical, 6)
-                    .glassEffect(.regular, in: Capsule())
+                blurred.glassEffect(.regular, in: Capsule())
             }
         } else {
-            barContent
-                .padding(.horizontal, 6)
-                .padding(.vertical, 6)
-                .stockeaGlass(in: Capsule(), interactive: true)
+            blurred
         }
     }
 
@@ -251,11 +252,12 @@ private struct BottomBar: View {
         if #available(iOS 26.0, *) {
             Capsule()
                 .fill(.clear)
+                .background(.thinMaterial, in: Capsule())
                 .glassEffect(.regular.interactive(), in: Capsule())
                 .glassEffectID("tab-selection", in: selection)
         } else {
             Capsule()
-                .fill(.white.opacity(model.state.darkTheme ? 0.16 : 0.72))
+                .fill(.thinMaterial)
                 .matchedGeometryEffect(id: "tab-selection", in: selection)
         }
     }
