@@ -99,8 +99,25 @@ private struct BottomBar: View {
             .padding(.bottom, 6)
     }
 
+    @ViewBuilder
     private var glassBar: some View {
-        let bar = HStack(spacing: 0) {
+        if #available(iOS 26.0, *) {
+            GlassEffectContainer(spacing: 16) {
+                barContent
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 6)
+                    .glassEffect(.regular, in: Capsule())
+            }
+        } else {
+            barContent
+                .padding(.horizontal, 6)
+                .padding(.vertical, 6)
+                .stockeaGlass(in: Capsule(), interactive: true)
+        }
+    }
+
+    private var barContent: some View {
+        HStack(spacing: 4) {
             barButton("Comparar", system: "scalemass", selected: model.state.tab == .compare) {
                 model.setTab(.compare)
             }
@@ -108,54 +125,61 @@ private struct BottomBar: View {
                 withAnimation(.spring(duration: 0.42, bounce: 0.28)) { model.openNewItem() }
             } label: {
                 Image(systemName: "plus")
-                    .font(.system(size: 28, weight: .bold))
+                    .font(.system(size: 26, weight: .bold))
                     .foregroundStyle(StockeaColor.accentInk)
-                    .frame(width: 64, height: 64)
+                    .frame(width: 58, height: 58)
                     .background(StockeaColor.accent, in: Circle())
-                    .frame(maxWidth: .infinity)
                     .symbolEffect(.bounce, value: model.state.showNewItem)
             }
             .buttonStyle(.plain)
             .accessibilityLabel("Nuevo ítem")
-            barButton("Stock", system: "shippingbox", selected: model.state.tab == .stock && !model.state.showNewItem && !model.state.showCart) {
+            barButton("Stock", system: "shippingbox", selectedSymbol: "shippingbox.fill", selected: model.state.tab == .stock && !model.state.showNewItem && !model.state.showCart) {
                 model.setTab(.stock)
             }
         }
-        .padding(.horizontal, 8)
-        .padding(.vertical, 8)
-
-        if #available(iOS 26.0, *) {
-            return AnyView(
-                GlassEffectContainer(spacing: 12) {
-                    bar.glassEffect(.regular.interactive(), in: Capsule())
-                }
-            )
-        }
-        return AnyView(bar.stockeaGlass(in: Capsule(), interactive: true))
     }
 
-    private func barButton(_ title: String, system: String, selected: Bool, action: @escaping () -> Void) -> some View {
+    private func barButton(
+        _ title: String,
+        system: String,
+        selectedSymbol: String? = nil,
+        selected: Bool,
+        action: @escaping () -> Void
+    ) -> some View {
         Button {
-            withAnimation(.smooth(duration: 0.38)) { action() }
+            withAnimation(.smooth(duration: 0.35)) { action() }
         } label: {
-            VStack(spacing: 4) {
-                Image(systemName: system)
-                    .font(.system(size: 20, weight: .medium))
+            VStack(spacing: 3) {
+                Image(systemName: selected ? (selectedSymbol ?? system) : system)
+                    .font(.system(size: 20, weight: selected ? .semibold : .regular))
                     .symbolEffect(.bounce, value: selected)
                 Text(title)
-                    .font(.caption2.weight(.semibold))
+                    .font(.caption2.weight(selected ? .bold : .semibold))
             }
-            .foregroundStyle(selected ? StockeaColor.accent : StockeaColor.muted(dark: model.state.darkTheme))
+            .foregroundStyle(selected ? StockeaColor.ink(dark: model.state.darkTheme) : StockeaColor.muted(dark: model.state.darkTheme))
             .frame(maxWidth: .infinity)
-            .padding(.vertical, 4)
+            .padding(.vertical, 8)
             .background {
                 if selected {
-                    Capsule()
-                        .fill(StockeaColor.accent.opacity(0.18))
-                        .matchedGeometryEffect(id: "tab-selection", in: selection)
+                    selectionLens
                 }
             }
         }
         .buttonStyle(.plain)
+        .accessibilityAddTraits(selected ? .isSelected : [])
+    }
+
+    @ViewBuilder
+    private var selectionLens: some View {
+        if #available(iOS 26.0, *) {
+            Capsule()
+                .fill(.clear)
+                .glassEffect(.regular.interactive(), in: Capsule())
+                .glassEffectID("tab-selection", in: selection)
+        } else {
+            Capsule()
+                .fill(.white.opacity(model.state.darkTheme ? 0.16 : 0.72))
+                .matchedGeometryEffect(id: "tab-selection", in: selection)
+        }
     }
 }
