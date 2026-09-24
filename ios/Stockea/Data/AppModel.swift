@@ -69,14 +69,12 @@ final class AppModel: ObservableObject {
     @Published var state = AppState()
 
     private let api = APIClient()
-    private let prefs = UserDefaults.standard
     private var priceRefreshTask: Task<Void, Never>?
     private var compareTask: Task<Void, Never>?
     private var priceRefreshAt: [String: Date] = [:]
     private var refreshingPrices = false
 
     init() {
-        state.darkTheme = prefs.object(forKey: "dark_theme") as? Bool ?? true
         Task { await boot() }
     }
 
@@ -95,9 +93,8 @@ final class AppModel: ObservableObject {
         }
     }
 
-    func toggleTheme() {
-        state.darkTheme.toggle()
-        prefs.set(state.darkTheme, forKey: "dark_theme")
+    func applySystemTheme(dark: Bool) {
+        state.darkTheme = dark
     }
 
     func setTab(_ tab: MainTab) {
