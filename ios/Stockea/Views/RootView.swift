@@ -53,12 +53,16 @@ private struct MainShell: View {
             set: { if !$0 { model.closeCart() } }
         )) {
             CartView()
+                .presentationDragIndicator(.visible)
+                .presentationCornerRadius(28)
         }
         .sheet(isPresented: Binding(
             get: { model.state.showNewItem },
             set: { if !$0 { model.closeNewItem() } }
         )) {
             NewItemView()
+                .presentationDragIndicator(.visible)
+                .presentationCornerRadius(28)
         }
         .fullScreenCover(isPresented: Binding(
             get: { model.state.showScanner },
