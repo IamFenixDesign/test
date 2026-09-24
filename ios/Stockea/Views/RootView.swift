@@ -40,10 +40,14 @@ private struct MainShell: View {
                     ProfileView()
                 }
             }
+            .id(model.state.tab)
+            .transition(.blurReplace)
             .padding(.bottom, 96)
 
             BottomBar()
         }
+        .animation(.smooth(duration: 0.38), value: model.state.tab)
+        .animation(.smooth(duration: 0.45), value: model.state.darkTheme)
         .sheet(isPresented: Binding(
             get: { model.state.showCart },
             set: { if !$0 { model.closeCart() } }
@@ -78,9 +82,16 @@ private struct MainShell: View {
 
 private struct BottomBar: View {
     @EnvironmentObject private var model: AppModel
+    @Namespace private var selection
 
     var body: some View {
-        HStack(spacing: 0) {
+        glassBar
+            .padding(.horizontal, 12)
+            .padding(.bottom, 6)
+    }
+
+    private var glassBar: some View {
+        let bar = HStack(spacing: 0) {
             barButton("Comparar", system: "scalemass", selected: model.state.tab == .compare) {
                 model.setTab(.compare)
             }
@@ -89,10 +100,10 @@ private struct BottomBar: View {
                 system: model.state.darkTheme ? "sun.max" : "moon",
                 selected: false
             ) {
-                model.toggleTheme()
+                withAnimation(.smooth(duration: 0.45)) { model.toggleTheme() }
             }
             Button {
-                model.openNewItem()
+                withAnimation(.spring(duration: 0.42, bounce: 0.28)) { model.openNewItem() }
             } label: {
                 Image(systemName: "plus")
                     .font(.system(size: 28, weight: .bold))
@@ -100,6 +111,7 @@ private struct BottomBar: View {
                     .frame(width: 64, height: 64)
                     .background(StockeaColor.accent, in: Circle())
                     .frame(maxWidth: .infinity)
+                    .symbolEffect(.bounce, value: model.state.showNewItem)
             }
             .buttonStyle(.plain)
             .accessibilityLabel("Nuevo ítem")
@@ -112,21 +124,38 @@ private struct BottomBar: View {
         }
         .padding(.horizontal, 8)
         .padding(.vertical, 8)
-        .stockeaGlass(in: Capsule(), interactive: true)
-        .padding(.horizontal, 12)
-        .padding(.bottom, 6)
+
+        if #available(iOS 26.0, *) {
+            return AnyView(
+                GlassEffectContainer(spacing: 12) {
+                    bar.glassEffect(.regular.interactive(), in: Capsule())
+                }
+            )
+        }
+        return AnyView(bar.stockeaGlass(in: Capsule(), interactive: true))
     }
 
     private func barButton(_ title: String, system: String, selected: Bool, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
+        Button {
+            withAnimation(.smooth(duration: 0.38)) { action() }
+        } label: {
             VStack(spacing: 4) {
                 Image(systemName: system)
                     .font(.system(size: 20, weight: .medium))
+                    .symbolEffect(.bounce, value: selected)
                 Text(title)
                     .font(.caption2.weight(.semibold))
             }
             .foregroundStyle(selected ? StockeaColor.accent : StockeaColor.muted(dark: model.state.darkTheme))
             .frame(maxWidth: .infinity)
+            .padding(.vertical, 4)
+            .background {
+                if selected {
+                    Capsule()
+                        .fill(StockeaColor.accent.opacity(0.18))
+                        .matchedGeometryEffect(id: "tab-selection", in: selection)
+                }
+            }
         }
         .buttonStyle(.plain)
     }

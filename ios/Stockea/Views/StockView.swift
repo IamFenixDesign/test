@@ -116,6 +116,8 @@ private struct StockCard: View {
                 Text(qtyLabel(item))
                     .font(.headline)
                     .frame(minWidth: 64)
+                    .contentTransition(.numericText())
+                    .animation(.smooth(duration: 0.28), value: item.quantity)
                 Button { model.bumpQty(id: item.id, delta: step) } label: {
                     Image(systemName: "plus")
                         .frame(width: 36, height: 36)
