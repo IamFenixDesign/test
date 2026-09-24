@@ -72,47 +72,61 @@ struct CartView: View {
                 }
             }
 
-            ForEach(promosForDayGrouped(cartDay), id: \.0) { title, promos in
-                Text(title)
-                    .font(.caption.weight(.bold))
-                    .foregroundStyle(StockeaColor.muted(dark: dark))
-                    .padding(.top, 2)
-                ForEach(promos) { promo in
-                    Button {
-                        promoId = promoId == promo.id ? "none" : promo.id
-                    } label: {
-                        HStack(spacing: 10) {
-                            Text("-\(promo.percent)%")
-                                .font(.subheadline.bold())
-                                .foregroundStyle(StockeaColor.accentInk)
-                                .padding(.horizontal, 8)
-                                .padding(.vertical, 4)
-                                .background(StockeaColor.accent, in: Capsule())
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(promo.short)
-                                    .font(.subheadline.weight(.semibold))
-                                    .foregroundStyle(StockeaColor.ink(dark: dark))
-                                Text(promo.payment)
-                                    .font(.caption2)
-                                    .foregroundStyle(StockeaColor.muted(dark: dark))
-                            }
-                            Spacer()
-                            Image(systemName: promoId == promo.id ? "checkmark.circle.fill" : "circle")
-                                .foregroundStyle(promoId == promo.id ? StockeaColor.accent : StockeaColor.muted(dark: dark))
+            HStack(alignment: .top, spacing: 6) {
+                ForEach(promoColumns, id: \.title) { column in
+                    VStack(spacing: 6) {
+                        Text(column.title)
+                            .font(.caption2.weight(.bold))
+                            .textCase(.uppercase)
+                            .foregroundStyle(column.tint)
+                            .frame(maxWidth: .infinity)
+                        ForEach(column.promos) { promo in
+                            promoCard(promo, tint: column.tint)
                         }
-                        .padding(10)
-                        .background(StockeaColor.surface(dark: dark), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                                .stroke(promoId == promo.id ? StockeaColor.accent : .clear, lineWidth: 1.5)
-                        )
                     }
-                    .buttonStyle(.plain)
+                    .frame(maxWidth: .infinity, alignment: .top)
                 }
             }
         }
         .padding(14)
         .background(StockeaColor.surface(dark: dark).opacity(0.55), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+    }
+
+    private var promoColumns: [(title: String, tint: Color, promos: [PaymentPromo])] {
+        let grouped = Dictionary(uniqueKeysWithValues: promosForDayGrouped(cartDay))
+        return [
+            ("Coto", Color(red: 0.86, green: 0.18, blue: 0.18), grouped["Coto"] ?? []),
+            ("Carrefour", Color(red: 0.12, green: 0.45, blue: 0.85), grouped["Carrefour"] ?? []),
+            ("Día", Color(red: 0.85, green: 0.15, blue: 0.28), grouped["Día"] ?? []),
+        ]
+    }
+
+    private func promoCard(_ promo: PaymentPromo, tint: Color) -> some View {
+        let selected = promoId == promo.id
+        return Button {
+            promoId = selected ? "none" : promo.id
+        } label: {
+            VStack(spacing: 4) {
+                Text("-\(promo.percent)%")
+                    .font(.subheadline.bold())
+                    .foregroundStyle(selected ? StockeaColor.accentInk : tint)
+                Text(promo.short)
+                    .font(.caption2.weight(.semibold))
+                    .multilineTextAlignment(.center)
+                    .lineLimit(2)
+                    .foregroundStyle(selected ? StockeaColor.accentInk : StockeaColor.ink(dark: dark))
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 8)
+            .padding(.horizontal, 4)
+            .background(selected ? StockeaColor.accent : StockeaColor.surface(dark: dark), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .stroke(selected ? StockeaColor.accent : tint.opacity(0.35), lineWidth: 1)
+            )
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("\(promo.short), \(promo.percent) por ciento, \(promo.payment)")
     }
 
     private func lineCard(_ line: CartQuoteLine) -> some View {
