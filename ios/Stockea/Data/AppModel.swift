@@ -42,6 +42,7 @@ struct AppState {
     var compareQuery = ""
     var compareResults: [CompareRow] = []
     var compareBusy = false
+    var compareError = ""
     var showNewItem = false
     var editingItemId: String?
     var showCart = false
@@ -107,6 +108,7 @@ final class AppModel: ObservableObject {
         state.tab = tab
         state.error = ""
         state.info = ""
+        state.compareError = ""
         state.showNewItem = false
         state.editingItemId = nil
         state.showCart = false
@@ -250,7 +252,9 @@ final class AppModel: ObservableObject {
                 state.storeLookupBusy = false
                 state.storeResults = StoreSearchResults()
                 state.allowCustomPrice = true
-                state.storeLookupError = error.localizedDescription
+                state.storeLookupError = isTimeout(error)
+                    ? "Los súper tardaron demasiado. Probá de nuevo."
+                    : error.localizedDescription
             }
         }
     }
@@ -367,7 +371,7 @@ final class AppModel: ObservableObject {
                 state.items = items
                 state.cartRemoved = pruneCartRemoved(state.cartRemoved, items)
             } catch {
-                state.error = error.localizedDescription
+                if !isTimeout(error) { state.error = error.localizedDescription }
             }
         }
     }
@@ -456,6 +460,7 @@ final class AppModel: ObservableObject {
         state.compareQuery = q
         state.compareBusy = true
         state.error = ""
+        state.compareError = ""
         state.compareResults = []
         compareTask?.cancel()
         compareTask = nil
@@ -569,21 +574,25 @@ final class AppModel: ObservableObject {
             while !Task.isCancelled {
                 if first && showSpinner {
                     state.compareBusy = true
-                    state.error = ""
+                    state.compareError = ""
                 }
                 do {
                     let rows = try await api.searchSupers(query: query)
                     if query != state.compareQuery.trimmingCharacters(in: .whitespacesAndNewlines) { return }
                     state.compareBusy = false
                     state.compareResults = rows
-                    state.error = rows.isEmpty ? "No hay productos web para esa búsqueda." : ""
+                    state.compareError = rows.isEmpty ? "No hay productos web para esa búsqueda." : ""
                 } catch {
                     if query != state.compareQuery.trimmingCharacters(in: .whitespacesAndNewlines) { return }
                     state.compareBusy = false
-                    if first { state.error = error.localizedDescription }
+                    if first && state.compareResults.isEmpty {
+                        state.compareError = isTimeout(error)
+                            ? "Los súper tardaron demasiado. Probá de nuevo."
+                            : error.localizedDescription
+                    }
                 }
                 first = false
-                try? await Task.sleep(nanoseconds: 1_000_000_000)
+                try? await Task.sleep(nanoseconds: 8_000_000_000)
             }
         }
     }
@@ -663,11 +672,16 @@ final class AppModel: ObservableObject {
                 do {
                     try await api.upsertItem(item)
                 } catch {
-                    state.error = error.localizedDescription
-                    refreshItems()
+                    if !isTimeout(error) { state.error = error.localizedDescription }
                 }
             }
         }
+    }
+
+    private func isTimeout(_ error: Error) -> Bool {
+        if let urlError = error as? URLError, urlError.code == .timedOut { return true }
+        let text = error.localizedDescription.lowercased()
+        return text.contains("tiempo de espera") || text.contains("timed out")
     }
 
     private func pruneCartRemoved(_ removed: Set<String>, _ items: [StockItem]) -> Set<String> {

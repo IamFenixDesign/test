@@ -124,7 +124,7 @@ struct NewItemView: View {
                 }
                 .padding(16)
             }
-            .background(StockeaColor.background(dark: dark))
+            .background(.clear)
             .navigationTitle(editing ? "Editar" : "Nuevo")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

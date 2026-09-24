@@ -499,15 +499,31 @@ export async function fetchDiaProducts(query, { limit = 8 } = {}) {
   return firstMatch(urls, (data) => parseDia(data, { limit: pageSize }))
 }
 
+function withStoreTimeout(promise, ms) {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error('timeout')), ms)
+    promise.then(
+      (value) => {
+        clearTimeout(timer)
+        resolve(value)
+      },
+      (error) => {
+        clearTimeout(timer)
+        reject(error)
+      },
+    )
+  })
+}
+
 export async function searchSupermarketsServer(query, { limit } = {}) {
   const q = isBarcode(query) ? barcodeDigits(query) : String(query || '').trim()
   if (!q) return { coto: [], carrefour: [], dia: [], errors: {} }
 
   const opts = limit ? { limit } : {}
   const [cotoResult, carrefourResult, diaResult] = await Promise.allSettled([
-    fetchCotoProducts(q, opts),
-    fetchCarrefourProducts(q, opts),
-    fetchDiaProducts(q, opts),
+    withStoreTimeout(fetchCotoProducts(q, opts), 8000),
+    withStoreTimeout(fetchCarrefourProducts(q, opts), 8000),
+    withStoreTimeout(fetchDiaProducts(q, opts), 8000),
   ])
   return {
     coto: cotoResult.status === 'fulfilled' ? cotoResult.value : [],

@@ -50,14 +50,14 @@ struct StockView: View {
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(16)
-                .background(StockeaColor.surface(dark: dark), in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+                .stockeaCard(dark: dark, radius: 20)
 
                 if model.state.items.isEmpty {
                     Text("Todavía no hay productos. Tocá + Nuevo o buscá en Comparar.")
                         .foregroundStyle(StockeaColor.muted(dark: dark))
                         .padding(20)
                         .frame(maxWidth: .infinity, alignment: .leading)
-                        .background(StockeaColor.surface(dark: dark), in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+                        .stockeaCard(dark: dark, radius: 20)
                 }
 
                 ForEach(grouped, id: \.0) { category, rows in
@@ -138,6 +138,6 @@ private struct StockCard: View {
             .foregroundStyle(StockeaColor.ink(dark: dark))
         }
         .padding(14)
-        .background(StockeaColor.surface(dark: dark), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .stockeaCard(dark: dark)
     }
 }

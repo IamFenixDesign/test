@@ -27,7 +27,7 @@ struct CartView: View {
                 }
                 .padding(16)
             }
-            .background(StockeaColor.background(dark: dark))
+            .background(.clear)
             .navigationTitle("Carrito")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -89,7 +89,7 @@ struct CartView: View {
             }
         }
         .padding(14)
-        .background(StockeaColor.surface(dark: dark).opacity(0.55), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .stockeaCard(dark: dark)
     }
 
     private var promoColumns: [(title: String, tint: Color, promos: [PaymentPromo])] {
@@ -162,7 +162,7 @@ struct CartView: View {
             }
         }
         .padding(14)
-        .background(StockeaColor.surface(dark: dark), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .stockeaCard(dark: dark, radius: 16)
     }
 
     private var totalCard: some View {
