@@ -54,6 +54,11 @@ struct ProfileView: View {
                     .frame(maxWidth: .infinity)
                     .padding(.top, 8)
 
+                Text("Versión \(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "")")
+                    .font(.footnote.weight(.semibold))
+                    .foregroundStyle(StockeaColor.muted(dark: dark))
+                    .frame(maxWidth: .infinity)
+                    .padding(.top, 12)
                 Text("Created by Fenix")
                     .font(.footnote)
                     .foregroundStyle(StockeaColor.muted(dark: dark))
