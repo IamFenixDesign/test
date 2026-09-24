@@ -49,8 +49,9 @@ La primera vez Xcode descarga el paquete `GoogleSignIn-iOS`.
 ## Pantallas
 
 - Login solo con Google (sin cambio de tema)
-- Stock: alertas, +/−, carrito, borrar
-- Nuevo: nombre, unidad, stock, precio de súper o personalizado, EAN y cámara
+- Stock: alertas, +/−, editar, carrito, borrar
+- Nuevo y editar: nombre, categoría, unidad, stock, precio de súper o personalizado, EAN y cámara
 - Comparar precios (Coto, Carrefour y Día)
-- Carrito de lo que está bajo el mínimo
-- Perfil: editar, tema claro/oscuro, exportar e importar JSON, cerrar sesión
+- Carrito con descuentos semanales de sucursal
+- Barra: Comparar, tema, Nuevo, Stock, Perfil
+- Perfil: exportar e importar JSON, cerrar sesión

@@ -4,8 +4,11 @@ struct NewItemView: View {
     @EnvironmentObject private var model: AppModel
     @State private var draft = NewItemDraft()
     @State private var query = ""
+    @State private var loaded = false
+    @State private var ignoreUnitChange = false
 
     private var dark: Bool { model.state.darkTheme }
+    private var editing: Bool { model.state.editingItemId != nil }
 
     var body: some View {
         NavigationStack {
@@ -82,13 +85,27 @@ struct NewItemView: View {
                         }
                     }
 
+                    Picker("Categoría", selection: $draft.category) {
+                        ForEach(stockCategories, id: \.self) { Text($0).tag($0) }
+                    }
+                    .pickerStyle(.menu)
                     Picker("Unidad", selection: $draft.qtyUnit) {
                         Text("Unidad").tag("unit")
                         Text("Kilo").tag("kg")
                     }
                     .pickerStyle(.segmented)
-                    field(draft.qtyUnit == "kg" ? "Cantidad (gramos)" : "Cantidad", text: quantityText)
+                    field(draft.qtyUnit == "kg" ? "Cantidad (gramos)" : (editing ? "Cantidad" : "Cantidad inicial"), text: quantityText)
                     field(draft.qtyUnit == "kg" ? "Mínimo (gramos)" : "Mínimo", text: minText)
+                    if draft.priceCoto > 0 || draft.priceCarrefour > 0 || draft.priceDia > 0 || draft.price > 0 {
+                        Text("Precio actual \(money(draft.price))")
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(StockeaColor.ink(dark: dark))
+                        HStack(spacing: 8) {
+                            if draft.priceCoto > 0 { storePill("Coto", store: "coto", price: draft.priceCoto) }
+                            if draft.priceCarrefour > 0 { storePill("Carrefour", store: "carrefour", price: draft.priceCarrefour) }
+                            if draft.priceDia > 0 { storePill("Día", store: "dia", price: draft.priceDia) }
+                        }
+                    }
 
                     if model.state.allowCustomPrice || draft.priceSource == "custom" {
                         field("Precio personalizado", text: $draft.customPrice)
@@ -108,23 +125,39 @@ struct NewItemView: View {
                 .padding(16)
             }
             .background(StockeaColor.background(dark: dark))
-            .navigationTitle("Nuevo")
+            .navigationTitle(editing ? "Editar" : "Nuevo")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cerrar") { model.closeNewItem() }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Guardar") { save() }
+                    Button(editing ? "Guardar cambios" : "Guardar") { save() }
                 }
             }
             .onAppear {
+                if !loaded {
+                    if let existing = model.editingDraft() {
+                        ignoreUnitChange = existing.qtyUnit != draft.qtyUnit
+                        draft = existing
+                    }
+                    loaded = true
+                }
                 if let ean = model.state.scannedEan {
                     draft.barcode = ean
                     query = ean
                     model.consumeScannedEan()
                     model.lookupStores(ean)
                 }
+            }
+            .onChange(of: draft.qtyUnit) { old, new in
+                if ignoreUnitChange {
+                    ignoreUnitChange = false
+                    return
+                }
+                guard old != new else { return }
+                draft.quantity = formWeightForUnit(draft.quantity, fromUnit: old, toUnit: new)
+                draft.minStock = formWeightForUnit(draft.minStock, fromUnit: old, toUnit: new)
             }
             .onChange(of: model.state.scannedEan) { _, ean in
                 guard let ean else { return }
@@ -190,8 +223,29 @@ struct NewItemView: View {
         }
     }
 
+    private func storePill(_ title: String, store: String, price: Double) -> some View {
+        Button {
+            draft.priceSource = store
+            draft.price = price
+        } label: {
+            Text("\(title) \(money(price))")
+                .font(.caption.bold())
+                .foregroundStyle(draft.priceSource == store ? StockeaColor.accentInk : StockeaColor.ink(dark: dark))
+                .padding(.horizontal, 10)
+                .padding(.vertical, 6)
+                .background(draft.priceSource == store ? StockeaColor.accent : StockeaColor.surface(dark: dark), in: Capsule())
+        }
+        .buttonStyle(.plain)
+    }
+
     private func save() {
-        if draft.priceSource == "custom" || (model.state.allowCustomPrice && draft.price <= 0) {
+        if model.state.allowCustomPrice {
+            let typed = parseNumber(draft.customPrice)
+            if typed > 0 {
+                draft.priceSource = "custom"
+                draft.price = typed
+            }
+        } else if draft.priceSource == "custom" {
             draft.priceSource = "custom"
             draft.price = parseNumber(draft.customPrice)
         }
