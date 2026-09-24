@@ -40,7 +40,7 @@ private struct MainShell: View {
                     ProfileView()
                 }
             }
-            .padding(.bottom, 78)
+            .padding(.bottom, 96)
 
             BottomBar()
         }
@@ -94,17 +94,12 @@ private struct BottomBar: View {
             Button {
                 model.openNewItem()
             } label: {
-                VStack(spacing: 4) {
-                    Image(systemName: "plus")
-                        .font(.system(size: 18, weight: .bold))
-                        .foregroundStyle(StockeaColor.accentInk)
-                        .frame(width: 42, height: 42)
-                        .background(StockeaColor.accent, in: Circle())
-                    Text("Nuevo")
-                        .font(.caption2.weight(.semibold))
-                        .foregroundStyle(StockeaColor.muted(dark: model.state.darkTheme))
-                }
-                .frame(maxWidth: .infinity)
+                Image(systemName: "plus")
+                    .font(.system(size: 28, weight: .bold))
+                    .foregroundStyle(StockeaColor.accentInk)
+                    .frame(width: 64, height: 64)
+                    .background(StockeaColor.accent, in: Circle())
+                    .frame(maxWidth: .infinity)
             }
             .buttonStyle(.plain)
             .accessibilityLabel("Nuevo ítem")
