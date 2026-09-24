@@ -103,8 +103,6 @@ private struct MainShell: View {
             set: { if !$0 { model.closeNewItem() } }
         )) {
             NewItemView()
-                .presentationDragIndicator(.visible)
-                .presentationCornerRadius(28)
         }
         .fullScreenCover(isPresented: Binding(
             get: { model.state.showScanner },
