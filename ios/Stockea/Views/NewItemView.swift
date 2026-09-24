@@ -146,7 +146,6 @@ struct NewItemView: View {
             .onAppear {
                 if !loaded {
                     if let existing = model.editingDraft() {
-                        ignoreUnitChange = existing.qtyUnit != draft.qtyUnit
                         draft = existing
                     }
                     loaded = true
