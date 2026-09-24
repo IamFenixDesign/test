@@ -31,7 +31,7 @@ struct StockView: View {
                         ZStack(alignment: .topTrailing) {
                             Image(systemName: "cart")
                                 .font(.title3)
-                                .foregroundStyle(model.state.cartItems.isEmpty ? StockeaColor.ink(dark: dark) : StockeaColor.accent)
+                                .foregroundStyle(dark ? Color.white : Color.black)
                                 .frame(width: 44, height: 44)
                             if !model.state.cartItems.isEmpty {
                                 Text("\(model.state.cartItems.count)")
