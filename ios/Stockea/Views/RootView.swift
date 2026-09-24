@@ -29,8 +29,27 @@ struct RootView: View {
     }
 }
 
+struct BarScrollOffset: PreferenceKey {
+    static var defaultValue: CGFloat = .nan
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        let next = nextValue()
+        if !next.isNaN { value = next }
+    }
+}
+
+struct BarScrollProbe: View {
+    var body: some View {
+        GeometryReader { geo in
+            Color.clear.preference(key: BarScrollOffset.self, value: geo.frame(in: .global).minY)
+        }
+        .frame(height: 0)
+    }
+}
+
 private struct MainShell: View {
     @EnvironmentObject private var model: AppModel
+    @State private var barCompact = false
+    @State private var lastScroll: CGFloat?
 
     var body: some View {
         ZStack(alignment: .bottom) {
@@ -47,9 +66,24 @@ private struct MainShell: View {
             }
             .id(model.state.tab)
             .transition(.blurReplace)
-            .padding(.bottom, 96)
 
-            BottomBar()
+            BottomBar(compact: barCompact)
+        }
+        .onPreferenceChange(BarScrollOffset.self) { offset in
+            guard offset.isFinite else { return }
+            if let lastScroll {
+                let delta = offset - lastScroll
+                if delta < -14 {
+                    barCompact = true
+                } else if delta > 14 {
+                    barCompact = false
+                }
+            }
+            lastScroll = offset
+        }
+        .onChange(of: model.state.tab) { _, _ in
+            barCompact = false
+            lastScroll = nil
         }
         .animation(.smooth(duration: 0.38), value: model.state.tab)
         .animation(.smooth(duration: 0.45), value: model.state.darkTheme)
@@ -102,6 +136,7 @@ private struct SlotFramesKey: PreferenceKey {
 
 private struct BottomBar: View {
     @EnvironmentObject private var model: AppModel
+    var compact: Bool
     @Namespace private var selection
     @State private var slotFrames: [BarSlot: CGRect] = [:]
     @State private var dragSlot: BarSlot?
@@ -116,8 +151,9 @@ private struct BottomBar: View {
 
     var body: some View {
         glassBar
-            .padding(.horizontal, 12)
+            .padding(.horizontal, compact ? 48 : 12)
             .padding(.bottom, 6)
+            .animation(.smooth(duration: 0.28), value: compact)
     }
 
     @ViewBuilder
@@ -181,16 +217,19 @@ private struct BottomBar: View {
 
     private func barButton(_ title: String, system: String, selectedSymbol: String? = nil, slot: BarSlot) -> some View {
         let selected = highlighted == slot
-        return VStack(spacing: 3) {
+        return VStack(spacing: compact ? 0 : 3) {
             Image(systemName: selected ? (selectedSymbol ?? system) : system)
-                .font(.system(size: 20, weight: selected ? .semibold : .regular))
+                .font(.system(size: compact ? 18 : 20, weight: selected ? .semibold : .regular))
                 .symbolEffect(.bounce, value: selected)
-            Text(title)
-                .font(.caption2.weight(selected ? .bold : .semibold))
+            if !compact {
+                Text(title)
+                    .font(.caption2.weight(selected ? .bold : .semibold))
+                    .transition(.opacity.combined(with: .scale(scale: 0.8)))
+            }
         }
         .foregroundStyle(selected ? StockeaColor.ink(dark: model.state.darkTheme) : StockeaColor.muted(dark: model.state.darkTheme))
         .frame(maxWidth: .infinity)
-        .padding(.vertical, 8)
+        .padding(.vertical, compact ? 6 : 8)
         .background {
             if selected {
                 selectionLens

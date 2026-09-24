@@ -13,6 +13,7 @@ struct StockView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 12) {
+                BarScrollProbe()
                 HStack {
                     Text("Stockea")
                         .font(.title.bold())
@@ -79,7 +80,9 @@ struct StockView: View {
                 }
             }
             .padding(16)
+            .padding(.bottom, 88)
         }
+        .scrollContentBackground(.hidden)
     }
 }
 

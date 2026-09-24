@@ -38,10 +38,12 @@ struct CompareView: View {
             } else {
                 ScrollView {
                     LazyVStack(spacing: 10) {
+                        BarScrollProbe()
                         ForEach(model.state.compareResults) { row in
                             CompareCard(row: row)
                         }
                     }
+                    .padding(.bottom, 88)
                 }
             }
         }

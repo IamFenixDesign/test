@@ -13,6 +13,7 @@ struct ProfileView: View {
     var body: some View {
         ScrollView {
             VStack(spacing: 14) {
+                BarScrollProbe()
                 if let user = model.state.user {
                     hero(user)
                 }
@@ -27,9 +28,11 @@ struct ProfileView: View {
                     .foregroundStyle(StockeaColor.muted(dark: dark))
             }
             .padding(16)
+            .padding(.bottom, 88)
             .frame(maxWidth: 560)
             .frame(maxWidth: .infinity)
         }
+        .scrollContentBackground(.hidden)
         .onAppear(perform: load)
         .onChange(of: model.state.user?.id) { _, _ in load() }
         .fileImporter(isPresented: $importing, allowedContentTypes: [.json]) { result in
