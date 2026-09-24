@@ -1,5 +1,21 @@
 import SwiftUI
 
+private struct FittedNewItemSheet: ViewModifier {
+    func body(content: Content) -> some View {
+        if #available(iOS 18.0, *) {
+            content
+                .presentationSizing(.fitted)
+                .presentationDragIndicator(.visible)
+                .presentationCornerRadius(28)
+        } else {
+            content
+                .presentationDetents([.medium, .large])
+                .presentationDragIndicator(.visible)
+                .presentationCornerRadius(28)
+        }
+    }
+}
+
 struct NewItemView: View {
     @EnvironmentObject private var model: AppModel
     @State private var draft = NewItemDraft()
@@ -11,10 +27,19 @@ struct NewItemView: View {
     private var editing: Bool { model.state.editingItemId != nil }
 
     var body: some View {
-        NavigationStack {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 8) {
-                    field("Nombre", text: $draft.name)
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Button("Cerrar") { model.closeNewItem() }
+                    .font(.body)
+                Spacer(minLength: 8)
+                Text(editing ? "Editar" : "Nuevo")
+                    .font(.headline)
+                Spacer(minLength: 8)
+                Button("Guardar") { save() }
+                    .font(.body.weight(.semibold))
+            }
+            .foregroundStyle(StockeaColor.ink(dark: dark))
+            field("Nombre", text: $draft.name)
                     HStack(alignment: .bottom, spacing: 8) {
                         field("EAN", text: $draft.barcode)
                         Button {
@@ -49,45 +74,52 @@ struct NewItemView: View {
                             selection: model.state.storeTab,
                             onSelect: { model.setStoreTab($0) }
                         )
-                        ForEach(model.state.storeResults.list(model.state.storeTab)) { product in
-                            Button {
-                                apply(product)
-                            } label: {
-                                HStack {
-                                    VStack(alignment: .leading, spacing: 2) {
-                                        Text(product.name)
-                                            .font(.subheadline.weight(.semibold))
-                                            .foregroundStyle(StockeaColor.ink(dark: dark))
-                                            .multilineTextAlignment(.leading)
-                                        Text(money(compareShelfPrice(product)))
-                                            .font(.caption)
-                                            .foregroundStyle(StockeaColor.muted(dark: dark))
+                        ScrollView {
+                            VStack(spacing: 8) {
+                                ForEach(model.state.storeResults.list(model.state.storeTab)) { product in
+                                    Button {
+                                        apply(product)
+                                    } label: {
+                                        HStack {
+                                            VStack(alignment: .leading, spacing: 2) {
+                                                Text(product.name)
+                                                    .font(.subheadline.weight(.semibold))
+                                                    .foregroundStyle(StockeaColor.ink(dark: dark))
+                                                    .multilineTextAlignment(.leading)
+                                                Text(money(compareShelfPrice(product)))
+                                                    .font(.caption)
+                                                    .foregroundStyle(StockeaColor.muted(dark: dark))
+                                            }
+                                            Spacer(minLength: 0)
+                                        }
+                                        .padding(10)
+                                        .background(StockeaColor.surface(dark: dark), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
                                     }
-                                    Spacer()
+                                    .buttonStyle(.plain)
                                 }
-                                .padding(10)
-                                .background(StockeaColor.surface(dark: dark), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
                             }
-                            .buttonStyle(.plain)
                         }
+                        .frame(maxHeight: 220)
                     }
 
-                    Menu {
-                        ForEach(stockCategories, id: \.self) { category in
-                            Button(category) { draft.category = category }
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Categoría")
+                            .font(.caption)
+                            .foregroundStyle(StockeaColor.muted(dark: dark))
+                        ScrollView(.horizontal, showsIndicators: false) {
+                            HStack(spacing: 6) {
+                                ForEach(stockCategories, id: \.self) { category in
+                                    Button(category) { draft.category = category }
+                                        .font(.subheadline.weight(.semibold))
+                                        .foregroundStyle(draft.category == category ? StockeaColor.accentInk : StockeaColor.ink(dark: dark))
+                                        .padding(.horizontal, 12)
+                                        .frame(height: 36)
+                                        .background(draft.category == category ? StockeaColor.accent : StockeaColor.surface(dark: dark), in: Capsule())
+                                        .buttonStyle(.plain)
+                                }
+                            }
                         }
-                    } label: {
-                        HStack {
-                            Text("Categoría")
-                            Spacer()
-                            Text(draft.category)
-                            Image(systemName: "chevron.up.chevron.down")
-                                .font(.caption2.weight(.bold))
-                        }
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(StockeaColor.ink(dark: dark))
-                        .padding(12)
-                        .background(StockeaColor.surface(dark: dark), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                        .frame(height: 36)
                     }
                     segmentedRow(
                         options: [("Unidad", "unit"), ("Kilo", "kg")],
@@ -128,21 +160,10 @@ struct NewItemView: View {
                             .foregroundStyle(StockeaColor.danger)
                     }
                 }
-                .padding(16)
-                .frame(maxWidth: .infinity, alignment: .topLeading)
-            }
-            .scrollBounceBehavior(.basedOnSize)
-            .background(.clear)
-            .navigationTitle(editing ? "Editar" : "Nuevo")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Cerrar") { model.closeNewItem() }
-                }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button(editing ? "Guardar cambios" : "Guardar") { save() }
-                }
-            }
+            .padding(16)
+            .frame(maxWidth: .infinity, alignment: .topLeading)
+            .fixedSize(horizontal: false, vertical: true)
+            .background(StockeaColor.background(dark: dark))
             .onAppear {
                 if !loaded {
                     if let existing = model.editingDraft() {
@@ -164,7 +185,7 @@ struct NewItemView: View {
                 model.consumeScannedEan()
                 model.lookupStores(ean)
             }
-        }
+        .modifier(FittedNewItemSheet())
     }
 
     private var quantityText: Binding<String> {
