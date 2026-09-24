@@ -39,11 +39,6 @@ struct ProfileView: View {
                 .buttonStyle(PrimaryButtonStyle())
                 .disabled(model.state.busy)
 
-                Button(dark ? "Cambiar a tema claro" : "Cambiar a tema oscuro") {
-                    model.toggleTheme()
-                }
-                .buttonStyle(SecondaryButtonStyle(dark: dark))
-
                 if let url = exportURL {
                     ShareLink(item: url) {
                         Text("Exportar stock")

@@ -81,20 +81,24 @@ private struct BottomBar: View {
 
     var body: some View {
         HStack(spacing: 0) {
-            barButton("Stock", system: "shippingbox", selected: model.state.tab == .stock && !model.state.showNewItem && !model.state.showCart) {
-                model.setTab(.stock)
-            }
             barButton("Comparar", system: "scalemass", selected: model.state.tab == .compare) {
                 model.setTab(.compare)
+            }
+            barButton(
+                model.state.darkTheme ? "Claro" : "Oscuro",
+                system: model.state.darkTheme ? "sun.max" : "moon",
+                selected: false
+            ) {
+                model.toggleTheme()
             }
             Button {
                 model.openNewItem()
             } label: {
                 VStack(spacing: 4) {
                     Image(systemName: "plus")
-                        .font(.system(size: 20, weight: .bold))
+                        .font(.system(size: 18, weight: .bold))
                         .foregroundStyle(StockeaColor.accentInk)
-                        .frame(width: 48, height: 48)
+                        .frame(width: 42, height: 42)
                         .background(StockeaColor.accent, in: Circle())
                     Text("Nuevo")
                         .font(.caption2.weight(.semibold))
@@ -103,6 +107,10 @@ private struct BottomBar: View {
                 .frame(maxWidth: .infinity)
             }
             .buttonStyle(.plain)
+            .accessibilityLabel("Nuevo ítem")
+            barButton("Stock", system: "shippingbox", selected: model.state.tab == .stock && !model.state.showNewItem && !model.state.showCart) {
+                model.setTab(.stock)
+            }
             barButton("Perfil", system: "person", selected: model.state.tab == .profile) {
                 model.setTab(.profile)
             }
