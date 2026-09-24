@@ -5,7 +5,6 @@ struct NewItemView: View {
     @State private var draft = NewItemDraft()
     @State private var query = ""
     @State private var loaded = false
-    @State private var ignoreUnitChange = false
     @State private var searchTask: Task<Void, Never>?
 
     private var dark: Bool { model.state.darkTheme }
@@ -45,15 +44,11 @@ struct NewItemView: View {
                             .foregroundStyle(StockeaColor.muted(dark: dark))
                     }
                     if !model.state.storeResults.isEmpty {
-                        Picker("Súper", selection: Binding(
-                            get: { model.state.storeTab },
-                            set: { model.setStoreTab($0) }
-                        )) {
-                            Text("Coto").tag("coto")
-                            Text("Carrefour").tag("carrefour")
-                            Text("Día").tag("dia")
-                        }
-                        .pickerStyle(.segmented)
+                        segmentedRow(
+                            options: [("Coto", "coto"), ("Carrefour", "carrefour"), ("Día", "dia")],
+                            selection: model.state.storeTab,
+                            onSelect: { model.setStoreTab($0) }
+                        )
                         ForEach(model.state.storeResults.list(model.state.storeTab)) { product in
                             Button {
                                 apply(product)
@@ -77,17 +72,34 @@ struct NewItemView: View {
                         }
                     }
 
-                    Picker("Categoría", selection: $draft.category) {
-                        ForEach(stockCategories, id: \.self) { Text($0).tag($0) }
+                    Menu {
+                        ForEach(stockCategories, id: \.self) { category in
+                            Button(category) { draft.category = category }
+                        }
+                    } label: {
+                        HStack {
+                            Text("Categoría")
+                            Spacer()
+                            Text(draft.category)
+                            Image(systemName: "chevron.up.chevron.down")
+                                .font(.caption2.weight(.bold))
+                        }
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(StockeaColor.ink(dark: dark))
+                        .padding(12)
+                        .background(StockeaColor.surface(dark: dark), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
                     }
-                    .pickerStyle(.menu)
-                    .fixedSize(horizontal: false, vertical: true)
-                    Picker("Unidad", selection: $draft.qtyUnit) {
-                        Text("Unidad").tag("unit")
-                        Text("Kilo").tag("kg")
-                    }
-                    .pickerStyle(.segmented)
-                    .fixedSize(horizontal: false, vertical: true)
+                    segmentedRow(
+                        options: [("Unidad", "unit"), ("Kilo", "kg")],
+                        selection: draft.qtyUnit,
+                        onSelect: { next in
+                            let previous = draft.qtyUnit
+                            guard previous != next else { return }
+                            draft.qtyUnit = next
+                            draft.quantity = formWeightForUnit(draft.quantity, fromUnit: previous, toUnit: next)
+                            draft.minStock = formWeightForUnit(draft.minStock, fromUnit: previous, toUnit: next)
+                        }
+                    )
                     field(draft.qtyUnit == "kg" ? "Cantidad (gramos)" : (editing ? "Cantidad" : "Cantidad inicial"), text: quantityText)
                     field(draft.qtyUnit == "kg" ? "Mínimo (gramos)" : "Mínimo", text: minText)
                     if draft.priceCoto > 0 || draft.priceCarrefour > 0 || draft.priceDia > 0 || draft.price > 0 {
@@ -117,7 +129,9 @@ struct NewItemView: View {
                     }
                 }
                 .padding(16)
+                .frame(maxWidth: .infinity, alignment: .topLeading)
             }
+            .scrollBounceBehavior(.basedOnSize)
             .background(.clear)
             .navigationTitle(editing ? "Editar" : "Nuevo")
             .navigationBarTitleDisplayMode(.inline)
@@ -144,15 +158,6 @@ struct NewItemView: View {
                     model.lookupStores(ean)
                 }
             }
-            .onChange(of: draft.qtyUnit) { old, new in
-                if ignoreUnitChange {
-                    ignoreUnitChange = false
-                    return
-                }
-                guard old != new else { return }
-                draft.quantity = formWeightForUnit(draft.quantity, fromUnit: old, toUnit: new)
-                draft.minStock = formWeightForUnit(draft.minStock, fromUnit: old, toUnit: new)
-            }
             .onChange(of: model.state.scannedEan) { _, ean in
                 guard let ean else { return }
                 draft.barcode = ean
@@ -175,6 +180,26 @@ struct NewItemView: View {
             get: { formatNumber(draft.minStock) },
             set: { draft.minStock = parseNumber($0) }
         )
+    }
+
+    private func segmentedRow(options: [(String, String)], selection: String, onSelect: @escaping (String) -> Void) -> some View {
+        HStack(spacing: 4) {
+            ForEach(options, id: \.1) { title, value in
+                Button {
+                    onSelect(value)
+                } label: {
+                    Text(title)
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(selection == value ? StockeaColor.accentInk : StockeaColor.ink(dark: dark))
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 36)
+                        .background(selection == value ? StockeaColor.accent : Color.clear, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(3)
+        .background(StockeaColor.surface(dark: dark), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
     }
 
     private func field(_ title: String, text: Binding<String>) -> some View {
