@@ -89,9 +89,30 @@ private struct MainShell: View {
     }
 }
 
+private enum BarSlot: Hashable {
+    case compare, nuevo, stock
+}
+
+private struct SlotFramesKey: PreferenceKey {
+    static var defaultValue: [BarSlot: CGRect] = [:]
+    static func reduce(value: inout [BarSlot: CGRect], nextValue: () -> [BarSlot: CGRect]) {
+        value.merge(nextValue(), uniquingKeysWith: { $1 })
+    }
+}
+
 private struct BottomBar: View {
     @EnvironmentObject private var model: AppModel
     @Namespace private var selection
+    @State private var slotFrames: [BarSlot: CGRect] = [:]
+    @State private var dragSlot: BarSlot?
+
+    private var highlighted: BarSlot? {
+        if let dragSlot { return dragSlot }
+        if model.state.showNewItem { return .nuevo }
+        if model.state.tab == .compare { return .compare }
+        if model.state.tab == .stock && !model.state.showCart { return .stock }
+        return nil
+    }
 
     var body: some View {
         glassBar
@@ -118,55 +139,72 @@ private struct BottomBar: View {
 
     private var barContent: some View {
         HStack(spacing: 4) {
-            barButton("Comparar", system: "scalemass", selected: model.state.tab == .compare) {
-                model.setTab(.compare)
+            barButton("Comparar", system: "scalemass", slot: .compare)
+            barButton("Nuevo", system: "plus", slot: .nuevo)
+            barButton("Stock", system: "shippingbox", selectedSymbol: "shippingbox.fill", slot: .stock)
+        }
+        .coordinateSpace(name: "tabbar")
+        .onPreferenceChange(SlotFramesKey.self) { slotFrames = $0 }
+        .contentShape(Capsule())
+        .gesture(tabDrag)
+    }
+
+    private var tabDrag: some Gesture {
+        DragGesture(minimumDistance: 0, coordinateSpace: .named("tabbar"))
+            .onChanged { value in
+                let slot = slot(at: value.location)
+                guard slot != dragSlot else { return }
+                withAnimation(.smooth(duration: 0.22)) { dragSlot = slot }
             }
-            Button {
-                withAnimation(.spring(duration: 0.42, bounce: 0.28)) { model.openNewItem() }
-            } label: {
-                Image(systemName: "plus")
-                    .font(.system(size: 26, weight: .bold))
-                    .foregroundStyle(StockeaColor.accentInk)
-                    .frame(width: 58, height: 58)
-                    .background(StockeaColor.accent, in: Circle())
-                    .symbolEffect(.bounce, value: model.state.showNewItem)
+            .onEnded { value in
+                let slot = dragSlot ?? self.slot(at: value.location)
+                dragSlot = nil
+                guard let slot else { return }
+                withAnimation(.smooth(duration: 0.35)) { activate(slot) }
             }
-            .buttonStyle(.plain)
-            .accessibilityLabel("Nuevo ítem")
-            barButton("Stock", system: "shippingbox", selectedSymbol: "shippingbox.fill", selected: model.state.tab == .stock && !model.state.showNewItem && !model.state.showCart) {
-                model.setTab(.stock)
-            }
+    }
+
+    private func slot(at point: CGPoint) -> BarSlot? {
+        slotFrames.first { $0.value.contains(point) }?.key
+    }
+
+    private func activate(_ slot: BarSlot) {
+        switch slot {
+        case .compare:
+            model.setTab(.compare)
+        case .nuevo:
+            model.openNewItem()
+        case .stock:
+            model.setTab(.stock)
         }
     }
 
-    private func barButton(
-        _ title: String,
-        system: String,
-        selectedSymbol: String? = nil,
-        selected: Bool,
-        action: @escaping () -> Void
-    ) -> some View {
-        Button {
-            withAnimation(.smooth(duration: 0.35)) { action() }
-        } label: {
-            VStack(spacing: 3) {
-                Image(systemName: selected ? (selectedSymbol ?? system) : system)
-                    .font(.system(size: 20, weight: selected ? .semibold : .regular))
-                    .symbolEffect(.bounce, value: selected)
-                Text(title)
-                    .font(.caption2.weight(selected ? .bold : .semibold))
-            }
-            .foregroundStyle(selected ? StockeaColor.ink(dark: model.state.darkTheme) : StockeaColor.muted(dark: model.state.darkTheme))
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 8)
-            .background {
-                if selected {
-                    selectionLens
-                }
+    private func barButton(_ title: String, system: String, selectedSymbol: String? = nil, slot: BarSlot) -> some View {
+        let selected = highlighted == slot
+        return VStack(spacing: 3) {
+            Image(systemName: selected ? (selectedSymbol ?? system) : system)
+                .font(.system(size: 20, weight: selected ? .semibold : .regular))
+                .symbolEffect(.bounce, value: selected)
+            Text(title)
+                .font(.caption2.weight(selected ? .bold : .semibold))
+        }
+        .foregroundStyle(selected ? StockeaColor.ink(dark: model.state.darkTheme) : StockeaColor.muted(dark: model.state.darkTheme))
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 8)
+        .background {
+            if selected {
+                selectionLens
             }
         }
-        .buttonStyle(.plain)
-        .accessibilityAddTraits(selected ? .isSelected : [])
+        .background {
+            GeometryReader { geo in
+                Color.clear.preference(key: SlotFramesKey.self, value: [slot: geo.frame(in: .named("tabbar"))])
+            }
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(title)
+        .accessibilityAddTraits(selected ? [.isButton, .isSelected] : .isButton)
+        .accessibilityAction { activate(slot) }
     }
 
     @ViewBuilder
