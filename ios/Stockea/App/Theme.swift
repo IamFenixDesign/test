@@ -4,22 +4,47 @@ enum StockeaColor {
     static let accent = Color(red: 0.831, green: 0.961, blue: 0.384)
     static let accentInk = Color(red: 0.078, green: 0.098, blue: 0.043)
     static let mint = Color(red: 0.494, green: 0.886, blue: 0.722)
-    static let danger = Color(red: 1, green: 0.478, blue: 0.431)
+    static let danger = Color(uiColor: .systemRed)
 
     static func background(dark: Bool) -> Color {
-        dark ? Color(red: 0.043, green: 0.051, blue: 0.047) : Color(red: 0.949, green: 0.961, blue: 0.933)
+        Color(uiColor: dark ? .systemBackground : .systemBackground)
     }
 
     static func surface(dark: Bool) -> Color {
-        dark ? Color(red: 0.090, green: 0.110, blue: 0.098) : Color.white
+        Color(uiColor: dark ? .secondarySystemGroupedBackground : .secondarySystemGroupedBackground)
     }
 
     static func ink(dark: Bool) -> Color {
-        dark ? Color(red: 0.933, green: 0.957, blue: 0.918) : Color(red: 0.078, green: 0.110, blue: 0.086)
+        dark ? Color.primary : Color.primary
     }
 
     static func muted(dark: Bool) -> Color {
-        dark ? Color(red: 0.545, green: 0.588, blue: 0.533) : Color(red: 0.361, green: 0.416, blue: 0.373)
+        dark ? Color.secondary : Color.secondary
+    }
+}
+
+extension View {
+    @ViewBuilder
+    func stockeaGlass<S: Shape>(in shape: S, interactive: Bool = false) -> some View {
+        if #available(iOS 26.0, *) {
+            if interactive {
+                self.glassEffect(.regular.interactive(), in: shape)
+            } else {
+                self.glassEffect(.regular, in: shape)
+            }
+        } else {
+            self.background(.ultraThinMaterial, in: shape)
+        }
+    }
+
+    @ViewBuilder
+    func stockeaCard(dark: Bool, radius: CGFloat = 18) -> some View {
+        let shape = RoundedRectangle(cornerRadius: radius, style: .continuous)
+        if #available(iOS 26.0, *) {
+            self.glassEffect(.regular, in: shape)
+        } else {
+            self.background(StockeaColor.surface(dark: dark), in: shape)
+        }
     }
 }
 
@@ -27,14 +52,8 @@ struct StockeaBackground: View {
     var dark: Bool
 
     var body: some View {
-        LinearGradient(
-            colors: dark
-                ? [Color(red: 0.141, green: 0.188, blue: 0.094), Color(red: 0.043, green: 0.051, blue: 0.047), .black]
-                : [Color(red: 0.843, green: 0.906, blue: 0.643), Color(red: 0.953, green: 0.965, blue: 0.933), .white],
-            startPoint: .top,
-            endPoint: .bottom
-        )
-        .ignoresSafeArea()
+        StockeaColor.background(dark: dark)
+            .ignoresSafeArea()
     }
 }
 

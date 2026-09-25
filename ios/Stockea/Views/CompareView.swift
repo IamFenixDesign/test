@@ -25,23 +25,25 @@ struct CompareView: View {
                     .background(StockeaColor.accent, in: Capsule())
             }
             .padding(10)
-            .background(StockeaColor.surface(dark: dark), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .stockeaGlass(in: RoundedRectangle(cornerRadius: 16, style: .continuous), interactive: true)
 
             if model.state.compareBusy && model.state.compareResults.isEmpty {
                 ProgressView("Buscando en Coto, Carrefour y Día…")
                     .tint(StockeaColor.accent)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
-            } else if !model.state.error.isEmpty && model.state.compareResults.isEmpty {
-                Text(model.state.error)
+            } else if !model.state.compareError.isEmpty && model.state.compareResults.isEmpty {
+                Text(model.state.compareError)
                     .foregroundStyle(StockeaColor.muted(dark: dark))
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
             } else {
                 ScrollView {
                     LazyVStack(spacing: 10) {
+                        BarScrollProbe()
                         ForEach(model.state.compareResults) { row in
                             CompareCard(row: row)
                         }
                     }
+                    .padding(.bottom, 88)
                 }
             }
         }
@@ -71,16 +73,20 @@ private struct CompareCard: View {
                 price("Carrefour", row.priceCarrefour, row.discountCarrefour)
                 price("Día", row.priceDia, row.discountDia)
             }
-            Button("Agregar al stock") { model.addFromCompare(row) }
-                .font(.subheadline.bold())
-                .foregroundStyle(StockeaColor.accentInk)
-                .padding(.horizontal, 12)
-                .padding(.vertical, 8)
-                .background(StockeaColor.accent, in: Capsule())
+            let taken = model.alreadyInStock(barcode: row.barcode, name: row.name)
+            Button(taken ? "Ya está agregado" : "Agregar al stock") {
+                model.addFromCompare(row)
+            }
+            .disabled(taken)
+            .font(.subheadline.bold())
+            .foregroundStyle(taken ? StockeaColor.muted(dark: dark) : StockeaColor.accentInk)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
+            .background(taken ? StockeaColor.surface(dark: dark) : StockeaColor.accent, in: Capsule())
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(14)
-        .background(StockeaColor.surface(dark: dark), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .stockeaCard(dark: dark)
     }
 
     private func price(_ name: String, _ value: Double, _ discount: String) -> some View {

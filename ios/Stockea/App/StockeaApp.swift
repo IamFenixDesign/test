@@ -9,7 +9,6 @@ struct StockeaApp: App {
         WindowGroup {
             RootView()
                 .environmentObject(model)
-                .preferredColorScheme(model.state.darkTheme ? .dark : .light)
                 .onOpenURL { url in
                     GIDSignIn.sharedInstance.handle(url)
                 }

@@ -1,24 +1,26 @@
 import AVFoundation
 import SwiftUI
-import Vision
 
 struct ScannerView: UIViewControllerRepresentable {
     var onDetect: (String) -> Void
     var onCancel: () -> Void
+    var onUnavailable: () -> Void
 
     func makeUIViewController(context: Context) -> ScannerController {
         let controller = ScannerController()
         controller.onDetect = onDetect
         controller.onCancel = onCancel
+        controller.onUnavailable = onUnavailable
         return controller
     }
 
     func updateUIViewController(_ uiViewController: ScannerController, context: Context) {}
 }
 
-final class ScannerController: UIViewController, AVCaptureVideoDataOutputSampleBufferDelegate {
+final class ScannerController: UIViewController, AVCaptureMetadataOutputObjectsDelegate {
     var onDetect: ((String) -> Void)?
     var onCancel: (() -> Void)?
+    var onUnavailable: (() -> Void)?
 
     private let session = AVCaptureSession()
     private let preview = AVCaptureVideoPreviewLayer()
@@ -35,6 +37,7 @@ final class ScannerController: UIViewController, AVCaptureVideoDataOutputSampleB
         let cancel = UIButton(type: .system)
         cancel.setTitle("Cancelar", for: .normal)
         cancel.tintColor = .white
+        cancel.titleLabel?.font = .systemFont(ofSize: 17, weight: .semibold)
         cancel.addTarget(self, action: #selector(cancelTapped), for: .touchUpInside)
         cancel.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(cancel)
@@ -50,22 +53,25 @@ final class ScannerController: UIViewController, AVCaptureVideoDataOutputSampleB
             AVCaptureDevice.requestAccess(for: .video) { granted in
                 DispatchQueue.main.async {
                     if granted { self.configure() }
-                    else { self.onCancel?() }
+                    else { self.onUnavailable?() }
                 }
             }
         default:
-            onCancel?()
+            onUnavailable?()
         }
     }
 
     override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
         preview.frame = view.bounds
+        orientPreview()
     }
 
     override func viewWillDisappear(_ animated: Bool) {
         super.viewWillDisappear(animated)
-        if session.isRunning { session.stopRunning() }
+        queue.async {
+            if self.session.isRunning { self.session.stopRunning() }
+        }
     }
 
     @objc private func cancelTapped() { onCancel?() }
@@ -73,40 +79,62 @@ final class ScannerController: UIViewController, AVCaptureVideoDataOutputSampleB
     private func configure() {
         session.beginConfiguration()
         session.sessionPreset = .high
+        let device = AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: .back)
+            ?? AVCaptureDevice.default(for: .video)
         guard
-            let device = AVCaptureDevice.default(for: .video),
+            let device,
             let input = try? AVCaptureDeviceInput(device: device),
             session.canAddInput(input)
         else {
             session.commitConfiguration()
-            onCancel?()
+            onUnavailable?()
             return
         }
         session.addInput(input)
-        let output = AVCaptureVideoDataOutput()
-        output.setSampleBufferDelegate(self, queue: queue)
+        if device.isFocusModeSupported(.continuousAutoFocus) {
+            try? device.lockForConfiguration()
+            device.focusMode = .continuousAutoFocus
+            if device.isAutoFocusRangeRestrictionSupported {
+                device.autoFocusRangeRestriction = .near
+            }
+            device.unlockForConfiguration()
+        }
+        let output = AVCaptureMetadataOutput()
         guard session.canAddOutput(output) else {
             session.commitConfiguration()
-            onCancel?()
+            onUnavailable?()
             return
         }
         session.addOutput(output)
+        output.setMetadataObjectsDelegate(self, queue: DispatchQueue.main)
+        let wanted: [AVMetadataObject.ObjectType] = [.ean13, .ean8, .upce, .code128, .qr]
+        output.metadataObjectTypes = wanted.filter { output.availableMetadataObjectTypes.contains($0) }
         session.commitConfiguration()
         queue.async { self.session.startRunning() }
     }
 
-    func captureOutput(_ output: AVCaptureOutput, didOutput sampleBuffer: CMSampleBuffer, from connection: AVCaptureConnection) {
-        guard !finished, let pixel = CMSampleBufferGetImageBuffer(sampleBuffer) else { return }
-        let request = VNDetectBarcodesRequest()
-        request.symbologies = [.ean13, .ean8, .upce]
-        let handler = VNImageRequestHandler(cvPixelBuffer: pixel, orientation: .right)
-        try? handler.perform([request])
-        guard let barcode = request.results?.first?.payloadStringValue else { return }
-        let ean = extractEan13(barcode)
-        let value = ean.isEmpty ? barcode.filter(\.isNumber) : ean
+    private func orientPreview() {
+        guard let connection = preview.connection else { return }
+        if connection.isVideoRotationAngleSupported(90) {
+            connection.videoRotationAngle = 90
+        }
+    }
+
+    func metadataOutput(
+        _ output: AVCaptureMetadataOutput,
+        didOutput metadataObjects: [AVMetadataObject],
+        from connection: AVCaptureConnection
+    ) {
+        guard !finished else { return }
+        guard let object = metadataObjects.first as? AVMetadataMachineReadableCodeObject,
+              let raw = object.stringValue else { return }
+        let ean = extractEan13(raw)
+        let value = ean.isEmpty ? raw.filter(\.isNumber) : ean
         guard value.count >= 8 else { return }
         finished = true
-        session.stopRunning()
-        DispatchQueue.main.async { self.onDetect?(value) }
+        queue.async {
+            if self.session.isRunning { self.session.stopRunning() }
+        }
+        onDetect?(value)
     }
 }

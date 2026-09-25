@@ -2,6 +2,31 @@ import { deleteItem, listItems, upsertItem } from '../src/db.js'
 import { readJson, send } from '../src/http.js'
 import { requireUser } from '../src/session.js'
 
+function stockCode(value) {
+  const raw = String(value || '')
+  const digits = raw.replace(/\D/g, '')
+  if (digits.length >= 13) return digits.slice(-13)
+  return digits.length >= 8 ? digits : ''
+}
+
+function stockName(value) {
+  return String(value || '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/\p{M}/gu, '')
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim()
+}
+
+function sameStockProduct(a, b) {
+  const codeA = stockCode(a?.barcode)
+  const codeB = stockCode(b?.barcode)
+  if (codeA && codeB) return codeA === codeB
+  const nameA = stockName(a?.name)
+  const nameB = stockName(b?.name)
+  return Boolean(nameA) && nameA === nameB
+}
+
 export default async function handler(req, res) {
   try {
     const user = await requireUser(req, res)
@@ -16,6 +41,11 @@ export default async function handler(req, res) {
       const item = await readJson(req)
       if (!item?.id || !item?.name) {
         send(res, 400, { error: 'Faltan datos del ítem' })
+        return
+      }
+      const current = await listItems(user.id)
+      if (current.some((entry) => entry.id !== item.id && sameStockProduct(entry, item))) {
+        send(res, 409, { error: 'Ya está agregado' })
         return
       }
       send(res, 200, await upsertItem(item, user.id))

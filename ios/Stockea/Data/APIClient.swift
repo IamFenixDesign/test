@@ -8,7 +8,8 @@ final class APIClient {
         let config = URLSessionConfiguration.default
         config.httpCookieAcceptPolicy = .always
         config.httpShouldSetCookies = true
-        config.timeoutIntervalForRequest = 45
+        config.timeoutIntervalForRequest = 25
+        config.timeoutIntervalForResource = 40
         session = URLSession(configuration: config)
     }
 
@@ -125,6 +126,7 @@ final class APIClient {
         }
         var request = URLRequest(url: url)
         request.httpMethod = method
+        request.timeoutInterval = path.contains("/api/supers") ? 20 : 25
         if method == "GET", path.contains("/api/supers") {
             request.setValue("no-cache", forHTTPHeaderField: "Cache-Control")
         }

@@ -1,46 +1,48 @@
 import SwiftUI
 
+private struct FormHeightKey: PreferenceKey {
+    static var defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = max(value, nextValue())
+    }
+}
+
 struct NewItemView: View {
     @EnvironmentObject private var model: AppModel
     @State private var draft = NewItemDraft()
     @State private var query = ""
+    @State private var loaded = false
+    @State private var searchTask: Task<Void, Never>?
+    @State private var formHeight: CGFloat = 0
 
     private var dark: Bool { model.state.darkTheme }
+    private var editing: Bool { model.state.editingItemId != nil }
 
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(alignment: .leading, spacing: 12) {
+                VStack(alignment: .leading, spacing: 8) {
                     field("Nombre", text: $draft.name)
-                    HStack {
+                    HStack(alignment: .bottom, spacing: 8) {
                         field("EAN", text: $draft.barcode)
                         Button {
                             model.openScanner()
                         } label: {
                             Image(systemName: "barcode.viewfinder")
-                                .font(.title2)
-                                .frame(width: 48, height: 48)
+                                .font(.title3)
+                                .frame(width: 44, height: 44)
                                 .background(StockeaColor.surface(dark: dark), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
                         }
                         .buttonStyle(.plain)
-                        .padding(.top, 18)
                         .accessibilityLabel("Escanear código")
                     }
-                    HStack {
-                        TextField("Buscar en súper", text: $query)
-                            .textInputAutocapitalization(.never)
-                            .padding(12)
-                            .background(StockeaColor.surface(dark: dark), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-                        Button("Buscar") {
-                            let term = query.trimmingCharacters(in: .whitespaces).isEmpty ? draft.barcode : query
-                            model.lookupStores(term)
-                        }
-                        .font(.subheadline.bold())
-                        .foregroundStyle(StockeaColor.accentInk)
-                        .padding(.horizontal, 12)
-                        .padding(.vertical, 10)
-                        .background(StockeaColor.accent, in: Capsule())
-                    }
+                    TextField("Buscar en súper", text: $query)
+                        .textInputAutocapitalization(.never)
+                        .submitLabel(.search)
+                        .onSubmit { searchNow() }
+                        .padding(12)
+                        .background(StockeaColor.surface(dark: dark), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                        .onChange(of: query) { _, _ in scheduleSearch() }
                     if model.state.storeLookupBusy {
                         ProgressView()
                     }
@@ -50,45 +52,78 @@ struct NewItemView: View {
                             .foregroundStyle(StockeaColor.muted(dark: dark))
                     }
                     if !model.state.storeResults.isEmpty {
-                        Picker("Súper", selection: Binding(
-                            get: { model.state.storeTab },
-                            set: { model.setStoreTab($0) }
-                        )) {
-                            Text("Coto").tag("coto")
-                            Text("Carrefour").tag("carrefour")
-                            Text("Día").tag("dia")
-                        }
-                        .pickerStyle(.segmented)
-                        ForEach(model.state.storeResults.list(model.state.storeTab)) { product in
-                            Button {
-                                apply(product)
-                            } label: {
-                                HStack {
-                                    VStack(alignment: .leading, spacing: 2) {
-                                        Text(product.name)
-                                            .font(.subheadline.weight(.semibold))
-                                            .foregroundStyle(StockeaColor.ink(dark: dark))
-                                            .multilineTextAlignment(.leading)
-                                        Text(money(compareShelfPrice(product)))
-                                            .font(.caption)
-                                            .foregroundStyle(StockeaColor.muted(dark: dark))
+                        segmentedRow(
+                            options: [("Coto", "coto"), ("Carrefour", "carrefour"), ("Día", "dia")],
+                            selection: model.state.storeTab,
+                            onSelect: { model.setStoreTab($0) }
+                        )
+                        VStack(spacing: 8) {
+                                ForEach(model.state.storeResults.list(model.state.storeTab)) { product in
+                                    Button {
+                                        apply(product)
+                                    } label: {
+                                        HStack {
+                                            VStack(alignment: .leading, spacing: 2) {
+                                                Text(product.name)
+                                                    .font(.subheadline.weight(.semibold))
+                                                    .foregroundStyle(StockeaColor.ink(dark: dark))
+                                                    .multilineTextAlignment(.leading)
+                                                Text(money(compareShelfPrice(product)))
+                                                    .font(.caption)
+                                                    .foregroundStyle(StockeaColor.muted(dark: dark))
+                                            }
+                                            Spacer(minLength: 0)
+                                        }
+                                        .padding(10)
+                                        .background(StockeaColor.surface(dark: dark), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
                                     }
-                                    Spacer()
+                                    .buttonStyle(.plain)
                                 }
-                                .padding(10)
-                                .background(StockeaColor.surface(dark: dark), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-                            }
-                            .buttonStyle(.plain)
                         }
                     }
 
-                    Picker("Unidad", selection: $draft.qtyUnit) {
-                        Text("Unidad").tag("unit")
-                        Text("Kilo").tag("kg")
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Categoría")
+                            .font(.caption)
+                            .foregroundStyle(StockeaColor.muted(dark: dark))
+                        ScrollView(.horizontal, showsIndicators: false) {
+                            HStack(spacing: 6) {
+                                ForEach(stockCategories, id: \.self) { category in
+                                    Button(category) { draft.category = category }
+                                        .font(.subheadline.weight(.semibold))
+                                        .foregroundStyle(draft.category == category ? StockeaColor.accentInk : StockeaColor.ink(dark: dark))
+                                        .padding(.horizontal, 12)
+                                        .frame(height: 36)
+                                        .background(draft.category == category ? StockeaColor.accent : StockeaColor.surface(dark: dark), in: Capsule())
+                                        .buttonStyle(.plain)
+                                }
+                            }
+                        }
+                        .frame(height: 36)
                     }
-                    .pickerStyle(.segmented)
-                    field(draft.qtyUnit == "kg" ? "Cantidad (gramos)" : "Cantidad", text: quantityText)
+                    segmentedRow(
+                        options: [("Unidad", "unit"), ("Kilo", "kg")],
+                        selection: draft.qtyUnit,
+                        onSelect: { next in
+                            let previous = draft.qtyUnit
+                            guard previous != next else { return }
+                            draft.qtyUnit = next
+                            draft.quantity = formWeightForUnit(draft.quantity, fromUnit: previous, toUnit: next)
+                            draft.minStock = formWeightForUnit(draft.minStock, fromUnit: previous, toUnit: next)
+                        }
+                    )
+                    field(draft.qtyUnit == "kg" ? "Cantidad (gramos)" : (editing ? "Cantidad" : "Cantidad inicial"), text: quantityText)
                     field(draft.qtyUnit == "kg" ? "Mínimo (gramos)" : "Mínimo", text: minText)
+                    if draft.priceCoto > 0 || draft.priceCarrefour > 0 || draft.priceDia > 0 || draft.price > 0 {
+                        Text("Precio actual \(money(draft.price))")
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(StockeaColor.ink(dark: dark))
+                        HStack(spacing: 8) {
+                            if draft.priceCoto > 0 { storePill("Coto", store: "coto", price: draft.priceCoto) }
+                            if draft.priceCarrefour > 0 { storePill("Carrefour", store: "carrefour", price: draft.priceCarrefour) }
+                            if draft.priceDia > 0 { storePill("Día", store: "dia", price: draft.priceDia) }
+                        }
+                    }
 
                     if model.state.allowCustomPrice || draft.priceSource == "custom" {
                         field("Precio personalizado", text: $draft.customPrice)
@@ -99,16 +134,21 @@ struct NewItemView: View {
                             .foregroundStyle(StockeaColor.accent)
                     }
 
-                    if !model.state.error.isEmpty {
-                        Text(model.state.error)
+                    if !model.state.newItemError.isEmpty {
+                        Text(model.state.newItemError)
                             .font(.footnote)
                             .foregroundStyle(StockeaColor.danger)
                     }
                 }
                 .padding(16)
+                .background {
+                    GeometryReader { proxy in
+                        Color.clear.preference(key: FormHeightKey.self, value: proxy.size.height)
+                    }
+                }
             }
-            .background(StockeaColor.background(dark: dark))
-            .navigationTitle("Nuevo")
+            .background(.clear)
+            .navigationTitle(editing ? "Editar" : "Nuevo")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -119,6 +159,12 @@ struct NewItemView: View {
                 }
             }
             .onAppear {
+                if !loaded {
+                    if let existing = model.editingDraft() {
+                        draft = existing
+                    }
+                    loaded = true
+                }
                 if let ean = model.state.scannedEan {
                     draft.barcode = ean
                     query = ean
@@ -133,7 +179,31 @@ struct NewItemView: View {
                 model.consumeScannedEan()
                 model.lookupStores(ean)
             }
+            .fullScreenCover(isPresented: Binding(
+                get: { model.state.showScanner },
+                set: { if !$0 { model.closeScanner() } }
+            )) {
+                ScannerView(
+                    onDetect: { model.onScannedEan($0) },
+                    onCancel: { model.closeScanner() },
+                    onUnavailable: { model.scannerUnavailable() }
+                )
+                .ignoresSafeArea()
+            }
         }
+        .onPreferenceChange(FormHeightKey.self) { height in
+            guard height > 0 else { return }
+            formHeight = height
+        }
+        .presentationDetents([.height(sheetHeight)])
+        .presentationDragIndicator(.visible)
+        .presentationCornerRadius(28)
+    }
+
+    private var sheetHeight: CGFloat {
+        let screen = UIScreen.main.bounds.height
+        let measured = formHeight > 0 ? formHeight + 72 : 360
+        return min(max(measured, 280), screen * 0.92)
     }
 
     private var quantityText: Binding<String> {
@@ -150,8 +220,28 @@ struct NewItemView: View {
         )
     }
 
+    private func segmentedRow(options: [(String, String)], selection: String, onSelect: @escaping (String) -> Void) -> some View {
+        HStack(spacing: 4) {
+            ForEach(options, id: \.1) { title, value in
+                Button {
+                    onSelect(value)
+                } label: {
+                    Text(title)
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(selection == value ? StockeaColor.accentInk : StockeaColor.ink(dark: dark))
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 36)
+                        .background(selection == value ? StockeaColor.accent : Color.clear, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(3)
+        .background(StockeaColor.surface(dark: dark), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+    }
+
     private func field(_ title: String, text: Binding<String>) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: 4) {
             Text(title)
                 .font(.caption)
                 .foregroundStyle(StockeaColor.muted(dark: dark))
@@ -190,8 +280,50 @@ struct NewItemView: View {
         }
     }
 
+    private func searchTerm() -> String {
+        let typed = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        return typed.isEmpty ? draft.barcode : typed
+    }
+
+    private func scheduleSearch() {
+        searchTask?.cancel()
+        let term = searchTerm()
+        guard term.count >= 2 else { return }
+        searchTask = Task {
+            try? await Task.sleep(nanoseconds: 400_000_000)
+            guard !Task.isCancelled else { return }
+            model.lookupStores(term)
+        }
+    }
+
+    private func searchNow() {
+        searchTask?.cancel()
+        model.lookupStores(searchTerm())
+    }
+
+    private func storePill(_ title: String, store: String, price: Double) -> some View {
+        Button {
+            draft.priceSource = store
+            draft.price = price
+        } label: {
+            Text("\(title) \(money(price))")
+                .font(.caption.bold())
+                .foregroundStyle(draft.priceSource == store ? StockeaColor.accentInk : StockeaColor.ink(dark: dark))
+                .padding(.horizontal, 10)
+                .padding(.vertical, 6)
+                .background(draft.priceSource == store ? StockeaColor.accent : StockeaColor.surface(dark: dark), in: Capsule())
+        }
+        .buttonStyle(.plain)
+    }
+
     private func save() {
-        if draft.priceSource == "custom" || (model.state.allowCustomPrice && draft.price <= 0) {
+        if model.state.allowCustomPrice {
+            let typed = parseNumber(draft.customPrice)
+            if typed > 0 {
+                draft.priceSource = "custom"
+                draft.price = typed
+            }
+        } else if draft.priceSource == "custom" {
             draft.priceSource = "custom"
             draft.price = parseNumber(draft.customPrice)
         }

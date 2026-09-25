@@ -3748,6 +3748,17 @@ html[data-theme="light"] .store-col-title.dia {
   background: var(--bg-hover);
 }
 
+.store-result.is-taken,
+.store-result:disabled {
+  opacity: 0.62;
+  cursor: default;
+}
+
+.store-result:disabled:hover {
+  border-color: var(--line);
+  background: var(--bg-elev);
+}
+
 .store-result img,
 .store-thumb {
   width: 42px;

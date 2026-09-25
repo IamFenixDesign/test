@@ -13,16 +13,25 @@ struct StockView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 12) {
+                BarScrollProbe()
                 HStack {
                     Text("Stockea")
                         .font(.title.bold())
                         .foregroundStyle(StockeaColor.ink(dark: dark))
                     Spacer()
+                    Button { model.openNewItem() } label: {
+                        Image(systemName: "plus")
+                            .font(.title3)
+                            .foregroundStyle(StockeaColor.ink(dark: dark))
+                            .frame(width: 44, height: 44)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Nuevo ítem")
                     Button { model.openCart() } label: {
                         ZStack(alignment: .topTrailing) {
                             Image(systemName: "cart")
                                 .font(.title3)
-                                .foregroundStyle(model.state.cartItems.isEmpty ? StockeaColor.ink(dark: dark) : StockeaColor.accent)
+                                .foregroundStyle(dark ? Color.white : Color.black)
                                 .frame(width: 44, height: 44)
                             if !model.state.cartItems.isEmpty {
                                 Text("\(model.state.cartItems.count)")
@@ -50,14 +59,14 @@ struct StockView: View {
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(16)
-                .background(StockeaColor.surface(dark: dark), in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+                .stockeaCard(dark: dark, radius: 20)
 
                 if model.state.items.isEmpty {
-                    Text("Todavía no hay productos. Tocá + Nuevo o buscá en Comparar.")
+                    Text("Todavía no hay productos. Tocá + junto al carrito o buscá en Comparar.")
                         .foregroundStyle(StockeaColor.muted(dark: dark))
                         .padding(20)
                         .frame(maxWidth: .infinity, alignment: .leading)
-                        .background(StockeaColor.surface(dark: dark), in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+                        .stockeaCard(dark: dark, radius: 20)
                 }
 
                 ForEach(grouped, id: \.0) { category, rows in
@@ -71,7 +80,9 @@ struct StockView: View {
                 }
             }
             .padding(16)
+            .padding(.bottom, 88)
         }
+        .scrollContentBackground(.hidden)
     }
 }
 
@@ -116,11 +127,19 @@ private struct StockCard: View {
                 Text(qtyLabel(item))
                     .font(.headline)
                     .frame(minWidth: 64)
+                    .contentTransition(.numericText())
+                    .animation(.smooth(duration: 0.28), value: item.quantity)
                 Button { model.bumpQty(id: item.id, delta: step) } label: {
                     Image(systemName: "plus")
                         .frame(width: 36, height: 36)
                 }
                 Spacer()
+                Button { model.openEdit(item) } label: {
+                    Label("Editar", systemImage: "pencil")
+                        .font(.caption.bold())
+                        .foregroundStyle(StockeaColor.accent)
+                }
+                .accessibilityLabel("Editar artículo")
                 Button { model.toggleCart(id: item.id) } label: {
                     Image(systemName: model.state.isInCart(item.id) ? "cart.fill" : "cart")
                 }
@@ -132,6 +151,6 @@ private struct StockCard: View {
             .foregroundStyle(StockeaColor.ink(dark: dark))
         }
         .padding(14)
-        .background(StockeaColor.surface(dark: dark), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .stockeaCard(dark: dark)
     }
 }
