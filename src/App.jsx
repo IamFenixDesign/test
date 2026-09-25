@@ -1110,10 +1110,17 @@ function BarcodeScanner({ stream, onDetect, onCancel }) {
   )
 }
 
-function StoreResult({ product, onPick }) {
+function StoreResult({ product, onPick, taken = false }) {
   const unit = qtyUnitOfProduct(product)
   return (
-    <button className={`store-result ${product.store}`} type="button" onClick={() => onPick(product)}>
+    <button
+      className={`store-result ${product.store}${taken ? ' is-taken' : ''}`}
+      type="button"
+      disabled={taken}
+      onClick={() => {
+        if (!taken) onPick(product)
+      }}
+    >
       {product.image ? <img src={product.image} alt="" /> : <span className="store-thumb" />}
       <span>
         <strong>{product.name}</strong>
@@ -1124,7 +1131,9 @@ function StoreResult({ product, onPick }) {
           {unit === 'kg' ? ' / kg' : ' / u.'}
           {product.hasDiscount && product.discountLabel ? ` · ${product.discountLabel}` : ''}
         </em>
-        {product.hasDiscount ? (
+        {taken ? (
+          <span className="store-offer-tag">Ya está en tu stock</span>
+        ) : product.hasDiscount ? (
           <span className="store-offer-tag">Con descuento web</span>
         ) : (
           <span className="store-offer-tag muted">Sin descuento web</span>
@@ -2231,6 +2240,11 @@ function App() {
   }
 
   function applyStoreProduct(product) {
+    if (findDuplicate(itemsRef.current, { name: product.name, barcode: product.ean })) {
+      setError('Ya está en tu stock')
+      showToast('Ya está en tu stock')
+      return
+    }
     const coto =
       product.store === 'coto' ? product : matchByEan(product, storeResults.coto || [])
     const carrefour =
@@ -3668,7 +3682,14 @@ function App() {
                         <div className={`store-col ${storeTab === 'coto' ? 'is-open' : ''}`}>
                           <p className="store-col-title coto">Coto Digital</p>
                           {storeResults.coto.map((product) => (
-                            <StoreResult key={product.ean || product.url} product={product} onPick={applyStoreProduct} />
+                            <StoreResult
+                              key={product.ean || product.url}
+                              product={product}
+                              taken={Boolean(
+                                findDuplicate(items, { name: product.name, barcode: product.ean }),
+                              )}
+                              onPick={applyStoreProduct}
+                            />
                           ))}
                         </div>
                       ) : null}
@@ -3676,7 +3697,14 @@ function App() {
                         <div className={`store-col ${storeTab === 'carrefour' ? 'is-open' : ''}`}>
                           <p className="store-col-title carrefour">Carrefour</p>
                           {storeResults.carrefour.map((product) => (
-                            <StoreResult key={product.ean || product.url} product={product} onPick={applyStoreProduct} />
+                            <StoreResult
+                              key={product.ean || product.url}
+                              product={product}
+                              taken={Boolean(
+                                findDuplicate(items, { name: product.name, barcode: product.ean }),
+                              )}
+                              onPick={applyStoreProduct}
+                            />
                           ))}
                         </div>
                       ) : null}
@@ -3684,7 +3712,14 @@ function App() {
                         <div className={`store-col ${storeTab === 'dia' ? 'is-open' : ''}`}>
                           <p className="store-col-title dia">Día</p>
                           {storeResults.dia.map((product) => (
-                            <StoreResult key={product.ean || product.url} product={product} onPick={applyStoreProduct} />
+                            <StoreResult
+                              key={product.ean || product.url}
+                              product={product}
+                              taken={Boolean(
+                                findDuplicate(items, { name: product.name, barcode: product.ean }),
+                              )}
+                              onPick={applyStoreProduct}
+                            />
                           ))}
                         </div>
                       ) : null}

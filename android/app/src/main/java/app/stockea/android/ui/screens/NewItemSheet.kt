@@ -116,6 +116,7 @@ fun NewItemSheet(
     onStoreTab: (String) -> Unit,
     onEnableCustomPrice: () -> Unit,
     onCreate: (NewItemDraft) -> Boolean,
+    isTaken: (String, String) -> Boolean = { _, _ -> false },
     onOpenScanner: () -> Unit,
     scannedEan: String?,
     onConsumeScannedEan: () -> Unit,
@@ -177,6 +178,10 @@ fun NewItemSheet(
     }
 
     fun applyStoreProduct(product: StoreProduct) {
+        if (isTaken(product.ean, product.name)) {
+            localError = "Ya está en tu stock"
+            return
+        }
         val coto =
             if (product.store == "coto") product else matchByEan(product, storeResults.coto)
         val carrefour =
@@ -533,7 +538,12 @@ fun NewItemSheet(
                     }
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         list.forEach { product ->
-                            StoreResultRow(product = product, onPick = { applyStoreProduct(product) })
+                            val taken = isTaken(product.ean, product.name)
+                            StoreResultRow(
+                                product = product,
+                                taken = taken,
+                                onPick = { applyStoreProduct(product) },
+                            )
                         }
                     }
                 }
@@ -687,9 +697,14 @@ fun NewItemSheet(
                     ) {
                         Text("Cancelar")
                     }
+                    val formTaken = isTaken(barcode, name)
                     Button(
                         onClick = {
                             localError = ""
+                            if (formTaken) {
+                                localError = "Ya está en tu stock"
+                                return@Button
+                            }
                             onCreate(
                                 NewItemDraft(
                                     name = name.trim(),
@@ -718,13 +733,13 @@ fun NewItemSheet(
                                 ),
                             )
                         },
-                        enabled = name.trim().isNotEmpty(),
+                        enabled = name.trim().isNotEmpty() && !formTaken,
                         modifier = Modifier
                             .weight(1.35f)
                             .height(50.dp),
                         shape = RoundedCornerShape(16.dp),
                     ) {
-                        Text("Agregar al stock", fontWeight = FontWeight.Bold)
+                        Text(if (formTaken) "Ya está en tu stock" else "Agregar al stock", fontWeight = FontWeight.Bold)
                     }
                 }
             }
@@ -884,6 +899,7 @@ private fun StoreTabChip(
 private fun StoreResultRow(
     product: StoreProduct,
     onPick: () -> Unit,
+    taken: Boolean = false,
 ) {
     val accent = when (product.store) {
         "coto" -> CotoColor
@@ -896,7 +912,7 @@ private fun StoreResultRow(
         color = MaterialTheme.colorScheme.surfaceVariant,
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onPick)
+            .clickable(enabled = !taken, onClick = onPick)
             .border(1.dp, accent.copy(alpha = 0.35f), RoundedCornerShape(16.dp)),
     ) {
         Row(
@@ -929,7 +945,11 @@ private fun StoreResultRow(
                     overflow = TextOverflow.Ellipsis,
                 )
                 Text(
-                    if (product.hasDiscount) "Con descuento web" else "Sin descuento web",
+                    when {
+                        taken -> "Ya está en tu stock"
+                        product.hasDiscount -> "Con descuento web"
+                        else -> "Sin descuento web"
+                    },
                     style = MaterialTheme.typography.labelSmall,
                     color = if (product.hasDiscount) accent else MaterialTheme.colorScheme.onSurfaceVariant,
                 )

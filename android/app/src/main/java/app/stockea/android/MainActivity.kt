@@ -224,6 +224,7 @@ private fun StockeaRoot(vm: StockeaViewModel) {
                         onStoreTab = vm::setStoreTab,
                         onEnableCustomPrice = vm::enableCustomPrice,
                         onCreate = vm::createItem,
+                        isTaken = { barcode, name -> vm.alreadyInStock(barcode, name) },
                         onOpenScanner = vm::openScanner,
                         scannedEan = state.scannedEan,
                         onConsumeScannedEan = vm::consumeScannedEan,
