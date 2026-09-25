@@ -283,7 +283,7 @@ private fun CompareCard(row: CompareRow, onAdd: (CompareRow) -> Unit, taken: Boo
                     modifier = Modifier.size(18.dp),
                 )
                 Spacer(modifier = Modifier.size(8.dp))
-                Text(if (taken) "Ya está en tu stock" else "Agregar al stock", fontWeight = FontWeight.SemiBold)
+                Text(if (taken) "Ya está agregado" else "Agregar al stock", fontWeight = FontWeight.SemiBold)
             }
         }
     }

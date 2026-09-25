@@ -39,6 +39,7 @@ struct AppState {
     var busy = false
     var error = ""
     var info = ""
+    var newItemError = ""
     var compareQuery = ""
     var compareResults: [CompareRow] = []
     var compareBusy = false
@@ -122,6 +123,7 @@ final class AppModel: ObservableObject {
     func clearMessages() {
         state.error = ""
         state.info = ""
+        state.newItemError = ""
     }
 
     func openNewItem() {
@@ -132,6 +134,7 @@ final class AppModel: ObservableObject {
         state.showScanner = false
         state.scannedEan = nil
         state.error = ""
+        state.newItemError = ""
         clearStoreLookup()
     }
 
@@ -143,6 +146,7 @@ final class AppModel: ObservableObject {
         state.showScanner = false
         state.scannedEan = nil
         state.error = ""
+        state.newItemError = ""
         clearStoreLookup()
         state.allowCustomPrice = item.priceSource == "custom"
     }
@@ -182,6 +186,7 @@ final class AppModel: ObservableObject {
         state.editingItemId = nil
         state.showScanner = false
         state.scannedEan = nil
+        state.newItemError = ""
         clearStoreLookup()
     }
 
@@ -289,30 +294,31 @@ final class AppModel: ObservableObject {
     func createItem(_ draft: NewItemDraft) -> Bool {
         let name = draft.name.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !name.isEmpty else {
-            state.error = "El nombre es obligatorio."
+            state.newItemError = "El nombre es obligatorio."
             return false
         }
         if alreadyInStock(barcode: draft.barcode, name: name, exceptId: state.editingItemId) {
-            state.error = "Ya está en tu stock"
+            state.newItemError = "Ya está agregado"
             return false
         }
         let unit = draft.qtyUnit == "kg" ? "kg" : "unit"
         if unit == "kg" && draft.quantity > 0 && draft.quantity < 0.1 {
-            state.error = "La cantidad por kilo debe ser 0,1 g o más."
+            state.newItemError = "La cantidad por kilo debe ser 0,1 g o más."
             return false
         }
         if unit == "kg" && draft.minStock > 0 && draft.minStock < 0.1 {
-            state.error = "El stock mínimo por kilo debe ser 0,1 g o más."
+            state.newItemError = "El stock mínimo por kilo debe ser 0,1 g o más."
             return false
         }
         let source = draft.priceSource
         let sourceOk = source == "coto" || source == "carrefour" || source == "dia" || source == "custom"
         guard sourceOk, draft.price > 0 else {
-            state.error = state.allowCustomPrice || source == "custom"
+            state.newItemError = state.allowCustomPrice || source == "custom"
                 ? "Ingresá un precio personalizado válido."
                 : "Elegí un precio de Coto, Carrefour o Día, o cargá uno personalizado."
             return false
         }
+        state.newItemError = ""
         let quantity = unit == "kg" ? normalizeQty(kgFromGrams(draft.quantity), "kg") : normalizeQty(max(0, draft.quantity), "unit")
         let minStock = unit == "kg" ? normalizeQty(kgFromGrams(draft.minStock), "kg") : normalizeQty(max(0, draft.minStock), "unit")
         let custom = source == "custom"
@@ -447,7 +453,7 @@ final class AppModel: ObservableObject {
 
     func addFromCompare(_ row: CompareRow) {
         if alreadyInStock(barcode: row.barcode, name: row.name) {
-            state.info = "Ya está en tu stock"
+            state.info = "Ya está agregado"
             return
         }
         let prices = [row.priceCoto, row.priceCarrefour, row.priceDia].filter { $0 > 0 }

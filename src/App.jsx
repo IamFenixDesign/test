@@ -1132,7 +1132,7 @@ function StoreResult({ product, onPick, taken = false }) {
           {product.hasDiscount && product.discountLabel ? ` · ${product.discountLabel}` : ''}
         </em>
         {taken ? (
-          <span className="store-offer-tag">Ya está en tu stock</span>
+          <span className="store-offer-tag">Ya está agregado</span>
         ) : product.hasDiscount ? (
           <span className="store-offer-tag">Con descuento web</span>
         ) : (
@@ -2241,8 +2241,7 @@ function App() {
 
   function applyStoreProduct(product) {
     if (findDuplicate(itemsRef.current, { name: product.name, barcode: product.ean })) {
-      setError('Ya está en tu stock')
-      showToast('Ya está en tu stock')
+      setError('Ya está agregado')
       return
     }
     const coto =
@@ -2588,8 +2587,7 @@ function App() {
 
     const duplicate = findDuplicate(itemsRef.current, payload, editingId)
     if (duplicate) {
-      setError('Ya está en tu stock')
-      showToast('Ya está en tu stock')
+      setError('Ya está agregado')
       return
     }
 
@@ -3882,7 +3880,7 @@ function App() {
                 }
               >
                 {!editingId && findDuplicate(items, { name: form.name, barcode: form.barcode })
-                  ? 'Ya está en tu stock'
+                  ? 'Ya está agregado'
                   : editingId
                     ? 'Guardar cambios'
                     : 'Agregar al stock'}

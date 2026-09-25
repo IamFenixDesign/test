@@ -74,7 +74,7 @@ private struct CompareCard: View {
                 price("Día", row.priceDia, row.discountDia)
             }
             let taken = model.alreadyInStock(barcode: row.barcode, name: row.name)
-            Button(taken ? "Ya está en tu stock" : "Agregar al stock") {
+            Button(taken ? "Ya está agregado" : "Agregar al stock") {
                 model.addFromCompare(row)
             }
             .disabled(taken)

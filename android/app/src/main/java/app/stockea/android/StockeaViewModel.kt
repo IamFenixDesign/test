@@ -44,6 +44,7 @@ data class UiState(
     val busy: Boolean = false,
     val error: String = "",
     val info: String = "",
+    val newItemError: String = "",
     val compareQuery: String = "",
     val compareResults: List<CompareRow> = emptyList(),
     val compareBusy: Boolean = false,
@@ -149,6 +150,7 @@ class StockeaViewModel(app: Application) : AndroidViewModel(app) {
                 showScanner = false,
                 scannedEan = null,
                 error = "",
+                newItemError = "",
             ).clearedStoreLookup()
         }
     }
@@ -159,6 +161,7 @@ class StockeaViewModel(app: Application) : AndroidViewModel(app) {
                 showNewItem = false,
                 showScanner = false,
                 scannedEan = null,
+                newItemError = "",
             ).clearedStoreLookup()
         }
     }
@@ -301,20 +304,20 @@ class StockeaViewModel(app: Application) : AndroidViewModel(app) {
     fun createItem(draft: NewItemDraft): Boolean {
         val name = draft.name.trim()
         if (name.isBlank()) {
-            _state.update { it.copy(error = "El nombre es obligatorio.") }
+            _state.update { it.copy(newItemError = "El nombre es obligatorio.", error = "") }
             return false
         }
         if (alreadyInStock(draft.barcode, name)) {
-            _state.update { it.copy(error = "Ya está en tu stock") }
+            _state.update { it.copy(newItemError = "Ya está agregado", error = "") }
             return false
         }
         val unit = if (draft.qtyUnit == "kg") "kg" else "unit"
         if (unit == "kg" && draft.quantity > 0 && draft.quantity < 0.1) {
-            _state.update { it.copy(error = "La cantidad por kilo debe ser 0,1 g o más.") }
+            _state.update { it.copy(newItemError = "La cantidad por kilo debe ser 0,1 g o más.", error = "") }
             return false
         }
         if (unit == "kg" && draft.minStock > 0 && draft.minStock < 0.1) {
-            _state.update { it.copy(error = "El stock mínimo por kilo debe ser 0,1 g o más.") }
+            _state.update { it.copy(newItemError = "El stock mínimo por kilo debe ser 0,1 g o más.", error = "") }
             return false
         }
         val source = draft.priceSource
@@ -323,7 +326,8 @@ class StockeaViewModel(app: Application) : AndroidViewModel(app) {
         if (!sourceOk || draft.price <= 0) {
             _state.update {
                 it.copy(
-                    error = if (_state.value.allowCustomPrice || source == "custom") {
+                    error = "",
+                    newItemError = if (_state.value.allowCustomPrice || source == "custom") {
                         "Ingresá un precio personalizado válido."
                     } else {
                         "Elegí un precio de Coto/Carrefour/Día o cargá uno personalizado si no está."
@@ -379,6 +383,7 @@ class StockeaViewModel(app: Application) : AndroidViewModel(app) {
                 info = "Producto agregado",
                 tab = MainTab.Stock,
                 error = "",
+                newItemError = "",
             ).clearedStoreLookup()
         }
         return true
@@ -677,7 +682,7 @@ class StockeaViewModel(app: Application) : AndroidViewModel(app) {
 
     fun addFromCompare(row: CompareRow) {
         if (alreadyInStock(row)) {
-            _state.update { it.copy(info = "Ya está en tu stock") }
+            _state.update { it.copy(info = "Ya está agregado") }
             return
         }
         val cheaper = listOf(row.priceCoto, row.priceCarrefour, row.priceDia)
