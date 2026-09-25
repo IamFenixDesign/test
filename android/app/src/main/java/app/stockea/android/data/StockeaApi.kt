@@ -2,12 +2,10 @@ package app.stockea.android.data
 
 import android.content.Context
 import android.content.SharedPreferences
-import okhttp3.Cookie
-import okhttp3.CookieJar
-import okhttp3.HttpUrl
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import okhttp3.Response
 import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONArray
 import org.json.JSONObject
@@ -19,56 +17,38 @@ class StockeaApi(context: Context) {
         context.getSharedPreferences("stockea_cookies", Context.MODE_PRIVATE)
 
     @Volatile
-    private var memorySession: Cookie? = null
+    private var memorySession: String? = prefs.getString("stockly_session_raw", null)
 
-    private val cookieJar = object : CookieJar {
-        override fun saveFromResponse(url: HttpUrl, cookies: List<Cookie>) {
-            val session = cookies.firstOrNull { it.name == "stockly_session" } ?: return
-            memorySession = session
-            prefs.edit()
-                .putString("stockly_session", session.value)
-                .putLong("stockly_session_expires", session.expiresAt)
-                .putString("stockly_session_domain", session.domain)
-                .putBoolean("stockly_session_secure", session.secure)
-                .putBoolean("stockly_session_host_only", session.hostOnly)
-                .putString("stockly_session_path", session.path)
-                .commit()
-        }
+    private fun sessionValue(): String? {
+        val value = memorySession ?: prefs.getString("stockly_session_raw", null)
+        return value?.takeIf { it.isNotBlank() }
+    }
 
-        override fun loadForRequest(url: HttpUrl): List<Cookie> {
-            memorySession?.let { cached ->
-                if (cached.matches(url) && cached.expiresAt > System.currentTimeMillis()) {
-                    return listOf(cached)
-                }
+    private fun rememberSession(response: Response) {
+        val headers = response.headers("Set-Cookie")
+        for (header in headers) {
+            val pair = header.substringBefore(';').trim()
+            val eq = pair.indexOf('=')
+            if (eq <= 0) continue
+            if (pair.substring(0, eq).trim() != "stockly_session") continue
+            val value = pair.substring(eq + 1).trim()
+            if (value.isEmpty()) {
+                memorySession = null
+                prefs.edit().remove("stockly_session_raw").commit()
+                return
             }
-            val value = prefs.getString("stockly_session", null) ?: return emptyList()
-            val expires = prefs.getLong("stockly_session_expires", 0L)
-            if (expires in 1 until System.currentTimeMillis()) return emptyList()
-            val domain = prefs.getString("stockly_session_domain", null) ?: url.host
-            val path = prefs.getString("stockly_session_path", "/") ?: "/"
-            val secure = prefs.getBoolean("stockly_session_secure", true)
-            val hostOnly = prefs.getBoolean("stockly_session_host_only", true)
-            val keptExpires = if (expires > System.currentTimeMillis()) {
-                expires
-            } else {
-                System.currentTimeMillis() + 30L * 24 * 60 * 60 * 1000
-            }
-            val builder = Cookie.Builder()
-                .name("stockly_session")
-                .value(value)
-                .path(path.ifBlank { "/" })
-                .expiresAt(keptExpires)
-            if (hostOnly) builder.hostOnlyDomain(domain.removePrefix("."))
-            else builder.domain(domain.removePrefix("."))
-            if (secure) builder.secure()
-            val cookie = builder.build()
-            memorySession = cookie
-            return if (cookie.matches(url)) listOf(cookie) else emptyList()
+            memorySession = value
+            prefs.edit().putString("stockly_session_raw", value).commit()
+            return
         }
     }
 
+    private fun applySession(builder: Request.Builder) {
+        val value = sessionValue() ?: return
+        builder.header("Cookie", "stockly_session=$value")
+    }
+
     private val client = OkHttpClient.Builder()
-        .cookieJar(cookieJar)
         .connectTimeout(30, TimeUnit.SECONDS)
         .readTimeout(45, TimeUnit.SECONDS)
         .build()
@@ -81,6 +61,7 @@ class StockeaApi(context: Context) {
         body: JSONObject? = null,
     ): JSONObject {
         val builder = Request.Builder().url("$base$path")
+        applySession(builder)
         if (method == "GET" && path.contains("/api/supers")) {
             builder.header("Cache-Control", "no-cache")
             builder.header("Pragma", "no-cache")
@@ -97,6 +78,7 @@ class StockeaApi(context: Context) {
             }
         }
         client.newCall(builder.build()).execute().use { response ->
+            rememberSession(response)
             val raw = response.body?.string().orEmpty()
             val parsed = runCatching { JSONObject(raw) }.getOrElse {
                 if (raw.trimStart().startsWith("[")) {
@@ -114,7 +96,9 @@ class StockeaApi(context: Context) {
 
     private fun requestArray(path: String): JSONArray {
         val builder = Request.Builder().url("$base$path").get()
+        applySession(builder)
         client.newCall(builder.build()).execute().use { response ->
+            rememberSession(response)
             val raw = response.body?.string().orEmpty()
             if (response.code == 401) return JSONArray()
             if (!response.isSuccessful) {
@@ -126,15 +110,8 @@ class StockeaApi(context: Context) {
     }
 
     fun clearSession() {
-        prefs.edit()
-            .remove("stockly_session")
-            .remove("stockly_session_expires")
-            .remove("stockly_session_domain")
-            .remove("stockly_session_secure")
-            .remove("stockly_session_path")
-            .remove("stockly_session_host_only")
-            .commit()
         memorySession = null
+        prefs.edit().remove("stockly_session_raw").commit()
     }
 
     fun me(): User? {
@@ -158,6 +135,9 @@ class StockeaApi(context: Context) {
                 .put("provider", "google")
                 .put("credential", idToken),
         )
+        if (sessionValue().isNullOrBlank()) {
+            throw ApiException("Google entró, pero el servidor no devolvió la sesión")
+        }
         val user = data.optJSONObject("user")?.toUser()
             ?: throw ApiException("No se pudo iniciar sesión con Google")
         return LoginResult(
