@@ -199,11 +199,17 @@ final class AppModel: ObservableObject {
     func openScanner() { state.showScanner = true }
     func closeScanner() { state.showScanner = false }
 
+    func scannerUnavailable() {
+        state.showScanner = false
+        state.error = "No se pudo abrir la cámara. Activala en Ajustes para escanear."
+    }
+
     func onScannedEan(_ ean: String) {
         state.showScanner = false
         state.scannedEan = ean
         state.showNewItem = true
-        state.info = "EAN \(ean) cargado · buscando…"
+        state.info = ""
+        state.error = ""
     }
 
     func consumeScannedEan() { state.scannedEan = nil }
