@@ -3095,6 +3095,9 @@ function App() {
               <span className="profile-provider">
                 {user.provider === 'google' ? 'Vinculada a Google' : 'Cuenta con correo'}
               </span>
+              <span className="profile-count">
+                {items.length} {items.length === 1 ? 'producto' : 'productos'}
+              </span>
             </div>
           </div>
 
