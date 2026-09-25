@@ -183,6 +183,7 @@ private fun StockeaRoot(vm: StockeaViewModel) {
                         contentPadding = padding,
                         onSearch = vm::searchCompare,
                         onAdd = vm::addFromCompare,
+                        isTaken = vm::alreadyInStock,
                     )
                     MainTab.Profile -> ProfileScreen(
                         user = user!!,
@@ -217,13 +218,14 @@ private fun StockeaRoot(vm: StockeaViewModel) {
                         storeResults = state.storeResults,
                         storeTab = state.storeTab,
                         allowCustomPrice = state.allowCustomPrice,
-                        formError = state.error,
+                        formError = state.newItemError.ifBlank { state.error },
                         onDismiss = vm::closeNewItem,
                         onLookupStores = vm::lookupStores,
                         onClearStoreResults = vm::clearStoreLookup,
                         onStoreTab = vm::setStoreTab,
                         onEnableCustomPrice = vm::enableCustomPrice,
                         onCreate = vm::createItem,
+                        isTaken = { barcode, name -> vm.alreadyInStock(barcode, name) },
                         onOpenScanner = vm::openScanner,
                         scannedEan = state.scannedEan,
                         onConsumeScannedEan = vm::consumeScannedEan,
