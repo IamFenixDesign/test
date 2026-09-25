@@ -106,15 +106,6 @@ private struct MainShell: View {
                 .presentationDragIndicator(.visible)
                 .presentationCornerRadius(28)
         }
-        .fullScreenCover(isPresented: Binding(
-            get: { model.state.showScanner },
-            set: { if !$0 { model.closeScanner() } }
-        )) {
-            ScannerView(
-                onDetect: { model.onScannedEan($0) },
-                onCancel: { model.closeScanner() }
-            )
-        }
         .alert("Stockea", isPresented: Binding(
             get: { !model.state.info.isEmpty || !model.state.error.isEmpty },
             set: { if !$0 { model.clearMessages() } }

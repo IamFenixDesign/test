@@ -179,6 +179,17 @@ struct NewItemView: View {
                 model.consumeScannedEan()
                 model.lookupStores(ean)
             }
+            .fullScreenCover(isPresented: Binding(
+                get: { model.state.showScanner },
+                set: { if !$0 { model.closeScanner() } }
+            )) {
+                ScannerView(
+                    onDetect: { model.onScannedEan($0) },
+                    onCancel: { model.closeScanner() },
+                    onUnavailable: { model.scannerUnavailable() }
+                )
+                .ignoresSafeArea()
+            }
         }
         .onPreferenceChange(FormHeightKey.self) { height in
             guard height > 0 else { return }
