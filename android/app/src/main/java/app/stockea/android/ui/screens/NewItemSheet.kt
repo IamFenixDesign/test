@@ -179,7 +179,7 @@ fun NewItemSheet(
 
     fun applyStoreProduct(product: StoreProduct) {
         if (isTaken(product.ean, product.name)) {
-            localError = "Ya está en tu stock"
+            localError = "Ya está agregado"
             return
         }
         val coto =
@@ -702,7 +702,7 @@ fun NewItemSheet(
                         onClick = {
                             localError = ""
                             if (formTaken) {
-                                localError = "Ya está en tu stock"
+                                localError = "Ya está agregado"
                                 return@Button
                             }
                             onCreate(
@@ -739,7 +739,7 @@ fun NewItemSheet(
                             .height(50.dp),
                         shape = RoundedCornerShape(16.dp),
                     ) {
-                        Text(if (formTaken) "Ya está en tu stock" else "Agregar al stock", fontWeight = FontWeight.Bold)
+                        Text(if (formTaken) "Ya está agregado" else "Agregar al stock", fontWeight = FontWeight.Bold)
                     }
                 }
             }
@@ -946,7 +946,7 @@ private fun StoreResultRow(
                 )
                 Text(
                     when {
-                        taken -> "Ya está en tu stock"
+                        taken -> "Ya está agregado"
                         product.hasDiscount -> "Con descuento web"
                         else -> "Sin descuento web"
                     },

@@ -45,7 +45,7 @@ export default async function handler(req, res) {
       }
       const current = await listItems(user.id)
       if (current.some((entry) => entry.id !== item.id && sameStockProduct(entry, item))) {
-        send(res, 409, { error: 'Ya está en tu stock' })
+        send(res, 409, { error: 'Ya está agregado' })
         return
       }
       send(res, 200, await upsertItem(item, user.id))

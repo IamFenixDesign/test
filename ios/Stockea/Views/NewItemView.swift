@@ -134,8 +134,8 @@ struct NewItemView: View {
                             .foregroundStyle(StockeaColor.accent)
                     }
 
-                    if !model.state.error.isEmpty {
-                        Text(model.state.error)
+                    if !model.state.newItemError.isEmpty {
+                        Text(model.state.newItemError)
                             .font(.footnote)
                             .foregroundStyle(StockeaColor.danger)
                     }

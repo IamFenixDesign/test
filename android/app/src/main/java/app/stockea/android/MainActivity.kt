@@ -217,7 +217,7 @@ private fun StockeaRoot(vm: StockeaViewModel) {
                         storeResults = state.storeResults,
                         storeTab = state.storeTab,
                         allowCustomPrice = state.allowCustomPrice,
-                        formError = state.error,
+                        formError = state.newItemError.ifBlank { state.error },
                         onDismiss = vm::closeNewItem,
                         onLookupStores = vm::lookupStores,
                         onClearStoreResults = vm::clearStoreLookup,
