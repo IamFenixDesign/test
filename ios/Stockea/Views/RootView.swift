@@ -127,7 +127,7 @@ private struct MainShell: View {
 }
 
 private enum BarSlot: Hashable {
-    case compare, nuevo, stock
+    case compare, profile, stock
 }
 
 private struct SlotFramesKey: PreferenceKey {
@@ -146,8 +146,8 @@ private struct BottomBar: View {
 
     private var highlighted: BarSlot? {
         if let dragSlot { return dragSlot }
-        if model.state.showNewItem { return .nuevo }
         if model.state.tab == .compare { return .compare }
+        if model.state.tab == .profile { return .profile }
         if model.state.tab == .stock && !model.state.showCart { return .stock }
         return nil
     }
@@ -177,7 +177,7 @@ private struct BottomBar: View {
     private var barContent: some View {
         HStack(spacing: 4) {
             barButton("Comparar", system: "scalemass", slot: .compare)
-            barButton("Nuevo", system: "plus", slot: .nuevo)
+            barButton("Perfil", system: "person", selectedSymbol: "person.fill", slot: .profile)
             barButton("Stock", system: "shippingbox", selectedSymbol: "shippingbox.fill", slot: .stock)
         }
         .coordinateSpace(name: "tabbar")
@@ -209,8 +209,8 @@ private struct BottomBar: View {
         switch slot {
         case .compare:
             model.setTab(.compare)
-        case .nuevo:
-            model.openNewItem()
+        case .profile:
+            model.setTab(.profile)
         case .stock:
             model.setTab(.stock)
         }

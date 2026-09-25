@@ -19,14 +19,14 @@ struct StockView: View {
                         .font(.title.bold())
                         .foregroundStyle(StockeaColor.ink(dark: dark))
                     Spacer()
-                    Button { model.setTab(.profile) } label: {
-                        Image(systemName: "person")
+                    Button { model.openNewItem() } label: {
+                        Image(systemName: "plus")
                             .font(.title3)
-                            .foregroundStyle(model.state.tab == .profile ? StockeaColor.accent : StockeaColor.ink(dark: dark))
+                            .foregroundStyle(StockeaColor.ink(dark: dark))
                             .frame(width: 44, height: 44)
                     }
                     .buttonStyle(.plain)
-                    .accessibilityLabel("Abrir perfil")
+                    .accessibilityLabel("Nuevo ítem")
                     Button { model.openCart() } label: {
                         ZStack(alignment: .topTrailing) {
                             Image(systemName: "cart")
@@ -62,7 +62,7 @@ struct StockView: View {
                 .stockeaCard(dark: dark, radius: 20)
 
                 if model.state.items.isEmpty {
-                    Text("Todavía no hay productos. Tocá + Nuevo o buscá en Comparar.")
+                    Text("Todavía no hay productos. Tocá + junto al carrito o buscá en Comparar.")
                         .foregroundStyle(StockeaColor.muted(dark: dark))
                         .padding(20)
                         .frame(maxWidth: .infinity, alignment: .leading)

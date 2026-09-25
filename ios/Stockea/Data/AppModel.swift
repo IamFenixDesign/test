@@ -256,10 +256,38 @@ final class AppModel: ObservableObject {
         }
     }
 
+    func alreadyInStock(barcode: String, name: String, exceptId: String? = nil) -> Bool {
+        let ean = canonicalCode(barcode)
+        let nameKey = canonicalName(name)
+        return state.items.contains { item in
+            if let exceptId, item.id == exceptId { return false }
+            let itemEan = canonicalCode(item.barcode)
+            if !ean.isEmpty, !itemEan.isEmpty { return ean == itemEan }
+            return !nameKey.isEmpty && nameKey == canonicalName(item.name)
+        }
+    }
+
+    private func canonicalCode(_ barcode: String) -> String {
+        let ean = extractEan13(barcode)
+        if !ean.isEmpty { return ean }
+        let digits = barcode.filter(\.isNumber)
+        return digits.count >= 8 ? digits : ""
+    }
+
+    private func canonicalName(_ name: String) -> String {
+        let folded = name.folding(options: .diacriticInsensitive, locale: Locale(identifier: "es")).lowercased()
+        let spaced = String(folded.map { $0.isLetter || $0.isNumber ? $0 : " " })
+        return spaced.split(whereSeparator: \.isWhitespace).joined(separator: " ")
+    }
+
     func createItem(_ draft: NewItemDraft) -> Bool {
         let name = draft.name.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !name.isEmpty else {
             state.error = "El nombre es obligatorio."
+            return false
+        }
+        if alreadyInStock(barcode: draft.barcode, name: name, exceptId: state.editingItemId) {
+            state.error = "Ya está en tu stock"
             return false
         }
         let unit = draft.qtyUnit == "kg" ? "kg" : "unit"
@@ -412,10 +440,8 @@ final class AppModel: ObservableObject {
     }
 
     func addFromCompare(_ row: CompareRow) {
-        if let existing = state.items.first(where: { !$0.barcode.isEmpty && $0.barcode == row.barcode }) {
+        if alreadyInStock(barcode: row.barcode, name: row.name) {
             state.info = "Ya está en tu stock"
-            state.tab = .stock
-            _ = existing
             return
         }
         let prices = [row.priceCoto, row.priceCarrefour, row.priceDia].filter { $0 > 0 }

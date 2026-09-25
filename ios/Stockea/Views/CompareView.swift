@@ -73,12 +73,16 @@ private struct CompareCard: View {
                 price("Carrefour", row.priceCarrefour, row.discountCarrefour)
                 price("Día", row.priceDia, row.discountDia)
             }
-            Button("Agregar al stock") { model.addFromCompare(row) }
-                .font(.subheadline.bold())
-                .foregroundStyle(StockeaColor.accentInk)
-                .padding(.horizontal, 12)
-                .padding(.vertical, 8)
-                .background(StockeaColor.accent, in: Capsule())
+            let taken = model.alreadyInStock(barcode: row.barcode, name: row.name)
+            Button(taken ? "Ya está en tu stock" : "Agregar al stock") {
+                model.addFromCompare(row)
+            }
+            .disabled(taken)
+            .font(.subheadline.bold())
+            .foregroundStyle(taken ? StockeaColor.muted(dark: dark) : StockeaColor.accentInk)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
+            .background(taken ? StockeaColor.surface(dark: dark) : StockeaColor.accent, in: Capsule())
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(14)

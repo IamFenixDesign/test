@@ -2572,24 +2572,14 @@ function App() {
               : form.image || imageCoto || imageCarrefour || imageDia,
     }
 
+    const duplicate = findDuplicate(itemsRef.current, payload, editingId)
+    if (duplicate) {
+      setError('Ya está en tu stock')
+      showToast('Ya está en tu stock')
+      return
+    }
+
     if (editingId) {
-      const other = findDuplicate(itemsRef.current, payload, editingId)
-      if (other) {
-        const merged = mergeItemRecords(other, payload)
-        deletedIdsRef.current.add(editingId)
-        const next = itemsRef.current
-          .filter((entry) => entry.id !== editingId)
-          .map((entry) => (entry.id === other.id ? merged : entry))
-        itemsRef.current = next
-        setItems(next)
-        persistItem(merged)
-        deleteRemoteItem(editingId)
-        setCategory(merged.category)
-        closeItemModal()
-        setOpenMenu(null)
-        showToast(`${merged.name}: se unificó con el ítem existente`)
-        return
-      }
       const saved = { id: editingId, ...payload }
       setItems((prev) => prev.map((entry) => (entry.id === editingId ? { ...entry, ...payload } : entry)))
       persistItem(saved)
@@ -2597,20 +2587,6 @@ function App() {
       closeItemModal()
       setOpenMenu(null)
       showToast(`${payload.name} actualizado`)
-      return
-    }
-
-    const existing = findDuplicate(itemsRef.current, payload)
-    if (existing) {
-      const merged = mergeItemRecords(existing, payload)
-      const next = itemsRef.current.map((entry) => (entry.id === existing.id ? merged : entry))
-      itemsRef.current = next
-      setItems(next)
-      persistItem(merged)
-      setCategory(merged.category)
-      closeItemModal()
-      setOpenMenu(null)
-      showToast(`${merged.name}: se sumó al stock existente`)
       return
     }
 
@@ -3862,8 +3838,19 @@ function App() {
               <button className="btn btn-ghost" type="button" onClick={closeItemModal}>
                 Cancelar
               </button>
-              <button className="btn btn-primary" type="submit">
-                {editingId ? 'Guardar cambios' : 'Agregar al stock'}
+              <button
+                className="btn btn-primary"
+                type="submit"
+                disabled={
+                  !editingId &&
+                  Boolean(findDuplicate(items, { name: form.name, barcode: form.barcode }))
+                }
+              >
+                {!editingId && findDuplicate(items, { name: form.name, barcode: form.barcode })
+                  ? 'Ya está en tu stock'
+                  : editingId
+                    ? 'Guardar cambios'
+                    : 'Agregar al stock'}
               </button>
             </div>
           </form>

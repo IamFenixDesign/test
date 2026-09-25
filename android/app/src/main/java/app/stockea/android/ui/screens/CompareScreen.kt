@@ -61,6 +61,7 @@ fun CompareScreen(
     contentPadding: PaddingValues,
     onSearch: (String) -> Unit,
     onAdd: (CompareRow) -> Unit,
+    isTaken: (CompareRow) -> Boolean = { false },
 ) {
     var localQuery by remember(query) { mutableStateOf(query) }
     val canSearch = localQuery.trim().length >= 2
@@ -187,13 +188,13 @@ fun CompareScreen(
         }
 
         items(results, key = { it.id + it.name }) { row ->
-            CompareCard(row, onAdd)
+            CompareCard(row, onAdd, isTaken(row))
         }
     }
 }
 
 @Composable
-private fun CompareCard(row: CompareRow, onAdd: (CompareRow) -> Unit) {
+private fun CompareCard(row: CompareRow, onAdd: (CompareRow) -> Unit, taken: Boolean) {
     val prices = listOf(row.priceCoto, row.priceCarrefour, row.priceDia).filter { it > 0 }
     val best = prices.minOrNull() ?: 0.0
     val storeCount = prices.size
@@ -271,6 +272,7 @@ private fun CompareCard(row: CompareRow, onAdd: (CompareRow) -> Unit) {
 
             FilledTonalButton(
                 onClick = { onAdd(row) },
+                enabled = !taken,
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(14.dp),
                 contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
@@ -281,7 +283,7 @@ private fun CompareCard(row: CompareRow, onAdd: (CompareRow) -> Unit) {
                     modifier = Modifier.size(18.dp),
                 )
                 Spacer(modifier = Modifier.size(8.dp))
-                Text("Agregar al stock", fontWeight = FontWeight.SemiBold)
+                Text(if (taken) "Ya está en tu stock" else "Agregar al stock", fontWeight = FontWeight.SemiBold)
             }
         }
     }

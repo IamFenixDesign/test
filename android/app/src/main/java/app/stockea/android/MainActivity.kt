@@ -182,6 +182,7 @@ private fun StockeaRoot(vm: StockeaViewModel) {
                         contentPadding = padding,
                         onSearch = vm::searchCompare,
                         onAdd = vm::addFromCompare,
+                        isTaken = vm::alreadyInStock,
                     )
                     MainTab.Profile -> ProfileScreen(
                         user = user!!,
