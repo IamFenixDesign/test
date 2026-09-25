@@ -168,8 +168,8 @@ private struct BottomBar: View {
     private var barContent: some View {
         HStack(spacing: 4) {
             barButton("Comparar", system: "scalemass", slot: .compare)
-            barButton("Perfil", system: "person", selectedSymbol: "person.fill", slot: .profile)
             barButton("Stock", system: "shippingbox", selectedSymbol: "shippingbox.fill", slot: .stock)
+            barButton("Perfil", system: "person", selectedSymbol: "person.fill", slot: .profile)
         }
         .coordinateSpace(name: "tabbar")
         .onPreferenceChange(SlotFramesKey.self) { slotFrames = $0 }
