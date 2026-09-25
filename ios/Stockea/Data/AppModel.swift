@@ -39,10 +39,13 @@ struct AppState {
     var busy = false
     var error = ""
     var info = ""
+    var newItemError = ""
     var compareQuery = ""
     var compareResults: [CompareRow] = []
     var compareBusy = false
+    var compareError = ""
     var showNewItem = false
+    var editingItemId: String?
     var showCart = false
     var showScanner = false
     var scannedEan: String?
@@ -67,14 +70,12 @@ final class AppModel: ObservableObject {
     @Published var state = AppState()
 
     private let api = APIClient()
-    private let prefs = UserDefaults.standard
     private var priceRefreshTask: Task<Void, Never>?
     private var compareTask: Task<Void, Never>?
     private var priceRefreshAt: [String: Date] = [:]
     private var refreshingPrices = false
 
     init() {
-        state.darkTheme = prefs.object(forKey: "dark_theme") as? Bool ?? true
         Task { await boot() }
     }
 
@@ -93,9 +94,8 @@ final class AppModel: ObservableObject {
         }
     }
 
-    func toggleTheme() {
-        state.darkTheme.toggle()
-        prefs.set(state.darkTheme, forKey: "dark_theme")
+    func applySystemTheme(dark: Bool) {
+        state.darkTheme = dark
     }
 
     func setTab(_ tab: MainTab) {
@@ -106,7 +106,9 @@ final class AppModel: ObservableObject {
         state.tab = tab
         state.error = ""
         state.info = ""
+        state.compareError = ""
         state.showNewItem = false
+        state.editingItemId = nil
         state.showCart = false
         state.showScanner = false
         state.scannedEan = nil
@@ -121,22 +123,70 @@ final class AppModel: ObservableObject {
     func clearMessages() {
         state.error = ""
         state.info = ""
+        state.newItemError = ""
     }
 
     func openNewItem() {
+        state.editingItemId = nil
         state.showNewItem = true
         state.showCart = false
         state.tab = .stock
         state.showScanner = false
         state.scannedEan = nil
         state.error = ""
+        state.newItemError = ""
         clearStoreLookup()
+    }
+
+    func openEdit(_ item: StockItem) {
+        state.editingItemId = item.id
+        state.showNewItem = true
+        state.showCart = false
+        state.tab = .stock
+        state.showScanner = false
+        state.scannedEan = nil
+        state.error = ""
+        state.newItemError = ""
+        clearStoreLookup()
+        state.allowCustomPrice = item.priceSource == "custom"
+    }
+
+    func editingDraft() -> NewItemDraft? {
+        guard let id = state.editingItemId,
+              let item = state.items.first(where: { $0.id == id }) else { return nil }
+        let kg = item.qtyUnit == "kg"
+        return NewItemDraft(
+            name: item.name,
+            barcode: item.barcode,
+            category: stockCategories.contains(item.category) ? item.category : "Alimentos",
+            quantity: kg ? gramsFromKg(item.quantity) : item.quantity,
+            minStock: kg ? gramsFromKg(item.minStock) : item.minStock,
+            qtyUnit: kg ? "kg" : "unit",
+            price: item.price,
+            priceSource: item.priceSource,
+            priceCoto: item.priceCoto,
+            priceCarrefour: item.priceCarrefour,
+            priceDia: item.priceDia,
+            listPriceCoto: item.listPriceCoto,
+            listPriceCarrefour: item.listPriceCarrefour,
+            listPriceDia: item.listPriceDia,
+            image: item.image,
+            urlCoto: item.urlCoto,
+            urlCarrefour: item.urlCarrefour,
+            urlDia: item.urlDia,
+            discountCoto: item.discountCoto,
+            discountCarrefour: item.discountCarrefour,
+            discountDia: item.discountDia,
+            customPrice: item.priceSource == "custom" ? plainNumber(item.price) : ""
+        )
     }
 
     func closeNewItem() {
         state.showNewItem = false
+        state.editingItemId = nil
         state.showScanner = false
         state.scannedEan = nil
+        state.newItemError = ""
         clearStoreLookup()
     }
 
@@ -144,6 +194,7 @@ final class AppModel: ObservableObject {
         refreshItems()
         state.showCart = true
         state.showNewItem = false
+        state.editingItemId = nil
         state.showScanner = false
         state.tab = .stock
     }
@@ -153,11 +204,17 @@ final class AppModel: ObservableObject {
     func openScanner() { state.showScanner = true }
     func closeScanner() { state.showScanner = false }
 
+    func scannerUnavailable() {
+        state.showScanner = false
+        state.error = "No se pudo abrir la cámara. Activala en Ajustes para escanear."
+    }
+
     func onScannedEan(_ ean: String) {
         state.showScanner = false
         state.scannedEan = ean
         state.showNewItem = true
-        state.info = "EAN \(ean) cargado · buscando…"
+        state.info = ""
+        state.error = ""
     }
 
     func consumeScannedEan() { state.scannedEan = nil }
@@ -180,7 +237,7 @@ final class AppModel: ObservableObject {
     func lookupStores(_ query: String) {
         let q = query.trimmingCharacters(in: .whitespacesAndNewlines)
         guard q.count >= 2 else {
-            state.storeLookupError = "Escribí un producto o EAN y tocá buscar."
+            state.storeLookupError = "Escribí un producto o EAN."
             return
         }
         Task {
@@ -203,39 +260,71 @@ final class AppModel: ObservableObject {
                 state.storeLookupBusy = false
                 state.storeResults = StoreSearchResults()
                 state.allowCustomPrice = true
-                state.storeLookupError = error.localizedDescription
+                state.storeLookupError = isTimeout(error)
+                    ? "Los súper tardaron demasiado. Probá de nuevo."
+                    : error.localizedDescription
             }
         }
+    }
+
+    func alreadyInStock(barcode: String, name: String, exceptId: String? = nil) -> Bool {
+        let ean = canonicalCode(barcode)
+        let nameKey = canonicalName(name)
+        return state.items.contains { item in
+            if let exceptId, item.id == exceptId { return false }
+            let itemEan = canonicalCode(item.barcode)
+            if !ean.isEmpty, !itemEan.isEmpty { return ean == itemEan }
+            return !nameKey.isEmpty && nameKey == canonicalName(item.name)
+        }
+    }
+
+    private func canonicalCode(_ barcode: String) -> String {
+        let ean = extractEan13(barcode)
+        if !ean.isEmpty { return ean }
+        let digits = barcode.filter(\.isNumber)
+        return digits.count >= 8 ? digits : ""
+    }
+
+    private func canonicalName(_ name: String) -> String {
+        let folded = name.folding(options: .diacriticInsensitive, locale: Locale(identifier: "es")).lowercased()
+        let spaced = String(folded.map { $0.isLetter || $0.isNumber ? $0 : " " })
+        return spaced.split(whereSeparator: \.isWhitespace).joined(separator: " ")
     }
 
     func createItem(_ draft: NewItemDraft) -> Bool {
         let name = draft.name.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !name.isEmpty else {
-            state.error = "El nombre es obligatorio."
+            state.newItemError = "El nombre es obligatorio."
+            return false
+        }
+        if alreadyInStock(barcode: draft.barcode, name: name, exceptId: state.editingItemId) {
+            state.newItemError = "Ya está agregado"
             return false
         }
         let unit = draft.qtyUnit == "kg" ? "kg" : "unit"
         if unit == "kg" && draft.quantity > 0 && draft.quantity < 0.1 {
-            state.error = "La cantidad por kilo debe ser 0,1 g o más."
+            state.newItemError = "La cantidad por kilo debe ser 0,1 g o más."
             return false
         }
         if unit == "kg" && draft.minStock > 0 && draft.minStock < 0.1 {
-            state.error = "El stock mínimo por kilo debe ser 0,1 g o más."
+            state.newItemError = "El stock mínimo por kilo debe ser 0,1 g o más."
             return false
         }
         let source = draft.priceSource
         let sourceOk = source == "coto" || source == "carrefour" || source == "dia" || source == "custom"
         guard sourceOk, draft.price > 0 else {
-            state.error = state.allowCustomPrice || source == "custom"
+            state.newItemError = state.allowCustomPrice || source == "custom"
                 ? "Ingresá un precio personalizado válido."
                 : "Elegí un precio de Coto, Carrefour o Día, o cargá uno personalizado."
             return false
         }
+        state.newItemError = ""
         let quantity = unit == "kg" ? normalizeQty(kgFromGrams(draft.quantity), "kg") : normalizeQty(max(0, draft.quantity), "unit")
         let minStock = unit == "kg" ? normalizeQty(kgFromGrams(draft.minStock), "kg") : normalizeQty(max(0, draft.minStock), "unit")
         let custom = source == "custom"
+        let editingId = state.editingItemId
         let item = StockItem(
-            id: UUID().uuidString,
+            id: editingId ?? UUID().uuidString,
             name: name,
             barcode: draft.barcode.trimmingCharacters(in: .whitespacesAndNewlines),
             category: draft.category.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "Alimentos" : draft.category,
@@ -258,12 +347,13 @@ final class AppModel: ObservableObject {
             discountCarrefour: custom ? "" : draft.discountCarrefour,
             discountDia: custom ? "" : draft.discountDia
         )
-        replaceItem(item, persist: true, prepend: true)
+        replaceItem(item, persist: true, prepend: editingId == nil)
         priceRefreshAt[item.id] = Date()
         state.showNewItem = false
+        state.editingItemId = nil
         state.showScanner = false
         state.scannedEan = nil
-        state.info = "Producto agregado"
+        state.info = editingId == nil ? "Producto agregado" : "Producto actualizado"
         state.tab = .stock
         state.error = ""
         clearStoreLookup()
@@ -315,10 +405,10 @@ final class AppModel: ObservableObject {
         Task {
             do {
                 let items = try await api.fetchItems()
-                state.items = items
-                state.cartRemoved = pruneCartRemoved(state.cartRemoved, items)
+                state.items = mergePreservingOrder(current: state.items, incoming: items)
+                state.cartRemoved = pruneCartRemoved(state.cartRemoved, state.items)
             } catch {
-                state.error = error.localizedDescription
+                if !isTimeout(error) { state.error = error.localizedDescription }
             }
         }
     }
@@ -362,10 +452,8 @@ final class AppModel: ObservableObject {
     }
 
     func addFromCompare(_ row: CompareRow) {
-        if let existing = state.items.first(where: { !$0.barcode.isEmpty && $0.barcode == row.barcode }) {
-            state.info = "Ya está en tu stock"
-            state.tab = .stock
-            _ = existing
+        if alreadyInStock(barcode: row.barcode, name: row.name) {
+            state.info = "Ya está agregado"
             return
         }
         let prices = [row.priceCoto, row.priceCarrefour, row.priceDia].filter { $0 > 0 }
@@ -407,6 +495,7 @@ final class AppModel: ObservableObject {
         state.compareQuery = q
         state.compareBusy = true
         state.error = ""
+        state.compareError = ""
         state.compareResults = []
         compareTask?.cancel()
         compareTask = nil
@@ -520,21 +609,25 @@ final class AppModel: ObservableObject {
             while !Task.isCancelled {
                 if first && showSpinner {
                     state.compareBusy = true
-                    state.error = ""
+                    state.compareError = ""
                 }
                 do {
                     let rows = try await api.searchSupers(query: query)
                     if query != state.compareQuery.trimmingCharacters(in: .whitespacesAndNewlines) { return }
                     state.compareBusy = false
                     state.compareResults = rows
-                    state.error = rows.isEmpty ? "No hay productos web para esa búsqueda." : ""
+                    state.compareError = rows.isEmpty ? "No hay productos web para esa búsqueda." : ""
                 } catch {
                     if query != state.compareQuery.trimmingCharacters(in: .whitespacesAndNewlines) { return }
                     state.compareBusy = false
-                    if first { state.error = error.localizedDescription }
+                    if first && state.compareResults.isEmpty {
+                        state.compareError = isTimeout(error)
+                            ? "Los súper tardaron demasiado. Probá de nuevo."
+                            : error.localizedDescription
+                    }
                 }
                 first = false
-                try? await Task.sleep(nanoseconds: 1_000_000_000)
+                try? await Task.sleep(nanoseconds: 8_000_000_000)
             }
         }
     }
@@ -614,11 +707,24 @@ final class AppModel: ObservableObject {
                 do {
                     try await api.upsertItem(item)
                 } catch {
-                    state.error = error.localizedDescription
-                    refreshItems()
+                    if !isTimeout(error) { state.error = error.localizedDescription }
                 }
             }
         }
+    }
+
+    private func mergePreservingOrder(current: [StockItem], incoming: [StockItem]) -> [StockItem] {
+        let byId = Dictionary(uniqueKeysWithValues: incoming.map { ($0.id, $0) })
+        var ordered = current.compactMap { byId[$0.id] }
+        let seen = Set(ordered.map(\.id))
+        ordered.append(contentsOf: incoming.filter { !seen.contains($0.id) })
+        return ordered
+    }
+
+    private func isTimeout(_ error: Error) -> Bool {
+        if let urlError = error as? URLError, urlError.code == .timedOut { return true }
+        let text = error.localizedDescription.lowercased()
+        return text.contains("tiempo de espera") || text.contains("timed out")
     }
 
     private func pruneCartRemoved(_ removed: Set<String>, _ items: [StockItem]) -> Set<String> {

@@ -21,7 +21,7 @@
 	<key>CFBundleVersion</key>
 	<string>$(CURRENT_PROJECT_VERSION)</string>
 	<key>GOOGLE_IOS_CLIENT_ID</key>
-	<string>REEMPLAZAR.apps.googleusercontent.com</string>
+	<string>114812133018-57q6orau4ekc5dmksml79a1afliuc4lu.apps.googleusercontent.com</string>
 	<key>CFBundleURLTypes</key>
 	<array>
 		<dict>
@@ -29,7 +29,7 @@
 			<string>Editor</string>
 			<key>CFBundleURLSchemes</key>
 			<array>
-				<string>com.googleusercontent.apps.REEMPLAZAR</string>
+				<string>com.googleusercontent.apps.114812133018-57q6orau4ekc5dmksml79a1afliuc4lu</string>
 			</array>
 		</dict>
 	</array>

@@ -1110,10 +1110,17 @@ function BarcodeScanner({ stream, onDetect, onCancel }) {
   )
 }
 
-function StoreResult({ product, onPick }) {
+function StoreResult({ product, onPick, taken = false }) {
   const unit = qtyUnitOfProduct(product)
   return (
-    <button className={`store-result ${product.store}`} type="button" onClick={() => onPick(product)}>
+    <button
+      className={`store-result ${product.store}${taken ? ' is-taken' : ''}`}
+      type="button"
+      disabled={taken}
+      onClick={() => {
+        if (!taken) onPick(product)
+      }}
+    >
       {product.image ? <img src={product.image} alt="" /> : <span className="store-thumb" />}
       <span>
         <strong>{product.name}</strong>
@@ -1124,7 +1131,9 @@ function StoreResult({ product, onPick }) {
           {unit === 'kg' ? ' / kg' : ' / u.'}
           {product.hasDiscount && product.discountLabel ? ` · ${product.discountLabel}` : ''}
         </em>
-        {product.hasDiscount ? (
+        {taken ? (
+          <span className="store-offer-tag">Ya está agregado</span>
+        ) : product.hasDiscount ? (
           <span className="store-offer-tag">Con descuento web</span>
         ) : (
           <span className="store-offer-tag muted">Sin descuento web</span>
@@ -2231,6 +2240,10 @@ function App() {
   }
 
   function applyStoreProduct(product) {
+    if (findDuplicate(itemsRef.current, { name: product.name, barcode: product.ean })) {
+      setError('Ya está agregado')
+      return
+    }
     const coto =
       product.store === 'coto' ? product : matchByEan(product, storeResults.coto || [])
     const carrefour =
@@ -2572,24 +2585,13 @@ function App() {
               : form.image || imageCoto || imageCarrefour || imageDia,
     }
 
+    const duplicate = findDuplicate(itemsRef.current, payload, editingId)
+    if (duplicate) {
+      setError('Ya está agregado')
+      return
+    }
+
     if (editingId) {
-      const other = findDuplicate(itemsRef.current, payload, editingId)
-      if (other) {
-        const merged = mergeItemRecords(other, payload)
-        deletedIdsRef.current.add(editingId)
-        const next = itemsRef.current
-          .filter((entry) => entry.id !== editingId)
-          .map((entry) => (entry.id === other.id ? merged : entry))
-        itemsRef.current = next
-        setItems(next)
-        persistItem(merged)
-        deleteRemoteItem(editingId)
-        setCategory(merged.category)
-        closeItemModal()
-        setOpenMenu(null)
-        showToast(`${merged.name}: se unificó con el ítem existente`)
-        return
-      }
       const saved = { id: editingId, ...payload }
       setItems((prev) => prev.map((entry) => (entry.id === editingId ? { ...entry, ...payload } : entry)))
       persistItem(saved)
@@ -2597,20 +2599,6 @@ function App() {
       closeItemModal()
       setOpenMenu(null)
       showToast(`${payload.name} actualizado`)
-      return
-    }
-
-    const existing = findDuplicate(itemsRef.current, payload)
-    if (existing) {
-      const merged = mergeItemRecords(existing, payload)
-      const next = itemsRef.current.map((entry) => (entry.id === existing.id ? merged : entry))
-      itemsRef.current = next
-      setItems(next)
-      persistItem(merged)
-      setCategory(merged.category)
-      closeItemModal()
-      setOpenMenu(null)
-      showToast(`${merged.name}: se sumó al stock existente`)
       return
     }
 
@@ -3692,7 +3680,14 @@ function App() {
                         <div className={`store-col ${storeTab === 'coto' ? 'is-open' : ''}`}>
                           <p className="store-col-title coto">Coto Digital</p>
                           {storeResults.coto.map((product) => (
-                            <StoreResult key={product.ean || product.url} product={product} onPick={applyStoreProduct} />
+                            <StoreResult
+                              key={product.ean || product.url}
+                              product={product}
+                              taken={Boolean(
+                                findDuplicate(items, { name: product.name, barcode: product.ean }),
+                              )}
+                              onPick={applyStoreProduct}
+                            />
                           ))}
                         </div>
                       ) : null}
@@ -3700,7 +3695,14 @@ function App() {
                         <div className={`store-col ${storeTab === 'carrefour' ? 'is-open' : ''}`}>
                           <p className="store-col-title carrefour">Carrefour</p>
                           {storeResults.carrefour.map((product) => (
-                            <StoreResult key={product.ean || product.url} product={product} onPick={applyStoreProduct} />
+                            <StoreResult
+                              key={product.ean || product.url}
+                              product={product}
+                              taken={Boolean(
+                                findDuplicate(items, { name: product.name, barcode: product.ean }),
+                              )}
+                              onPick={applyStoreProduct}
+                            />
                           ))}
                         </div>
                       ) : null}
@@ -3708,7 +3710,14 @@ function App() {
                         <div className={`store-col ${storeTab === 'dia' ? 'is-open' : ''}`}>
                           <p className="store-col-title dia">Día</p>
                           {storeResults.dia.map((product) => (
-                            <StoreResult key={product.ean || product.url} product={product} onPick={applyStoreProduct} />
+                            <StoreResult
+                              key={product.ean || product.url}
+                              product={product}
+                              taken={Boolean(
+                                findDuplicate(items, { name: product.name, barcode: product.ean }),
+                              )}
+                              onPick={applyStoreProduct}
+                            />
                           ))}
                         </div>
                       ) : null}
@@ -3862,8 +3871,19 @@ function App() {
               <button className="btn btn-ghost" type="button" onClick={closeItemModal}>
                 Cancelar
               </button>
-              <button className="btn btn-primary" type="submit">
-                {editingId ? 'Guardar cambios' : 'Agregar al stock'}
+              <button
+                className="btn btn-primary"
+                type="submit"
+                disabled={
+                  !editingId &&
+                  Boolean(findDuplicate(items, { name: form.name, barcode: form.barcode }))
+                }
+              >
+                {!editingId && findDuplicate(items, { name: form.name, barcode: form.barcode })
+                  ? 'Ya está agregado'
+                  : editingId
+                    ? 'Guardar cambios'
+                    : 'Agregar al stock'}
               </button>
             </div>
           </form>
