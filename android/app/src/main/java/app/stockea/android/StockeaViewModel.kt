@@ -267,10 +267,45 @@ class StockeaViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    fun alreadyInStock(row: CompareRow): Boolean = alreadyInStock(row.barcode, row.name)
+
+    fun alreadyInStock(barcode: String, name: String, exceptId: String? = null): Boolean {
+        val ean = canonicalCode(barcode)
+        val nameKey = canonicalName(name)
+        return _state.value.items.any { item ->
+            if (exceptId != null && item.id == exceptId) return@any false
+            val itemEan = canonicalCode(item.barcode)
+            if (ean.isNotEmpty() && itemEan.isNotEmpty()) return@any ean == itemEan
+            nameKey.isNotEmpty() && nameKey == canonicalName(item.name)
+        }
+    }
+
+    private fun canonicalCode(barcode: String): String {
+        val ean = extractEan13(barcode)
+        if (ean.isNotBlank()) return ean
+        val digits = barcode.filter { it.isDigit() }
+        return if (digits.length >= 8) digits else ""
+    }
+
+    private fun canonicalName(name: String): String {
+        val folded = java.text.Normalizer.normalize(name, java.text.Normalizer.Form.NFD)
+            .replace("\\p{M}+".toRegex(), "")
+            .lowercase()
+        return folded.map { if (it.isLetterOrDigit()) it else ' ' }
+            .joinToString("")
+            .split(Regex("\\s+"))
+            .filter { it.isNotBlank() }
+            .joinToString(" ")
+    }
+
     fun createItem(draft: NewItemDraft): Boolean {
         val name = draft.name.trim()
         if (name.isBlank()) {
             _state.update { it.copy(error = "El nombre es obligatorio.") }
+            return false
+        }
+        if (alreadyInStock(draft.barcode, name)) {
+            _state.update { it.copy(error = "Ya está en tu stock") }
             return false
         }
         val unit = if (draft.qtyUnit == "kg") "kg" else "unit"
@@ -641,11 +676,8 @@ class StockeaViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun addFromCompare(row: CompareRow) {
-        val existing = _state.value.items.find {
-            it.barcode.isNotBlank() && it.barcode == row.barcode
-        }
-        if (existing != null) {
-            _state.update { it.copy(info = "Ya está en tu stock", tab = MainTab.Stock) }
+        if (alreadyInStock(row)) {
+            _state.update { it.copy(info = "Ya está en tu stock") }
             return
         }
         val cheaper = listOf(row.priceCoto, row.priceCarrefour, row.priceDia)

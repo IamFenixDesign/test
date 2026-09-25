@@ -10,7 +10,7 @@ Habla con el backend de Vercel: `https://test-iota-two-49.vercel.app`
 
 Hace falta un iPhone con iOS 17 o más nuevo y un Apple ID (el gratuito alcanza).
 
-1. Descargá `ios/release/Stockea-1.16.0.ipa`. En Perfil tiene que decir Versión 1.16.0. Borrá la instalación anterior antes de instalar: si el número de versión no sube, iOS deja la app vieja.
+1. Descargá `ios/release/Stockea-1.17.0.ipa`. En Perfil tiene que decir Versión 1.17.0. Borrá la instalación anterior antes de instalar: si el número de versión no sube, iOS deja la app vieja.
 2. Instalá [Sideloadly](https://sideloadly.io) y conectá el iPhone por USB. Aceptá “Confiar” en el teléfono.
 3. Abrí Sideloadly, arrastrá el IPA y poné tu Apple ID. Sideloadly lo firma y lo instala.
 4. En el iPhone: Ajustes → General → VPN y gestión de dispositivos → confiar en el certificado.
@@ -53,5 +53,5 @@ La primera vez Xcode descarga el paquete `GoogleSignIn-iOS`.
 - Nuevo y editar: nombre, categoría, unidad, stock, precio de súper o personalizado, EAN y cámara
 - Comparar precios (Coto, Carrefour y Día)
 - Carrito con descuentos semanales de sucursal
-- Barra: Comparar, Nuevo, Stock. El perfil está junto al carrito. El tema sigue el ajuste del iPhone.
+- Barra: Comparar, Perfil, Stock. El nuevo ítem está junto al carrito. El tema sigue el ajuste del iPhone.
 - Perfil: exportar e importar JSON, cerrar sesión
