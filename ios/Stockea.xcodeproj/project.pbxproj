@@ -227,7 +227,7 @@
 			name = StockeaWatch;
 			productName = StockeaWatch;
 			productReference = B20000000000000000000012 /* StockeaWatch.app */;
-			productType = "com.apple.product-type.application.watchapp2";
+			productType = "com.apple.product-type.application";
 		};
 /* End PBXNativeTarget section */
 
