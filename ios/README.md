@@ -10,7 +10,7 @@ Habla con el backend de Vercel: `https://test-iota-two-49.vercel.app`
 
 Hace falta un iPhone con iOS 17 o más nuevo y un Apple ID (el gratuito alcanza).
 
-1. Descargá `ios/release/Stockea-1.22.0.ipa`. En Perfil tiene que decir Versión 1.22.0. Borrá la instalación anterior antes de instalar: si el número de versión no sube, iOS deja la app vieja. El Apple Watch emparejado instala Stockea solo, junto con la app del iPhone (watchOS 10 o más nuevo).
+1. Descargá `ios/release/Stockea-1.22.1.ipa`. En Perfil tiene que decir Versión 1.22.1. Borrá la instalación anterior antes de instalar: si el número de versión no sube, iOS deja la app vieja. El Apple Watch emparejado instala Stockea solo, junto con la app del iPhone (watchOS 10 o más nuevo).
 2. Instalá [Sideloadly](https://sideloadly.io) y conectá el iPhone por USB. Aceptá “Confiar” en el teléfono.
 3. Abrí Sideloadly, arrastrá el IPA y poné tu Apple ID. Sideloadly lo firma y lo instala.
 4. En el iPhone: Ajustes → General → VPN y gestión de dispositivos → confiar en el certificado.
