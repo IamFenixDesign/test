@@ -8,6 +8,7 @@ on:
       - cursor/ios-watch-app-4afc
       - cursor/ios-watch-bundle-4afc
       - cursor/remove-watch-app-4afc
+      - cursor/stock-search-google-logo-4afc
     paths-ignore:
       - ios/release/**
 
