@@ -46,21 +46,9 @@ jobs:
           WATCH_BIN="$APP/Watch/StockeaWatch.app/StockeaWatch"
           lipo -info "$APP/Stockea"
           lipo -info "$WATCH_BIN"
-          echo "Watch min OS before restamp:"
+          # Do not rewrite the watch executable. Changing its load commands makes
+          # watchOS fail with "integrity could not be verified".
           xcrun vtool -show-build "$WATCH_BIN"
-          # The watchOS 26 SDK marks the arm64 slice as requiring watchOS 26.
-          # installd then refuses the app on any watch that is still on an older system,
-          # even though the matching slice could run. Stamp both slices at watchOS 10.
-          xcrun vtool -set-build-version watchos 10.0 26.5 -replace -output "$WATCH_BIN.restamp" "$WATCH_BIN"
-          mv "$WATCH_BIN.restamp" "$WATCH_BIN"
-          chmod +x "$WATCH_BIN"
-          echo "Watch min OS after restamp:"
-          xcrun vtool -show-build "$WATCH_BIN"
-          if xcrun vtool -show-build "$WATCH_BIN" | grep -E 'minos 2[6-9]'; then
-            echo "watch binary still requires watchOS 26 or newer"
-            exit 1
-          fi
-          lipo -info "$WATCH_BIN" | grep -q arm64
           rm -rf "$RUNNER_TEMP/Payload"
           mkdir -p "$RUNNER_TEMP/Payload"
           cp -R "$APP" "$RUNNER_TEMP/Payload/"
