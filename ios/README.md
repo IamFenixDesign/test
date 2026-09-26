@@ -10,12 +10,14 @@ Habla con el backend de Vercel: `https://test-iota-two-49.vercel.app`
 
 Hace falta un iPhone con iOS 17 o más nuevo y un Apple ID (el gratuito alcanza).
 
-1. Descargá `ios/release/Stockea-1.21.0.ipa`. En Perfil tiene que decir Versión 1.21.0. Borrá la instalación anterior antes de instalar: si el número de versión no sube, iOS deja la app vieja.
+1. Descargá `ios/release/Stockea-1.22.0.ipa`. En Perfil tiene que decir Versión 1.22.0. Borrá la instalación anterior antes de instalar: si el número de versión no sube, iOS deja la app vieja. El Apple Watch emparejado instala Stockea solo, junto con la app del iPhone (watchOS 10 o más nuevo).
 2. Instalá [Sideloadly](https://sideloadly.io) y conectá el iPhone por USB. Aceptá “Confiar” en el teléfono.
 3. Abrí Sideloadly, arrastrá el IPA y poné tu Apple ID. Sideloadly lo firma y lo instala.
 4. En el iPhone: Ajustes → General → VPN y gestión de dispositivos → confiar en el certificado.
 
 Con un Apple ID gratuito la app caduca a los 7 días; volvé a instalar el mismo IPA para renovarla. El login de Google sigue pidiendo el Client ID de iOS en `Info.plist` antes de compilar.
+
+La app del reloj va dentro del IPA (`Stockea.app/Watch`). Al instalar la app del iPhone, el sistema la copia al Apple Watch emparejado. En el reloj se ve el stock bajo el mínimo y cuántos productos hay en el carrito; los datos salen del iPhone, así que Stockea tiene que estar abierto al menos una vez después de entrar.
 
 ## Qué necesitás para compilar en una Mac
 
