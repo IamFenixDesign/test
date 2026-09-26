@@ -2,10 +2,21 @@ import SwiftUI
 
 struct StockView: View {
     @EnvironmentObject private var model: AppModel
+    @State private var query = ""
 
     private var dark: Bool { model.state.darkTheme }
+
+    private var visibleItems: [StockItem] {
+        let q = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !q.isEmpty else { return model.state.items }
+        return model.state.items.filter { item in
+            item.name.localizedCaseInsensitiveContains(q)
+                || item.barcode.localizedCaseInsensitiveContains(q)
+        }
+    }
+
     private var grouped: [(String, [StockItem])] {
-        Dictionary(grouping: model.state.items) { $0.category.isEmpty ? "Otros" : $0.category }
+        Dictionary(grouping: visibleItems) { $0.category.isEmpty ? "Otros" : $0.category }
             .sorted { $0.key.localizedCaseInsensitiveCompare($1.key) == .orderedAscending }
             .map { ($0.key, $0.value) }
     }
@@ -61,8 +72,34 @@ struct StockView: View {
                 .padding(16)
                 .stockeaCard(dark: dark, radius: 20)
 
+                if !model.state.items.isEmpty {
+                    HStack(spacing: 8) {
+                        Image(systemName: "magnifyingglass")
+                            .foregroundStyle(StockeaColor.muted(dark: dark))
+                        TextField("Buscar por nombre o EAN", text: $query)
+                            .textInputAutocapitalization(.never)
+                            .autocorrectionDisabled()
+                        if !query.isEmpty {
+                            Button { query = "" } label: {
+                                Image(systemName: "xmark.circle.fill")
+                                    .foregroundStyle(StockeaColor.muted(dark: dark))
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityLabel("Borrar búsqueda")
+                        }
+                    }
+                    .padding(12)
+                    .stockeaCard(dark: dark, radius: 16)
+                }
+
                 if model.state.items.isEmpty {
                     Text("Todavía no hay productos. Tocá + junto al carrito o buscá en Comparar.")
+                        .foregroundStyle(StockeaColor.muted(dark: dark))
+                        .padding(20)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .stockeaCard(dark: dark, radius: 20)
+                } else if visibleItems.isEmpty {
+                    Text("Ningún producto coincide con la búsqueda.")
                         .foregroundStyle(StockeaColor.muted(dark: dark))
                         .padding(20)
                         .frame(maxWidth: .infinity, alignment: .leading)

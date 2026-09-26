@@ -18,6 +18,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Remove
+import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.ShoppingCart
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Badge
@@ -26,9 +27,13 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
@@ -48,8 +53,17 @@ fun StockScreen(
     onToggleCart: (String) -> Unit,
     onDelete: (String) -> Unit,
 ) {
-    val grouped = remember(items) {
-        items.groupBy { it.category.ifBlank { "Otros" } }.toSortedMap()
+    var query by remember { mutableStateOf("") }
+    val visible = remember(items, query) {
+        val q = query.trim()
+        if (q.isEmpty()) items
+        else items.filter { item ->
+            item.name.contains(q, ignoreCase = true) ||
+                item.barcode.contains(q, ignoreCase = true)
+        }
+    }
+    val grouped = remember(visible) {
+        visible.groupBy { it.category.ifBlank { "Otros" } }.toSortedMap()
     }
     val alerts = items.count { it.isLowStock }
 
@@ -117,6 +131,18 @@ fun StockScreen(
                     )
                 }
             }
+            if (items.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(10.dp))
+                OutlinedTextField(
+                    value = query,
+                    onValueChange = { query = it },
+                    modifier = Modifier.fillMaxWidth(),
+                    placeholder = { Text("Buscar por nombre o EAN") },
+                    leadingIcon = { Icon(Icons.Outlined.Search, contentDescription = null) },
+                    singleLine = true,
+                    shape = RoundedCornerShape(16.dp),
+                )
+            }
         }
 
         if (items.isEmpty()) {
@@ -128,6 +154,20 @@ fun StockScreen(
                 ) {
                     Text(
                         "Todavía no hay productos. Tocá + Nuevo o buscá en Comparar.",
+                        modifier = Modifier.padding(20.dp),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+        } else if (visible.isEmpty()) {
+            item {
+                Card(
+                    shape = RoundedCornerShape(20.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Text(
+                        "Ningún producto coincide con la búsqueda.",
                         modifier = Modifier.padding(20.dp),
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )

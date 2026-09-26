@@ -32,7 +32,7 @@ APK: `android/app/build/outputs/apk/debug/app-debug.apk`
 
 También está versionado en el repo:
 
-[`android/release/stockea-1.3.9.apk`](./release/stockea-1.3.9.apk) · **v1.3.9** (`versionCode` 13)
+[`android/release/stockea-1.4.0.apk`](./release/stockea-1.4.0.apk) · **v1.4.0** (`versionCode` 14)
 
 Desde la raíz del repo:
 
