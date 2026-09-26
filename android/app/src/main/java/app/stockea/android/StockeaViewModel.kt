@@ -43,8 +43,8 @@ data class UiState(
     val tab: MainTab = MainTab.Stock,
     val busy: Boolean = false,
     val error: String = "",
-    val info: String = "",
     val newItemError: String = "",
+    val info: String = "",
     val compareQuery: String = "",
     val compareResults: List<CompareRow> = emptyList(),
     val compareBusy: Boolean = false,
@@ -681,7 +681,10 @@ class StockeaViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun addFromCompare(row: CompareRow) {
-        if (alreadyInStock(row)) {
+        val existing = _state.value.items.find {
+            it.barcode.isNotBlank() && it.barcode == row.barcode
+        }
+        if (existing != null || alreadyInStock(row)) {
             _state.update { it.copy(info = "Ya está agregado") }
             return
         }

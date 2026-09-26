@@ -96,6 +96,7 @@ private fun StockeaRoot(vm: StockeaViewModel) {
                 error = state.error,
                 info = state.info,
                 darkTheme = state.darkTheme,
+                onToggleTheme = vm::toggleTheme,
                 resolveGoogleClientId = { vm.resolveGoogleClientId() },
                 onGoogleCredential = vm::loginWithGoogle,
             )
