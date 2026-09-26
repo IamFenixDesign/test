@@ -28,6 +28,7 @@
 		A10000000000000000000191 /* GoogleSignIn in Frameworks */ = {isa = PBXBuildFile; productRef = A10000000000000000000190 /* GoogleSignIn */; };
 		B20000000000000000000064 /* WatchBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20000000000000000000001 /* WatchBridge.swift */; };
 		B20000000000000000000065 /* WatchApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20000000000000000000002 /* WatchApp.swift */; };
+		B20000000000000000000066 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = B20000000000000000000004 /* Assets.xcassets */; };
 		B20000000000000000000021 /* StockeaWatch.app in Embed Watch Content */ = {isa = PBXBuildFile; fileRef = B20000000000000000000012 /* StockeaWatch.app */; };
 /* End PBXBuildFile section */
 
@@ -55,6 +56,7 @@
 		B20000000000000000000001 /* WatchBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchBridge.swift; sourceTree = "<group>"; };
 		B20000000000000000000002 /* WatchApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WatchApp.swift; sourceTree = "<group>"; };
 		B20000000000000000000003 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		B20000000000000000000004 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		B20000000000000000000012 /* StockeaWatch.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = StockeaWatch.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -160,6 +162,7 @@
 			isa = PBXGroup;
 			children = (
 				B20000000000000000000002 /* WatchApp.swift */,
+				B20000000000000000000004 /* Assets.xcassets */,
 				B20000000000000000000003 /* Info.plist */,
 			);
 			path = StockeaWatch;
@@ -287,6 +290,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				B20000000000000000000066 /* Assets.xcassets in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -369,7 +373,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 24;
+				CURRENT_PROJECT_VERSION = 26;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = Stockea/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
@@ -377,7 +381,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.22.0;
+				MARKETING_VERSION = 1.22.2;
 				PRODUCT_BUNDLE_IDENTIFIER = app.stockea.ios;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -394,7 +398,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 24;
+				CURRENT_PROJECT_VERSION = 26;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = Stockea/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
@@ -402,7 +406,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.22.0;
+				MARKETING_VERSION = 1.22.2;
 				PRODUCT_BUNDLE_IDENTIFIER = app.stockea.ios;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
@@ -415,12 +419,13 @@
 		B200000000000000000002C8 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 24;
+				CURRENT_PROJECT_VERSION = 26;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = StockeaWatch/Info.plist;
-				MARKETING_VERSION = 1.22.0;
-				PRODUCT_BUNDLE_IDENTIFIER = app.stockea.ios.watchkitapp;
+				MARKETING_VERSION = 1.22.2;
+				PRODUCT_BUNDLE_IDENTIFIER = app.stockea.ios.HWJ2T4Y2JW.watchkitapp;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = watchos;
 				SKIP_INSTALL = YES;
@@ -428,19 +433,20 @@
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = 4;
-				WATCHOS_DEPLOYMENT_TARGET = 10.0;
+				WATCHOS_DEPLOYMENT_TARGET = 9.0;
 			};
 			name = Debug;
 		};
 		B200000000000000000002C9 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 24;
+				CURRENT_PROJECT_VERSION = 26;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = StockeaWatch/Info.plist;
-				MARKETING_VERSION = 1.22.0;
-				PRODUCT_BUNDLE_IDENTIFIER = app.stockea.ios.watchkitapp;
+				MARKETING_VERSION = 1.22.2;
+				PRODUCT_BUNDLE_IDENTIFIER = app.stockea.ios.HWJ2T4Y2JW.watchkitapp;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = watchos;
 				SKIP_INSTALL = YES;
@@ -448,7 +454,7 @@
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = 4;
-				WATCHOS_DEPLOYMENT_TARGET = 10.0;
+				WATCHOS_DEPLOYMENT_TARGET = 9.0;
 			};
 			name = Release;
 		};

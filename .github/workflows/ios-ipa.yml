@@ -6,6 +6,7 @@ on:
     branches:
       - cursor/ios-native-app-4afc
       - cursor/ios-watch-app-4afc
+      - cursor/ios-watch-bundle-4afc
     paths-ignore:
       - ios/release/**
 
