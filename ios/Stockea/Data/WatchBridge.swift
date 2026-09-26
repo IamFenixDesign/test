@@ -1,7 +1,7 @@
 import Foundation
 import WatchConnectivity
 
-/// Manda al Apple Watch el stock bajo y el carrito. El reloj no tiene sesión propia.
+/// Manda al Apple Watch la lista de stock. El reloj no tiene sesión propia.
 enum WatchBridge {
     static func start() {
         guard WCSession.isSupported() else { return }
@@ -10,25 +10,20 @@ enum WatchBridge {
         session.activate()
     }
 
-    static func send(items: [StockItem], cartRemoved: Set<String>) {
+    static func send(items: [StockItem]) {
         guard WCSession.isSupported() else { return }
         let session = WCSession.default
         guard session.activationState == .activated else { return }
 
-        let low = items.filter(\.isLowStock).prefix(24).map { item -> [String: String] in
+        let rows = items.prefix(40).map { item -> [String: String] in
             [
                 "id": item.id,
                 "name": item.name,
                 "qty": qtyLabel(item),
+                "low": item.isLowStock ? "1" : "0",
             ]
         }
-        let cart = items.filter { $0.shouldAutoCart && !cartRemoved.contains($0.id) }.count
-        let payload: [String: Any] = [
-            "low": Array(low),
-            "cart": cart,
-            "total": items.count,
-        ]
-        try? session.updateApplicationContext(payload)
+        try? session.updateApplicationContext(["stock": Array(rows)])
     }
 }
 
