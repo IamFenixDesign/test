@@ -9,8 +9,7 @@ struct StockeaApp: App {
         let items = model.state.items
             .map { "\($0.id):\($0.quantity):\($0.minStock):\($0.qtyUnit)" }
             .joined(separator: "|")
-        let cart = model.state.cartRemoved.sorted().joined(separator: ",")
-        return items + "#" + cart
+        return items
     }
 
     var body: some Scene {
@@ -22,10 +21,10 @@ struct StockeaApp: App {
                 }
                 .onAppear {
                     WatchBridge.start()
-                    WatchBridge.send(items: model.state.items, cartRemoved: model.state.cartRemoved)
+                    WatchBridge.send(items: model.state.items)
                 }
                 .onChange(of: watchStamp) { _, _ in
-                    WatchBridge.send(items: model.state.items, cartRemoved: model.state.cartRemoved)
+                    WatchBridge.send(items: model.state.items)
                 }
         }
     }
