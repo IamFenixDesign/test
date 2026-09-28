@@ -449,20 +449,164 @@ async function firstMatch(urls, parse) {
   return []
 }
 
+const COTO_QUERY_STOPWORDS = new Set([
+  'de', 'del', 'la', 'el', 'los', 'las', 'y', 'e', 'o', 'con', 'para', 'por', 'en', 'al',
+  'un', 'una', 'unos', 'unas', 'x',
+])
+
+function cotoQueryTokens(query) {
+  return fold(query)
+    .split(/[^a-z0-9]+/)
+    .filter((token) => token.length >= 3 && !COTO_QUERY_STOPWORDS.has(token) && !/^\d/.test(token))
+}
+
+function cotoCatalogUrl(text, pageSize) {
+  return `https://www.coto.com.ar/sitios/cdigi/categoria?format=json&Ntt=${encodeURIComponent(text)}&Dy=1&Nrpp=${pageSize}`
+}
+
+/** Frase, marca pegada (patyviena) y las dos palabras más largas. */
+function cotoTextQueries(query) {
+  const trimmed = String(query || '').replace(/\s+/g, ' ').trim()
+  const tokens = cotoQueryTokens(trimmed)
+  const queries = []
+  const push = (value) => {
+    const text = String(value || '').replace(/\s+/g, ' ').trim()
+    if (!text) return
+    const key = fold(text)
+    if (queries.some((entry) => fold(entry) === key)) return
+    queries.push(text)
+  }
+  push(trimmed)
+  if (tokens.length < 2) return queries
+  push(tokens.join(''))
+  push([...tokens].sort().join(''))
+  const extras = [...tokens].sort(
+    (a, b) => b.length - a.length || tokens.indexOf(a) - tokens.indexOf(b),
+  )
+  for (const token of extras.slice(0, 2)) push(token)
+  return queries
+}
+
+function cotoBlob(item) {
+  return fold(`${item?.brand || ''} ${item?.name || ''}`)
+}
+
+function cotoCompact(item) {
+  return cotoBlob(item).replace(/[^a-z0-9]/g, '')
+}
+
+function cotoTokenHits(item, tokens) {
+  const hay = cotoBlob(item)
+  const compact = cotoCompact(item)
+  return tokens.filter((token) => hay.includes(token) || compact.includes(token))
+}
+
+function cotoBrandKey(item) {
+  return fold(item?.brand || '').replace(/[^a-z0-9]/g, '')
+}
+
+/** Token de marca: el que mejor explica los productos que coinciden con toda la frase. */
+function cotoPrimaryToken(products, tokens) {
+  const ranked = products.map((item) => ({ item, hits: cotoTokenHits(item, tokens).length }))
+  const best = ranked.reduce((max, row) => Math.max(max, row.hits), 0)
+  const pool = (best > 0 ? ranked.filter((row) => row.hits === best) : ranked).map((row) => row.item)
+  let winner = tokens[0] || ''
+  let winnerScore = -1
+  for (const token of tokens) {
+    let score = 0
+    for (const item of pool) {
+      const brand = cotoBrandKey(item)
+      if (!brand) {
+        if (cotoBlob(item).includes(token)) score += 1
+        continue
+      }
+      if (brand === token) score += 5
+      else if (brand.startsWith(token)) score += 3
+      else if (brand.includes(token)) score += 1
+    }
+    if (score > winnerScore) {
+      winner = token
+      winnerScore = score
+    }
+  }
+  return winner
+}
+
+function rankCotoProducts(products, query, limit) {
+  const tokens = cotoQueryTokens(query)
+  if (tokens.length < 2) return products.slice(0, limit)
+  const primary = cotoPrimaryToken(products, tokens)
+  const phrase = fold(query).replace(/\s+/g, ' ').trim()
+  const glue = tokens.join('')
+  const glueSorted = [...tokens].sort().join('')
+  const seen = new Set()
+  const ranked = []
+  products.forEach((item, index) => {
+    const key = item.ean || item.url || item.name
+    if (!item?.name || !key || seen.has(key)) return
+    const hits = cotoTokenHits(item, tokens)
+    if (!hits.length) return
+    const full = hits.length === tokens.length
+    if (!full && primary && !hits.includes(primary)) return
+    seen.add(key)
+    const compact = cotoCompact(item)
+    let score = hits.length * 100
+    if (
+      (glue.length >= 6 && compact.includes(glue)) ||
+      (glueSorted.length >= 6 && compact.includes(glueSorted))
+    ) {
+      score += 40
+    }
+    if (phrase && cotoBlob(item).includes(phrase)) score += 30
+    if (fold(item.name) === phrase) score += 50
+    ranked.push({ item, score, index })
+  })
+  ranked.sort((a, b) => b.score - a.score || a.index - b.index)
+  return ranked.slice(0, limit).map((row) => row.item)
+}
+
 export async function fetchCotoProducts(query, { limit = 24 } = {}) {
-  const encoded = encodeURIComponent(query)
-  const pageSize = Math.min(Math.max(limit, 12), 48)
-  const urls = []
+  const requested = Math.min(Math.max(Number(limit) || 24, 12), 48)
   if (isBarcode(query)) {
     const ean = barcodeDigits(query)
-    urls.push(
-      `https://www.coto.com.ar/sitios/cdigi/categoria?format=json&Ntt=${ean}&Ntk=product.eanPrincipal&Dy=1`,
+    return firstMatch(
+      [
+        `https://www.coto.com.ar/sitios/cdigi/categoria?format=json&Ntt=${ean}&Ntk=product.eanPrincipal&Dy=1`,
+        cotoCatalogUrl(ean, requested),
+      ],
+      (data) => parseCoto(data, { limit: requested }),
     )
   }
-  urls.push(
-    `https://www.coto.com.ar/sitios/cdigi/categoria?format=json&Ntt=${encoded}&Dy=1&Nrpp=${pageSize}`,
+
+  const queries = cotoTextQueries(query)
+  if (queries.length <= 1) {
+    return firstMatch(
+      [cotoCatalogUrl(queries[0] || query, requested)],
+      (data) => parseCoto(data, { limit: requested }),
+    )
+  }
+
+  // "paty viena" en Coto es un AND y devuelve un pan. Patyviena va pegado y el
+  // resto de la marca sale en "paty". Se piden en paralelo y se ordenan juntos.
+  const pageSize = 48
+  let failures = 0
+  const lists = await Promise.all(
+    queries.map(async (text) => {
+      try {
+        const data = await withStoreTimeout(
+          fetchJsonMaybeCors(cotoCatalogUrl(text, pageSize)),
+          6500,
+        )
+        return parseCoto(data, { limit: pageSize })
+      } catch {
+        failures += 1
+        return []
+      }
+    }),
   )
-  return firstMatch(urls, (data) => parseCoto(data, { limit: pageSize }))
+  const merged = rankCotoProducts(lists.flat(), query, pageSize)
+  if (!merged.length && failures === queries.length) throw new Error('Coto no respondió')
+  return merged
 }
 
 export async function fetchCarrefourProducts(query, { limit = 8 } = {}) {
